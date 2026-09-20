@@ -1,6 +1,6 @@
 # ADR-0009 — Style C++ : variante mixte, décoration modérée, commentaires en français
 
-- **Statut** : proposé
+- **Statut** : accepté le 2026-09-20
 - **Date** : 2026-09-20
 - **Milestone** : M0.2
 
