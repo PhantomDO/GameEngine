@@ -149,10 +149,15 @@ pipeline flecs dédié ; rendu à fréquence libre avec interpolation. Détails 
 
 ## 8. Conventions
 
-- **Langue** : code, identifiants, commits et logs en anglais (norme de l'industrie) ; documentation, ADR, études,
-  journal et Q&R en français. **Une exception assumée** : le moteur s'appelle `Levain`, nom propre français, donc
-  le namespace racine est `levain` et les cibles CMake sont préfixées `levain_`. Comme Godot, le nom ne se
-  traduit pas.
+- **Langue** : identifiants, commits, logs et messages d'erreur en anglais (norme de l'industrie) ;
+  documentation, ADR, études, journal, Q&R **et commentaires de code** en français. Les commentaires sont écrits
+  pour Donnovan, seul relecteur, qui lit le français plus vite (ADR-0009). **Autre exception assumée** : le
+  moteur s'appelle `Levain`, nom propre français, donc le namespace racine est `levain` et les cibles CMake sont
+  préfixées `levain_`. Comme Godot, le nom ne se traduit pas.
+- **Style C++** : variante mixte (types `PascalCase`, fonctions et variables `camelCase`, membres `m_`),
+  accolades Allman, 4 espaces, 100 colonnes, décoration modérée. Détails et justifications dans
+  [ADR-0009](adr/0009-style-cpp.md) ; appliqué mécaniquement par `.clang-format` et, pour le nommage, par
+  clang-tidy.
 - **Style** : clang-format et clang-tidy versionnés dans le dépôt et vérifiés en CI.
 - **Commits** : [Conventional Commits](https://www.conventionalcommits.org/fr/) (`feat(render): …`, `fix(gpu): …`,
   `docs(adr): …`).

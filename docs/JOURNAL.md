@@ -25,6 +25,32 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-20 — M0.2 — Norme de style C++ (ADR-0009)
+
+- Temps Donnovan : 0,25 h de relecture de la PR #21 (portée au board), plus le choix de style
+- Sessions Claude Code : 1
+- Contexte : Donnovan demande une norme d'écriture fixée pour tout le projet. Le C++ propose plusieurs
+  conventions incompatibles et il relit tout avec 1 à 2 h par semaine : sans règle, chaque fichier dérive et la
+  relecture coûte de l'attention pour rien. Le dépôt comptait 27 lignes de code — aucune conversion à faire.
+- Méthode : trois variantes complètes du même allocateur linéaire (le vrai, issue #7) soumises en lecture
+  plutôt qu'en discussion. Choix fait sur le code, pas sur des principes.
+- Décisions (ADR-0009) : **variante C** — types `PascalCase`, fonctions et variables `camelCase`, membres
+  `m_` ; Allman, 4 espaces, 100 colonnes ; décoration **modérée** (`[[nodiscard]]` seulement quand ignorer le
+  retour est un bug, `noexcept` seulement quand c'est garanti) ; commentaires **en français**.
+- SPECS §8 amendé : les commentaires de code passent officiellement en français. J'étais déjà en infraction
+  dans la PR #21 sans l'avoir signalé — corrigé.
+- Mesures : `.clang-format` appliqué aux 3 fichiers existants, build et exécution vérifiés après reformatage
+  (`clang-format -i` puis `cmake --build --preset linux-debug`), puis `clang-format --dry-run --Werror` passe
+  sur les 3 fichiers.
+- Écarts et problèmes : clang-format **ne vérifie pas le nommage** — c'est clang-tidy
+  (`readability-identifier-naming`) qui s'en chargera dans l'issue #5. Tant que ce n'est pas en place, la moitié
+  nommage de l'ADR-0009 repose sur ma discipline, pas sur l'outil.
+- Décision de périmètre : la CI Windows de l'issue #4 sera **non bloquante** au début. Donnovan n'a pas de
+  machine Windows ; les runners GitHub n'en demandent pas non plus, et c'est le seul endroit qui vérifiera le
+  pari `/std:c++latest` de l'ADR-0001. Job gardé, `continue-on-error`, rendu bloquant quand une machine sera
+  disponible.
+- Prochaine étape : issue #4 (CI), puis #5 (clang-tidy, doctest, protection de `main`).
+
 ## 2026-09-20 — M0.2 — Squelette de build (issue #3)
 
 - Temps Donnovan : à renseigner (relecture estimée 0,3 h)
