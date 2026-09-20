@@ -15,7 +15,15 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # Clang et GCC font autorité : -pedantic-errors transforme toute extension post-C++23 en
 # erreur de compilation, ce qui fait échouer la CI Linux avant que la dérive n'atteigne
 # main. Ne pas retirer sans rouvrir l'ADR-0001.
-if(NOT MSVC)
+if(MSVC)
+  # MSVC laisse __cplusplus à 199711L même en C++23, pour ne pas casser le code ancien qui
+  # teste cette macro. Sans ce flag, tout « #if __cplusplus >= 202302L » prend la mauvaise
+  # branche sous Windows alors que le compilateur est bel et bien en C++23 — panne
+  # silencieuse, la pire espèce. Constaté sur le premier run de CI : le sandbox annonçait
+  # « __cplusplus 199711 » sous MSVC et 202302 sous Clang, pour le même code.
+  # Doc : /Zc:__cplusplus
+  add_compile_options(/Zc:__cplusplus)
+else()
   add_compile_options(-pedantic-errors)
 endif()
 
