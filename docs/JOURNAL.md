@@ -40,8 +40,12 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
   dans SPECS §10.
 - Décision : licence **MIT** (`LICENSE`), retirée des questions ouvertes de SPECS §11 et inscrite dans les
   conventions (SPECS §8). Compatible avec le code adapté de Donut, qui garde son en-tête MIT.
-- Prochaine étape : dépôt public créé par `./tools/github-bootstrap.sh GameEngine` (labels, 35 milestones,
-  board, issues des phases 0 et 1) ; puis M0.2.
+- Suivi GitHub créé par `./tools/github-bootstrap.sh GameEngine` : dépôt public
+  [PhantomDO/GameEngine](https://github.com/PhantomDO/GameEngine), 17 labels, 35 milestones (M0.1 échéance
+  27/09/2026 → M8.3 échéance 08/08/2027), board n°1 avec les champs Estimé (h), Passé (h) et Phase, et les
+  19 issues des phases 0 et 1, chacune avec son milestone, ses labels, son estimation et sa phase.
+- Prochaine étape : M0.2 — arborescence, presets CMake, vcpkg en mode manifeste, CI, puis protection de
+  `main` (issue #5). Les issues #1 et #2 (M0.1) attendent Donnovan.
 
 ## 2026-09-20 — M0.1 — Machine de référence et vérification Windows
 
