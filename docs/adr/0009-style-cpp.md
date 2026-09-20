@@ -1,6 +1,6 @@
 # ADR-0009 — Style C++ : variante mixte, décoration modérée, commentaires en français
 
-- **Statut** : accepté le 2026-09-20 ; partie nommage sans objet depuis [ADR-0010](0010-passage-a-rust.md) (rustfmt n'est pas configurable), partie « commentaires en français » conservée
+- **Statut** : accepté le 2026-09-20 ; partie nommage remise en vigueur par [ADR-0011](0011-retour-au-cpp.md), qui y ajoute la forme du code (fonctions libres, dépendances dans la signature, pièges nommés)
 - **Date** : 2026-09-20
 - **Milestone** : M0.2
 

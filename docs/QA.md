@@ -12,6 +12,39 @@ Réponse courte, puis détails. Références : fichier:ligne, ADR, source extern
 
 ---
 
+### Clang existe aussi sous Windows — pourquoi prendre MSVC ? (2026-09-20, M0.5)
+
+Question posée à la clôture de M0.5. Réponse : **clang-cl ne règlerait aucun des deux bugs de M0.2**, ce qui est
+contre-intuitif, mais il réglerait un problème plus profond.
+
+**Ce que clang-cl ne règle pas.** La [doc de compatibilité MSVC de Clang](https://clang.llvm.org/docs/MSVCCompatibility.html)
+est explicite sur deux points :
+
+1. **clang-cl reproduit volontairement le bug `__cplusplus`.** MSVC prétend être en C++98 ; clang-cl imite ce
+   comportement par compatibilité, donc `/Zc:__cplusplus` reste nécessaire.
+2. **clang-cl consomme la STL de Microsoft.** C'est son principe même : remplacer `cl.exe` en utilisant les
+   en-têtes et bibliothèques MSVC. La divergence `<ostream>` venait de la STL, pas du compilateur — elle serait
+   identique.
+
+Nos deux bugs de M0.2 étaient des bugs de **bibliothèque et de driver**, pas de compilateur.
+
+**Ce que clang-cl règle, et c'est le point important.** Avec MSVC on est coincés sur `/std:c++latest`, qui
+déborde sur le brouillon C++26 : mesuré à `__cplusplus 202400` sous Windows contre `202302` sous Linux
+(journal, M0.2). Avec clang-cl, `-std=c++23` donne **exactement C++23 sur les deux plateformes**. Le garde-fou
+`-pedantic-errors` de l'ADR-0001 redeviendrait une précaution au lieu d'une nécessité. S'ajoutent les mêmes
+diagnostics, warnings, clang-tidy et clang-format partout — fini l'épinglage de version d'un seul côté.
+
+**La réserve** : la même doc précise que le support de l'ABI C++ de MSVC par Clang est « a work in progress ».
+Non négligeable pour un moteur qui lie des dépendances compilées par vcpkg.
+
+**La troisième voie** : clang + MinGW-w64 + libstdc++ donnerait *la même bibliothèque standard que sous Linux*,
+donc plus de divergence de STL du tout. Mais ABI différente, support du SDK Windows et de Direct3D 12 plus
+rugueux, et triplets mingw de vcpkg de qualité communautaire. Plus risqué.
+
+**Décision** : sans objet tant que Windows est hors périmètre (ADR-0011). **Quand Windows redeviendra une cible,
+clang-cl est la première option à évaluer** — et non MSVC par défaut, comme l'ADR-0001 l'avait posé sans le
+justifier.
+
 ### Pourquoi « Levain » ? (2026-09-20, M0.1)
 
 Parce que c'est le rythme du projet. Un levain se nourrit un peu chaque semaine, reste vivant entre deux

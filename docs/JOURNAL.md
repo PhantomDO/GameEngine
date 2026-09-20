@@ -25,6 +25,51 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-20 — M0.5 — Retour au C++ (ADR-0011)
+
+- Temps Donnovan : à renseigner (relecture estimée 0,3 h)
+- Sessions Claude Code : 1
+- Contexte : Donnovan revient sur la décision Rust. Sa thèse : ce qu'il trouvait plus lisible venait de la
+  **simplicité du langage**, et du C++ écrit en exploitant ses atouts devrait se lire aussi bien. Il précise
+  aussi que **le projet est sous Linux** et que Windows n'est pas un sujet pour l'instant.
+- **Deux biais reconnus dans l'ADR-0010**, et c'est ce qui rend le revirement fondé :
+  1. **La manche 1 comparait flecs à bevy_ecs, pas C++ à Rust.** La propriété que Donnovan a aimée — les
+     dépendances dans la signature — appartient à bevy_ecs, pas à Rust. Mon C++ était handicapé par la glu
+     flecs (lambda `[](flecs::iter&, size_t, …)`, `it.world().get<>()` caché dans le corps). Une fonction libre
+     a exactement la même propriété. **Je n'ai pas écrit le meilleur C++ possible.**
+  2. **La manche 3 facturait au C++ un Windows dont le projet n'a pas besoin.** Et surtout : **les deux seuls
+     bugs de M0.2 étaient des bugs Windows** (`/Zc:__cplusplus`, `<ostream>` non inclus en cascade par la STL
+     de Microsoft). En périmètre Linux, ni l'un ni l'autre n'existe.
+- Décisions (ADR-0011, remplace ADR-0010) : retour au C++23 ; **Linux d'abord**, presets et CI Windows retirés,
+  M1.4 différé (et non plus supprimé) ; **forme du code fixée** — variante C choisie par Donnovan sur lecture
+  de trois variantes : fonctions libres avec toutes les dépendances dans la signature, glu ECS confinée à une
+  ligne, chaque piège portant son nom (`normalizeOrZero`, `clampPitch`, `horizontalBasisFrom`).
+- Méthode : le revert n'a **pas** annulé `docs/JOURNAL.md` ni l'ADR-0010, restaurés depuis `main`. Un journal
+  et une décision sont de l'historique, ils ne se revertent pas.
+- Mesures :
+
+  | Critère | Résultat | Commande |
+  |---|---|---|
+  | Build et sandbox | `Levain 0.1.0 — clang 22.1.8 — __cplusplus 202302` | `cmake --build --preset linux-debug` |
+  | Tests | **2 verts** | `ctest --test-dir build/linux-debug` |
+  | Format | conforme | `clang-format --dry-run --Werror` |
+  | clang-tidy | **0 finding** | `clang-tidy -p build/linux-debug --warnings-as-errors='*'` |
+  | Infrastructure | **347 lignes** (contre 435 en v0.3) | `wc -l` sur les 9 fichiers |
+
+- **Correction d'une estimation que j'avais donnée pour une mesure** : j'annonçais « environ 300 lignes » avant
+  d'avoir mesuré ; le vrai chiffre est **347**. La moitié des 435 lignes de la v0.3 était du format et du lint,
+  indépendants de la plateforme. Ce que le périmètre Linux fait disparaître n'est pas du volume mais **la part
+  qui causait les pannes**.
+- Écarts et problèmes : les jobs Windows n'existent plus, donc les checks requis par la protection de `main`
+  (`linux-debug`, `linux-release`) restent valides sans modification — les noms de presets n'ont pas changé.
+  L'issue #32 (réécrire les issues de phase 1) devient sans objet et sera refermée.
+- Bilan des deux allers-retours : **le détour par Rust a produit quelque chose**. Sans la comparaison, la
+  variante C n'aurait jamais été écrite, et l'ADR-0009 seul n'avait pas suffi à la produire. Règle retenue pour
+  la suite : **avant de conclure qu'une alternative est meilleure, vérifier qu'on a écrit la meilleure version
+  de ce qu'on compare.**
+- Prochaine étape : validation de l'ADR-0011, clôture de M0.5, puis M0.3 — logs, assertions, ADR-0008,
+  allocateurs, Tracy, étude E0.
+
 ## 2026-09-20 — M0.4 — Socle Rust (issues #27 à #30)
 
 - Temps Donnovan : à renseigner (relecture estimée 0,4 h)

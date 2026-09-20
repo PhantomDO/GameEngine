@@ -12,60 +12,86 @@ concurrency:
 
 jobs:
   build:
-    # Les noms de jobs sont repris à l'identique de la CI C++ (« debug » et non « dev »,
-    # le nom du profil cargo) : ce sont eux que la protection de `main` exige comme checks
-    # requis. Les renommer rendrait `main` infusionnable, GitHub attendant indéfiniment
-    # deux checks qui ne viendraient jamais.
-    name: ${{ matrix.name }}
-    runs-on: ${{ matrix.os }}
-
-    # Jobs Windows non bloquants tant que Donnovan n'a pas de machine Windows, comme en
-    # M0.2. Ils tournent quand même : c'est le seul endroit qui vérifie la cible MSVC.
-    continue-on-error: ${{ matrix.experimental }}
+    # Linux seul (ADR-0011). Les jobs Windows de la v0.3 sont retirés : Donnovan n'a pas de
+    # machine Windows et le projet ne le cible pas pour l'instant. Les deux bugs de M0.2 —
+    # /Zc:__cplusplus et la divergence <ostream> — étaient tous deux propres à MSVC.
+    #
+    # Les noms `linux-debug` et `linux-release` sont les checks requis par la protection de
+    # `main` : ne pas les renommer sans mettre la protection à jour d'abord.
+    name: ${{ matrix.preset }}
+    runs-on: ubuntu-latest
 
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - { name: linux-debug,     os: ubuntu-latest,  profile: dev,     experimental: false }
-          - { name: linux-release,   os: ubuntu-latest,  profile: release, experimental: false }
-          - { name: windows-debug,   os: windows-latest, profile: dev,     experimental: true }
-          - { name: windows-release, os: windows-latest, profile: release, experimental: true }
+        preset: [linux-debug, linux-release]
 
     env:
-      CARGO_TERM_COLOR: always
+      # Doit rester égal au "builtin-baseline" de vcpkg.json : vcpkg résout les versions de
+      # ports à partir de ce commit, il doit donc exister dans le clone.
+      VCPKG_TAG: "2026.07.29"
+      VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/vcpkg-cache
+      # Doit rester égal à la version de la machine de référence (SPECS §10) : clang-format
+      # ne produit pas la même sortie d'une version majeure à l'autre, un écart ferait
+      # échouer le contrôle de format sur des fichiers pourtant corrects.
+      LLVM_VERSION: "22"
 
     steps:
       - uses: actions/checkout@v4
 
-      # rustup est préinstallé sur les images GitHub : pas d'action tierce à ajouter,
-      # comme on s'y était tenu côté C++ en refusant ilammy/msvc-dev-cmd.
-      - name: Chaîne Rust
-        run: rustup toolchain install stable --profile minimal --component rustfmt,clippy --no-self-update
+      # zip est indispensable au bootstrap de vcpkg et manque sur l'image.
+      - name: Outils
+        run: |
+          sudo apt-get update && sudo apt-get install -y ninja-build zip unzip
+          wget -qO- https://apt.llvm.org/llvm.sh | sudo bash -s -- ${{ env.LLVM_VERSION }}
+          sudo apt-get install -y clang-format-${{ env.LLVM_VERSION }} clang-tidy-${{ env.LLVM_VERSION }}
+          for t in clang clang++ clang-format clang-tidy; do
+            sudo update-alternatives --install "/usr/bin/$t" "$t" "/usr/bin/$t-${{ env.LLVM_VERSION }}" 100
+          done
+          clang++ --version | head -1
 
-      - name: Cache cargo
+      - name: Cloner vcpkg
+        run: git clone --depth 1 --branch "${{ env.VCPKG_TAG }}" https://github.com/microsoft/vcpkg.git vcpkg
+
+      - name: Bootstrap vcpkg
+        run: ./vcpkg/bootstrap-vcpkg.sh -disableMetrics
+
+      # On cache les archives binaires de vcpkg, pas ses sources : 19 Mo mesurés pour
+      # nvrhi + flecs + doctest, contre 23 s de compilation à froid (journal, M0.2).
+      - name: Cache vcpkg
         uses: actions/cache@v4
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: cargo-${{ matrix.name }}-${{ hashFiles('Cargo.lock') }}
-          restore-keys: cargo-${{ matrix.name }}-
+          path: vcpkg-cache
+          key: vcpkg-${{ env.VCPKG_TAG }}-${{ hashFiles('vcpkg.json') }}
 
-      - run: cargo build --profile ${{ matrix.profile }} --workspace
-      - run: cargo test --profile ${{ matrix.profile }} --workspace
+      # vcpkg refuse de démarrer si le dossier de cache binaire n'existe pas. Cette étape
+      # doit rester APRÈS la restauration : avant, le dossier existerait déjà et le cache
+      # ne serait jamais restauré, sans le moindre message d'erreur.
+      - name: Créer le dossier de cache
+        run: mkdir -p vcpkg-cache
 
-      # Le sandbox reste lancé en plus des tests, comme en M0.2 : sa sortie dit quelle
-      # cible a réellement été produite, ce qu'un test n'affiche pas dans les logs.
-      - run: cargo run --profile ${{ matrix.profile }} -q -p levain-sandbox
+      - name: Configurer et compiler
+        run: |
+          cmake --preset ${{ matrix.preset }}
+          cmake --build --preset ${{ matrix.preset }}
 
-      # Format et lint une seule fois : ce sont des propriétés des sources, pas de la
-      # configuration de build.
+      - name: Tests
+        run: ctest --test-dir build/${{ matrix.preset }} --output-on-failure
+
+      - name: Lancer le sandbox
+        run: ./build/${{ matrix.preset }}/sandbox/levain_sandbox
+
+      # Format et analyse statique une seule fois : ce sont des propriétés des sources, pas
+      # de la configuration de build.
       - name: Format
-        if: matrix.name == 'linux-debug'
-        run: cargo fmt --all --check
+        if: matrix.preset == 'linux-debug'
+        run: |
+          find engine sandbox tests -name '*.cpp' -o -name '*.hpp' \
+            | xargs clang-format --dry-run --Werror
 
-      - name: Lint
-        if: matrix.name == 'linux-debug'
-        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Analyse statique
+        if: matrix.preset == 'linux-debug'
+        run: |
+          find engine sandbox tests -name '*.cpp' \
+            | xargs clang-tidy -p build/${{ matrix.preset }} --warnings-as-errors='*'

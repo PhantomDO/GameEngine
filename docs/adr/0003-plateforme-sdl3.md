@@ -1,6 +1,6 @@
 # ADR-0003 — Fenêtre, input et plateforme : SDL3
 
-- **Statut** : remplacé par [ADR-0010](0010-passage-a-rust.md) le 2026-09-20
+- **Statut** : accepté le 2026-09-20 ; remis en vigueur par [ADR-0011](0011-retour-au-cpp.md) après la parenthèse Rust
 - **Date** : 2026-09-20
 - **Milestone** : M0.1
 
