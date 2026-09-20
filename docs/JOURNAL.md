@@ -25,6 +25,23 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-20 — M0.1 — Clôture du milestone
+
+- Temps Donnovan : 1,25 h (estimé 1,0 h — **ratio 1,25**)
+- Sessions Claude Code : 1
+- Définition de « terminé » (SPECS §9) : 4 critères sur 7 s'appliquent et sont remplis (mesures consignées,
+  board à jour, étude E1 écrite d'avance, docs à jour). Trois ne s'appliquent pas encore, faute de code :
+  démo `sandbox/`, CI verte, binaires de Release.
+- Fait : tag `m0.1` posé et poussé. **Pas de GitHub Release** — §9 la prévoit pour livrer les binaires et les
+  mesures de la démo, il n'y en a aucun à ce stade. Le premier Release sera celui de M0.2, qui aura une CI.
+  Milestone n°1 fermé.
+- Écarts et problèmes : le dépassement de 0,25 h vient entièrement de l'amendement C++23, hors estimation
+  initiale. À surveiller sur M0.2 et M0.3 : si le ratio 1,25 se confirme, la roadmap passe de 68 h à ~85 h et il
+  faudra recalibrer (ROADMAP, section « Recalibrage »).
+- Prochaine étape : **M0.2 — Squelette de build et CI** (3 issues, 1,5 h estimée). Deux acquis de M0.1 à
+  reprendre : `cxx_std_23` avec `-pedantic-errors` sur le job Linux comme garde-fou de conformité (ADR-0001), et
+  la préférence GPU discret à prévoir pour M1.2 (SPECS §10).
+
 ## 2026-09-20 — M0.1 — Le moteur s'appelle Levain
 
 - Temps Donnovan : inclus dans l'heure de M0.1
