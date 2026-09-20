@@ -31,5 +31,8 @@ endif()
 # Ninja : deux étapes par fichier (scan + dyndep) pour un résultat toujours vide. On le coupe.
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 
+enable_testing()
+
 add_subdirectory(engine/core)
 add_subdirectory(sandbox)
+add_subdirectory(tests)

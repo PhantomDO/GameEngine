@@ -34,6 +34,8 @@ jobs:
       # Doit rester égal au "builtin-baseline" de vcpkg.json : vcpkg résout les versions
       # de ports à partir de ce commit, il doit donc exister dans le clone.
       VCPKG_TAG: "2026.07.29"
+      # Doit rester égal à la version de la machine de référence (SPECS §10).
+      LLVM_VERSION: "22"
       VCPKG_ROOT: ${{ github.workspace }}/vcpkg
       # Chemin imposé plutôt que le défaut (~/.cache sous Linux, %LOCALAPPDATA% sous
       # Windows) : une seule entrée de cache à déclarer, identique sur les deux OS.
@@ -44,9 +46,20 @@ jobs:
 
       # zip est indispensable au bootstrap de vcpkg et manque sur certaines images.
       # On l'a appris à la dure sur la machine de référence (journal, M0.2).
+      # LLVM 22 plutôt que le Clang 18 de l'image : il faut la MÊME version qu'en local,
+      # sinon clang-format produit une mise en forme différente et le contrôle de format
+      # échoue sur des fichiers pourtant corrects. Même raison pour clang-tidy, dont les
+      # règles évoluent d'une version à l'autre.
       - name: Outils (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y ninja-build zip unzip
+        run: |
+          sudo apt-get update && sudo apt-get install -y ninja-build zip unzip
+          wget -qO- https://apt.llvm.org/llvm.sh | sudo bash -s -- ${{ env.LLVM_VERSION }}
+          sudo apt-get install -y clang-format-${{ env.LLVM_VERSION }} clang-tidy-${{ env.LLVM_VERSION }}
+          for t in clang clang++ clang-format clang-tidy; do
+            sudo update-alternatives --install "/usr/bin/$t" "$t" "/usr/bin/$t-${{ env.LLVM_VERSION }}" 100
+          done
+          clang++ --version | head -1
 
       - name: Cloner vcpkg
         run: git clone --depth 1 --branch "${{ env.VCPKG_TAG }}" https://github.com/microsoft/vcpkg.git vcpkg
@@ -90,9 +103,12 @@ jobs:
           cmake --preset ${{ matrix.preset }} || exit /b 1
           cmake --build --preset ${{ matrix.preset }} || exit /b 1
 
-      # Test de fumée en attendant doctest et ctest, qui arrivent avec l'issue #5.
-      # La sortie contient __cplusplus : c'est elle qui dira si MSVC tient la promesse
-      # C++23 de l'ADR-0001, et si std::print existe bien côté Microsoft.
+      - name: Tests
+        run: ctest --test-dir build/${{ matrix.preset }} --output-on-failure
+
+      # Le sandbox reste lancé en plus des tests : sa sortie porte __cplusplus et la version
+      # du compilateur, c'est notre diagnostic pour voir ce que chaque plateforme fournit
+      # réellement (ADR-0001). Un test n'afficherait pas ça dans les logs.
       - name: Lancer le sandbox
         shell: bash
         run: |
@@ -100,3 +116,18 @@ jobs:
             Windows) ./build/${{ matrix.preset }}/sandbox/levain_sandbox.exe ;;
             *)       ./build/${{ matrix.preset }}/sandbox/levain_sandbox ;;
           esac
+
+      # Format et analyse statique : une seule fois, sur un seul job. Ce sont des propriétés
+      # des sources, pas de la configuration de build — les lancer quatre fois ne dirait
+      # rien de plus et allongerait la CI d'autant.
+      - name: Format (clang-format)
+        if: matrix.preset == 'linux-debug'
+        run: |
+          find engine sandbox tests -name '*.cpp' -o -name '*.hpp' \
+            | xargs clang-format --dry-run --Werror
+
+      - name: Analyse statique (clang-tidy)
+        if: matrix.preset == 'linux-debug'
+        run: |
+          find engine sandbox tests -name '*.cpp' \
+            | xargs clang-tidy -p build/${{ matrix.preset }} --warnings-as-errors='*'
