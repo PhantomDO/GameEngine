@@ -44,12 +44,31 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
     résultat toujours vide.
 - Décisions : pas d'ADR, rien de structurant. Deux choix signalés en PR (arborescence partielle, dépendances
   déclarées non liées).
-- Écarts et problèmes : **vcpkg n'a pas pu être installé** — `zip` manque sur la machine et son installation
-  demande sudo (`sudo pacman -S --needed zip`). Conséquence : le critère « build depuis un clone propre en deux
-  commandes » est **écrit mais non vérifié**, et `nvrhi`/`flecs` n'ont jamais été résolus. À faire au début de
-  la session suivante, avant l'issue #4.
+- Écart levé le jour même : `zip` installé par Donnovan, vcpkg bootstrappé
+  (`2026-07-27-98d7cb0c`) dans `~/vcpkg`. Le critère **« build depuis un clone propre en deux commandes » est
+  vérifié sur Linux**, sur un vrai `git clone` du dépôt public :
+
+  | Mesure | Valeur | Détail |
+  |---|---:|---|
+  | `cmake --preset linux-debug` **à froid** | **25 s** | dont 23 s de vcpkg compilant `nvrhi` (2026-02-26), `flecs` et `vulkan-headers` depuis les sources |
+  | `cmake --build --preset linux-debug` | **1 s** | 4 étapes Ninja |
+  | `cmake --preset linux-debug` **à chaud** (2ᵉ clone) | **1 s** | vcpkg résout en **16,5 ms** depuis le cache binaire |
+  | Taille du cache binaire vcpkg | **19 Mo** | `~/.cache/vcpkg` |
+
+  Commandes : `git clone https://github.com/PhantomDO/Levain.git <dir> && cd <dir> && VCPKG_ROOT=~/vcpkg
+  cmake --preset linux-debug && VCPKG_ROOT=~/vcpkg cmake --build --preset linux-debug`
+
+  Sortie du sandbox : `Levain 0.1.0 — clang 22.1.8 — __cplusplus 202302`. `compile_commands.json` : 2 entrées,
+  flags `-std=c++23 -pedantic-errors`.
+
+  **Conséquence pour l'issue #4** : 19 Mo de cache pour un gain de 23 s à chaque exécution. Le cache binaire
+  vcpkg vaut clairement le coup en CI, et il tient largement dans les quotas du cache GitHub Actions.
+- Note pour M1.2 : le port vcpkg de `nvrhi` indique qu'il faut lier `nvrhi` **et** `nvrhi_vk` sous Linux
+  (build statique), `nvrhi` seul en build partagé. Les cibles `nvrhi_d3d11`/`nvrhi_d3d12` n'existent que sous
+  Windows.
 - Prochaine étape : issue #4 (CI Windows + Linux avec cache vcpkg), puis #5 (clang-format, clang-tidy, doctest,
-  protection de `main`).
+  protection de `main`). Reste non vérifié : le chemin **Windows**, qui n'existe que sur le papier tant que la CI
+  n'a pas tourné — c'est l'objet de #4.
 
 ## 2026-09-20 — M0.1 — Clôture du milestone
 
