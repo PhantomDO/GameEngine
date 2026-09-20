@@ -18,3 +18,7 @@ CMakeUserPresets.json
 *.rdc
 *.tracy
 /captures/
+
+# Clone et cache de vcpkg en CI
+/vcpkg/
+/vcpkg-cache/

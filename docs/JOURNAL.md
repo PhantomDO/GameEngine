@@ -25,6 +25,50 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-20 — M0.2 — CI Windows + Linux (issue #4)
+
+- Temps Donnovan : à renseigner (relecture estimée 0,25 h)
+- Sessions Claude Code : 1
+- Fait : `.github/workflows/ci.yml` — matrice de 4 jobs (Debug et Release × `ubuntu-latest` et
+  `windows-latest`), Ninja partout, vcpkg cloné au tag `2026.07.29` et cache binaire via `actions/cache`.
+  Jobs Windows en `continue-on-error`. **Les 4 jobs sont verts au premier run.**
+- Mesures — durées de CI, à froid puis à chaud (cache vcpkg peuplé) :
+
+  | Job | À froid | À chaud | Gain |
+  |---|---:|---:|---:|
+  | `linux-debug` | 85 s | **24 s** | −72 % |
+  | `linux-release` | 125 s | **24 s** | −81 % |
+  | `windows-debug` | 233 s | **52 s** | −78 % |
+  | `windows-release` | 288 s | **91 s** | −68 % |
+  | **Total** | **731 s** | **191 s** | **−74 %** |
+
+  Commande : `gh api repos/PhantomDO/Levain/actions/runs/<id>/jobs`, différence entre `started_at` et
+  `completed_at`. Runs `35518846705` (froid) et `35519196360` (chaud).
+
+  Windows coûte 2 à 3 fois plus cher que Linux, à froid comme à chaud.
+
+- **Confirmation empirique de l'ADR-0001.** Le même sandbox, mêmes sources, annonce :
+  `Linux / Clang 18.1.3 / -std=c++23 → __cplusplus 202302` et
+  `Windows / MSVC 19.51.36256 / /std:c++latest → __cplusplus 202400`.
+  `202400` n'est la valeur d'aucune norme publiée : c'est un mode brouillon post-C++23. Le raisonnement de
+  l'ADR-0001 est donc vérifié par la mesure, et le `-pedantic-errors` côté Linux n'est pas une précaution
+  théorique.
+- Écarts et problèmes :
+  - **Erreur de ma part** : le premier run annonçait `__cplusplus 199711` sous Windows. MSVC épingle cette macro
+    à la valeur de C++98 sauf si on passe `/Zc:__cplusplus`. La doc Microsoft que j'avais lue en écrivant
+    l'ADR-0001 le dit explicitement ; je ne l'avais pas appliqué. Corrigé (`19b5fbc`), avec le constat écrit
+    dans le commentaire du `CMakeLists.txt`.
+  - **La CI Linux tourne sur Clang 18.1.3, la machine de référence sur Clang 22.1.8** — quatre versions
+    majeures d'écart. L'écart va dans le sens le moins dangereux (la CI est plus conservatrice que la machine
+    de dev), mais du code qui compile localement peut casser en CI. Laissé tel quel faute de cas concret ;
+    à rouvrir si ça mord. Alternative : installer Clang 22 via `apt.llvm.org`, ~20 s par job.
+  - **Pas de `ctest`** : aucun test n'existe encore. Test de fumée (lancement du sandbox) en attendant
+    doctest, issue #5.
+  - **`VCPKG_TAG` et `builtin-baseline` ne sont pas couplés automatiquement** : deux valeurs écrites à la main
+    dans deux fichiers. Cohérentes aujourd'hui, vérifiées manuellement.
+- Prochaine étape : issue #5 — clang-tidy (nommage de l'ADR-0009), doctest et `ctest`, vérification du format
+  en CI, protection de `main`.
+
 ## 2026-09-20 — M0.2 — Norme de style C++ (ADR-0009)
 
 - Temps Donnovan : 0,25 h de relecture de la PR #21 (portée au board), plus le choix de style

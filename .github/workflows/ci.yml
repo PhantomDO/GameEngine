@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Une PR poussée trois fois de suite n'occupe pas trois fois les runners.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.preset }}
+    runs-on: ${{ matrix.os }}
+
+    # Les jobs Windows sont non bloquants pour l'instant : Donnovan n'a pas de machine
+    # Windows, et une casse propre à MSVC ne doit pas empêcher de fusionner du travail
+    # Linux. Ils restent lancés, parce qu'ils sont le seul endroit qui vérifie le pari
+    # /std:c++latest de l'ADR-0001. À repasser en bloquant quand une machine sera dispo.
+    continue-on-error: ${{ matrix.experimental }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest,  preset: linux-debug,     experimental: false }
+          - { os: ubuntu-latest,  preset: linux-release,   experimental: false }
+          - { os: windows-latest, preset: windows-debug,   experimental: true }
+          - { os: windows-latest, preset: windows-release, experimental: true }
+
+    env:
+      # Doit rester égal au "builtin-baseline" de vcpkg.json : vcpkg résout les versions
+      # de ports à partir de ce commit, il doit donc exister dans le clone.
+      VCPKG_TAG: "2026.07.29"
+      VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+      # Chemin imposé plutôt que le défaut (~/.cache sous Linux, %LOCALAPPDATA% sous
+      # Windows) : une seule entrée de cache à déclarer, identique sur les deux OS.
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/vcpkg-cache
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # zip est indispensable au bootstrap de vcpkg et manque sur certaines images.
+      # On l'a appris à la dure sur la machine de référence (journal, M0.2).
+      - name: Outils (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y ninja-build zip unzip
+
+      - name: Cloner vcpkg
+        run: git clone --depth 1 --branch "${{ env.VCPKG_TAG }}" https://github.com/microsoft/vcpkg.git vcpkg
+
+      - name: Bootstrap vcpkg (Linux)
+        if: runner.os == 'Linux'
+        run: ./vcpkg/bootstrap-vcpkg.sh -disableMetrics
+
+      - name: Bootstrap vcpkg (Windows)
+        if: runner.os == 'Windows'
+        run: .\vcpkg\bootstrap-vcpkg.bat -disableMetrics
+
+      # On cache les archives binaires de vcpkg, pas ses sources : ce sont les paquets
+      # déjà compilés. Mesuré à 19 Mo sur la machine de référence pour nvrhi + flecs +
+      # vulkan-headers, contre 23 s de compilation à froid.
+      - name: Cache vcpkg
+        uses: actions/cache@v4
+        with:
+          path: vcpkg-cache
+          key: vcpkg-${{ matrix.os }}-${{ env.VCPKG_TAG }}-${{ hashFiles('vcpkg.json') }}
+
+      # vcpkg refuse de démarrer si le dossier de cache binaire n'existe pas.
+      - name: Créer le dossier de cache
+        shell: bash
+        run: mkdir -p vcpkg-cache
+
+      - name: Configurer et compiler (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          cmake --preset ${{ matrix.preset }}
+          cmake --build --preset ${{ matrix.preset }}
+
+      # Ninja + MSVC exige l'environnement vcvars, qui ne survit pas d'une étape à
+      # l'autre : configuration et compilation tiennent donc dans une seule étape.
+      # vswhere localise Visual Studio sans coder en dur l'édition du runner.
+      - name: Configurer et compiler (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath`) do call "%%i\VC\Auxiliary\Build\vcvars64.bat"
+          cmake --preset ${{ matrix.preset }} || exit /b 1
+          cmake --build --preset ${{ matrix.preset }} || exit /b 1
+
+      # Test de fumée en attendant doctest et ctest, qui arrivent avec l'issue #5.
+      # La sortie contient __cplusplus : c'est elle qui dira si MSVC tient la promesse
+      # C++23 de l'ADR-0001, et si std::print existe bien côté Microsoft.
+      - name: Lancer le sandbox
+        shell: bash
+        run: |
+          case "$RUNNER_OS" in
+            Windows) ./build/${{ matrix.preset }}/sandbox/levain_sandbox.exe ;;
+            *)       ./build/${{ matrix.preset }}/sandbox/levain_sandbox ;;
+          esac

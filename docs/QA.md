@@ -52,6 +52,24 @@ silencieuse.
 Le déclencheur du changement est `std::expected` : la politique de gestion d'erreurs se décide en M0.3
 (ADR-0008), et la trancher sans `std::expected` sous la main aurait appauvri le choix.
 
+**Confirmé par la CI le 20/09/2026**, et le chiffre est parlant. Avec `/Zc:__cplusplus`, le même sandbox
+compilé depuis les mêmes sources annonce :
+
+| Plateforme | Compilateur | `__cplusplus` |
+|---|---|---:|
+| Linux | Clang 18.1.3, `-std=c++23` | **202302** — exactement C++23 |
+| Windows | MSVC 19.51.36256, `/std:c++latest` | **202400** — au-delà de C++23 |
+
+C'est la démonstration directe du raisonnement de l'ADR-0001 : les deux moitiés de la matrice ne compilent pas
+le même langage, et Windows est plus permissif. `202400` n'est la valeur d'aucune norme publiée — c'est un mode
+brouillon post-C++23. D'où le `-pedantic-errors` côté Linux : sans lui, rien n'empêcherait d'écrire du C++26 qui
+passerait sous Windows.
+
+Piège associé : **MSVC épingle `__cplusplus` à `199711L`** (la valeur de C++98) tant qu'on ne passe pas
+`/Zc:__cplusplus`, quelle que soit la vraie version. Le premier run de CI l'a montré. Tout `#if __cplusplus >=
+202302L` prendrait donc la mauvaise branche sous Windows, sans le moindre avertissement. Le flag est posé dans
+le `CMakeLists.txt` racine, avec un commentaire pour qu'on ne le retire pas.
+
 Détails, mesures et liste des trous MSVC restants : [ADR-0001](adr/0001-langage-cpp23.md).
 Sources : [`/std` (msvc-180)](https://learn.microsoft.com/en-us/cpp/build/reference/std-specify-language-standard-version?view=msvc-180),
 [conformance C/C++ Microsoft](https://learn.microsoft.com/en-us/cpp/overview/visual-cpp-language-conformance).
