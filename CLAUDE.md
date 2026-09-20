@@ -2,7 +2,7 @@
 
 ## Le projet
 
-Moteur de jeu 3D en C++20, Windows et Linux, sur **NVRHI** (backends Vulkan et Direct3D 12) et **flecs** (ECS).
+Moteur de jeu 3D en C++23, Windows et Linux, sur **NVRHI** (backends Vulkan et Direct3D 12) et **flecs** (ECS).
 Priorité de Donnovan : **faire un jeu avec un moteur construit ensemble**, et comprendre au passage comment
 fonctionnent les moteurs du marché (Unreal, Unity, Godot…) grâce aux études et aux lectures.
 

@@ -12,6 +12,32 @@ Réponse courte, puis détails. Références : fichier:ligne, ADR, source extern
 
 ---
 
+### Le C++23 est-il stable en 2026 ? Peut-on y passer ? (2026-09-20, M0.1)
+
+Oui côté Linux, « pas officiellement » côté Windows — et c'est gérable.
+
+**Linux** : mesuré sur la machine de référence, Clang 22.1.8 et GCC 16.2.1 avec libstdc++ 16 donnent
+`__cplusplus == 202302` et **toutes** les fonctionnalités C++23 sondées (dont `std::expected`, `std::print`,
+`std::stacktrace`, `std::mdspan`, deducing this). Rien ne manque.
+
+**Windows** : `/std:c++23` **n'existe pas**, ni en Visual Studio 2022 ni en Visual Studio 2026. Microsoft ne
+propose que `/std:c++23preview` (« peut changer, peut ne pas être compatible en ABI d'une version à l'autre ») et
+`/std:c++latest` (sur-ensemble qui déborde sur le brouillon C++26). CMake 4.4 mappe `CMAKE_CXX_STANDARD 23` vers
+`-std:c++latest` chez MSVC (`/usr/share/cmake/Modules/Compiler/MSVC-CXX.cmake:46`). Les deux moitiés de la
+matrice ne compilent donc pas le même langage.
+
+**La parade** : c'est Linux qui fait autorité. La CI Linux compile en `-std=c++23 -pedantic-errors`, ce qui
+refuse toute fonctionnalité post-C++23 (vérifié sur l'indexation de paquets `P2662`, refusée par Clang et par
+GCC). Le code qui passe sous Linux est du C++23 ; MSVC, plus permissif, ne peut pas introduire de dérive
+silencieuse.
+
+Le déclencheur du changement est `std::expected` : la politique de gestion d'erreurs se décide en M0.3
+(ADR-0008), et la trancher sans `std::expected` sous la main aurait appauvri le choix.
+
+Détails, mesures et liste des trous MSVC restants : [ADR-0001](adr/0001-langage-cpp23.md).
+Sources : [`/std` (msvc-180)](https://learn.microsoft.com/en-us/cpp/build/reference/std-specify-language-standard-version?view=msvc-180),
+[conformance C/C++ Microsoft](https://learn.microsoft.com/en-us/cpp/overview/visual-cpp-language-conformance).
+
 ### NVRHI est-il la norme de l'industrie ? Gère-t-il OpenGL et Metal ? (2026-09-20, M0.1)
 
 Non aux deux. NVRHI est la couche de NVIDIA, utilisée par ses SDK RTX et ses exemples (Donut), et par quelques
@@ -42,7 +68,7 @@ minimal : il laisse davantage à écrire. Les deux sont bien maintenus. Détails
 
 Non, pour ce projet. Rust, Zig et Odin sont de vraies alternatives, mais tous les moteurs étudiés sont en C++,
 toutes les bibliothèques retenues aussi, et l'objectif est de comprendre les moteurs, pas d'apprendre un langage.
-Détails : [ADR-0001](adr/0001-langage-cpp20.md).
+Détails : [ADR-0001](adr/0001-langage-cpp23.md).
 
 ### GitHub, GitLab ou Azure DevOps ? (2026-09-20, M0.1)
 

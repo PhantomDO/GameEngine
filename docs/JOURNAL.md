@@ -25,6 +25,27 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-20 — M0.1 — Passage à C++23 (ADR-0001 amendé)
+
+- Temps Donnovan : 1,0 h (estimé 1,0 h pour M0.1 — ratio 1,0), porté sur le board (0,75 h sur l'issue #1,
+  0,25 h sur l'issue #2)
+- Sessions Claude Code : 1
+- Contexte : Donnovan valide SPECS, ROADMAP et les ADR, et demande de passer à C++23 si la norme est stable.
+  La v1 de l'ADR-0001 prévoyait exactement cette réévaluation.
+- Mesures :
+  - Sonde de macros de test de fonctionnalité, `-std=c++23` : Clang 22.1.8 et GCC 16.2.1 (libstdc++ 16) →
+    `__cplusplus = 202302`, 19 fonctionnalités C++23 sur 19 présentes.
+  - Garde-fou conformité : `clang++ -std=c++23 -pedantic-errors` et `g++ -std=c++23 -pedantic-errors` refusent
+    bien l'indexation de paquets C++26 (`P2662`), acceptée en `-std=c++26`.
+- Décisions : ADR-0001 amendé, C++20 → **C++23**, fichier renommé `0001-langage-cpp23.md`. Sans modules,
+  inchangé.
+- Écarts et problèmes : **MSVC n'a pas de `/std:c++23`**, ni en VS 2022 ni en VS 2026 — seulement
+  `/std:c++23preview` (ABI non garantie) et `/std:c++latest` (sur-ensemble débordant sur C++26). CMake 4.4 mappe
+  `CMAKE_CXX_STANDARD 23` vers `-std:c++latest` chez MSVC. Conséquence : la CI Linux en `-pedantic-errors` fait
+  autorité sur la conformité, à mettre en place en M0.2. Trous MSVC à éviter : `[[assume]]` (P1774R8), P2448R2,
+  P2582R1, échappements Unicode.
+- Prochaine étape : Donnovan valide l'ADR ; puis M0.2 avec `cxx_std_23` et le garde-fou en CI.
+
 ## 2026-09-20 — M0.1 — Dépôt local, modèles GitHub et machine de référence
 
 - Temps Donnovan : à renseigner
