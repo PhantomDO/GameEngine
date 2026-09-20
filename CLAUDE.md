@@ -97,4 +97,39 @@ gh project item-edit --project-id <PROJECT_ID> --id <ITEM_ID> --field-id <FIELD_
 
 ## Commandes de build
 
-*À compléter en M0.2* (presets CMake, tests, format, lancement du sandbox).
+**Prérequis, une seule fois** : vcpkg cloné et bootstrappé, puis `VCPKG_ROOT` exporté. Les presets lisent cette
+variable ; sans elle, `cmake --preset` échoue sur le fichier toolchain.
+
+```bash
+git clone https://github.com/microsoft/vcpkg ~/vcpkg && ~/vcpkg/bootstrap-vcpkg.sh -disableMetrics
+set -Ux VCPKG_ROOT ~/vcpkg   # fish ; bash : echo 'export VCPKG_ROOT=~/vcpkg' >> ~/.bashrc
+```
+
+**Build depuis un clone propre, deux commandes** :
+
+```bash
+cmake --preset linux-debug
+cmake --build --preset linux-debug
+```
+
+Le **premier** `cmake --preset` est long : vcpkg compile `nvrhi` et `flecs` depuis les sources. Les suivants
+sont instantanés (cache local `~/.cache/vcpkg`).
+
+Presets disponibles : `linux-debug`, `linux-release`, `windows-debug`, `windows-release`. Générateur Ninja
+partout. Linux compile avec Clang, Windows avec MSVC (ADR-0001). Les `linux-*` et `windows-*` sont conditionnés
+par l'OS hôte : `cmake --list-presets` ne montre que ceux qui s'appliquent.
+
+```bash
+./build/linux-debug/sandbox/levain_sandbox   # lancer la démo
+```
+
+`compile_commands.json` est généré dans `build/<preset>/`. Pour clangd à la racine :
+
+```bash
+ln -sf build/linux-debug/compile_commands.json compile_commands.json
+```
+
+**Ne jamais retirer `-pedantic-errors`** du `CMakeLists.txt` racine : c'est le garde-fou qui maintient le code en
+C++23 strict, puisque MSVC compile en `/std:c++latest` (ADR-0001). Une extension C++26 doit casser la CI Linux.
+
+*Tests, format et lint : à compléter en M0.2, issue #5.*

@@ -25,6 +25,32 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-20 — M0.2 — Squelette de build (issue #3)
+
+- Temps Donnovan : à renseigner (relecture estimée 0,3 h)
+- Sessions Claude Code : 1
+- Fait : `CMakeLists.txt` racine, `CMakePresets.json` (4 presets, Ninja), `vcpkg.json` avec baseline figée sur la
+  release vcpkg `2026.07.29` (`9e593bb…`), bibliothèque `levain_core` et exécutable `levain_sandbox`,
+  `engine/core/README.md`, section « Commandes de build » de CLAUDE.md complétée.
+- Mesures :
+  - Build complet depuis zéro (Clang 22.1.8, Debug, sans vcpkg) → **4 étapes Ninja**, sandbox lancé :
+    `Levain 0.1.0 — clang 22.1.8 — __cplusplus 202302`.
+    Commande : `cmake -S . -B <dir> -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=clang++`
+  - Garde-fou C++23 vérifié **dans le vrai build** : `compile_commands.json` contient bien `-std=c++23`
+    (et non `gnu++23`) et `-pedantic-errors` ; une indexation de paquets C++26 insérée dans `main.cpp` fait
+    échouer la compilation avec `error: pack indexing is a C++2c extension`.
+  - `CMAKE_CXX_SCAN_FOR_MODULES OFF` : le build passe de **8 à 4 étapes** Ninja. CMake activait le scan de
+    modules C++20 par défaut alors que l'ADR-0001 dit « sans modules » — deux étapes par fichier pour un
+    résultat toujours vide.
+- Décisions : pas d'ADR, rien de structurant. Deux choix signalés en PR (arborescence partielle, dépendances
+  déclarées non liées).
+- Écarts et problèmes : **vcpkg n'a pas pu être installé** — `zip` manque sur la machine et son installation
+  demande sudo (`sudo pacman -S --needed zip`). Conséquence : le critère « build depuis un clone propre en deux
+  commandes » est **écrit mais non vérifié**, et `nvrhi`/`flecs` n'ont jamais été résolus. À faire au début de
+  la session suivante, avant l'issue #4.
+- Prochaine étape : issue #4 (CI Windows + Linux avec cache vcpkg), puis #5 (clang-format, clang-tidy, doctest,
+  protection de `main`).
+
 ## 2026-09-20 — M0.1 — Clôture du milestone
 
 - Temps Donnovan : 1,25 h (estimé 1,0 h — **ratio 1,25**)
