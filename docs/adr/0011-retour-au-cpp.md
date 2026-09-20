@@ -51,6 +51,12 @@ Le projet cible **Linux et Clang**. Les presets et les jobs de CI Windows sont r
 `CMakeLists.txt`. Le C++ reste portable : Windows se réajoute quand une machine sera disponible, avec sa CI.
 Le milestone M1.4 (backend Direct3D 12) reste hors périmètre pour la même raison.
 
+**Quand Windows reviendra, le compilateur sera à rechoisir.** L'ADR-0001 posait « MSVC sous Windows » sans le
+justifier ; c'était le choix par défaut. `clang-cl` est la première option à évaluer : il ne règle ni le piège
+`__cplusplus` (qu'il reproduit volontairement) ni la divergence de STL (il consomme celle de Microsoft), mais il
+donne **exactement C++23 sur les deux plateformes** au lieu du sur-ensemble `/std:c++latest`, et unifie
+diagnostics, clang-tidy et clang-format. Analyse complète et sources dans `docs/QA.md`.
+
 Conséquence mesurée après application : l'infrastructure de build et CI passe de **435 à 347 lignes**
 (`wc -l` sur les neuf fichiers). Le gain est plus modeste que les « environ 300 » que j'avais annoncés avant de
 mesurer — la moitié des 435 lignes était du format et du lint, indépendants de la plateforme. **Ce qui disparaît
