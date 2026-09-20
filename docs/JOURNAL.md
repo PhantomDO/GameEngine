@@ -20,14 +20,18 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 | Phase | Estimé (h) | Passé (h) | Ratio |
 |---|---:|---:|---:|
-| 0 | 4,0 | — | — |
-| 1 | 5,5 | — | — |
+| 0 | 5,0 | 2,75 *(4 jalons sur 5)* | 0,73 |
+| 1 | 4,5 | — | — |
 
 ---
 
 ## 2026-09-20 — M0.5 — Clôture du milestone
 
-- Temps Donnovan : à renseigner
+- Temps Donnovan : inclus dans les 0,25 h de la relecture de la PR #33
+- **Cumul de la phase 0 à ce stade** : **2,75 h passées pour 3,75 h estimées**, soit un **ratio de 0,73** sur
+  quatre milestones terminés (M0.1, M0.2, M0.4, M0.5). Reste M0.3, estimé 1,5 h.
+  **L'aller-retour par Rust aura coûté 0,5 h de Donnovan au total** — deux milestones, quatre relectures d'un
+  quart d'heure. C'est le prix d'avoir tranché la question du langage définitivement, à 107 lignes de code.
 - Définition de « terminé » (SPECS §9) : 4 critères sur 7 s'appliquent et sont remplis (démo lançable sous
   Linux, mesures consignées, CI verte, docs à jour). Trois restent sans objet à ce stade : pas de démo Windows
   (hors périmètre, ADR-0011), pas d'étude de phase due en M0.5, pas de binaire à publier.
@@ -45,7 +49,8 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ## 2026-09-20 — M0.5 — Retour au C++ (ADR-0011)
 
-- Temps Donnovan : à renseigner (relecture estimée 0,3 h)
+- Temps Donnovan : **0,25 h** pour 1,0 h estimée (ratio 0,25) — relecture de la PR #33. Issue #35 créée
+  rétroactivement pour que le board porte ce temps : le travail avait été décidé en conversation, sans issue.
 - Sessions Claude Code : 1
 - Contexte : Donnovan revient sur la décision Rust. Sa thèse : ce qu'il trouvait plus lisible venait de la
   **simplicité du langage**, et du C++ écrit en exploitant ses atouts devrait se lire aussi bien. Il précise
@@ -90,7 +95,8 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ## 2026-09-20 — M0.4 — Socle Rust (issues #27 à #30)
 
-- Temps Donnovan : à renseigner (relecture estimée 0,4 h)
+- Temps Donnovan : **0,25 h** pour 1,0 h estimée (ratio 0,25) — relecture de la PR #31. Les quatre issues ayant
+  été livrées en une seule PR, le temps est porté sur l'issue #27 au board plutôt que réparti.
 - Sessions Claude Code : 1
 - Fait : migration complète vers Rust. Workspace cargo, crates `levain-core` et `levain-sandbox`, CI réécrite,
   documentation répercutée, C++ supprimé de l'arbre de travail.
