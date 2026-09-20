@@ -142,8 +142,14 @@ figée de l'ADR-0007. Le `CMakeLists.txt` racine refuse désormais de se configu
 ```bash
 cmake -S . -B build/prof -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=clang++ \
   -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake -DLEVAIN_PROFILING=ON
-cmake --build build/prof && ./build/prof/sandbox/levain_sandbox   # profileur lancé AVANT
+cmake --build build/prof
+TRACY_NO_EXIT=1 ./build/prof/sandbox/levain_sandbox
 ```
+
+**`TRACY_NO_EXIT=1` n'est pas optionnel** pour un programme court : le sandbox simule 120 frames en ~24 ms,
+impossible d'y connecter un profileur à la main. Cette variable fait attendre le client jusqu'à ce que le
+profileur se connecte **et** ait reçu toutes les données. Sans elle, le programme se termine avant que quiconque
+ait vu quoi que ce soit — et il n'affiche aucun avertissement.
 
 **Ne jamais retirer `-pedantic-errors`** du `CMakeLists.txt` racine : c'est le garde-fou qui maintient le code en
 C++23 strict, puisque MSVC compile en `/std:c++latest` (ADR-0001). Une extension C++26 doit casser la CI Linux.

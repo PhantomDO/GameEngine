@@ -61,6 +61,10 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
   `memcpy` de la liste des libres, une multiplication en `int` élargie en `size_t`, et une exception pouvant
   s'échapper du `main` du benchmark. Tous corrigés, aucun désactivé. Troisième passage de l'outil sur du code
   neuf, troisième récolte.
+- **Défaut de ma démo, trouvé par Donnovan en la lançant** : 120 frames à 200 µs font ~24 ms, impossible d'y
+  connecter un profileur à la main. La parade est `TRACY_NO_EXIT=1`, qui fait attendre le client jusqu'à ce que
+  le profileur se connecte et ait tout reçu. Documenté dans CLAUDE.md. Sans elle, le programme se termine sans
+  le moindre avertissement — encore une panne silencieuse.
 - Écarts et problèmes : **le critère « capture d'écran Tracy » de l'issue #8 n'est pas rempli.** Le profileur
   Tracy n'est installé ni sur la machine ni dans le dépôt, et je ne peux pas produire de capture d'écran d'une
   interface graphique. Les zones sont vérifiées autrement : les symboles `__tracy_source_location` sont présents
