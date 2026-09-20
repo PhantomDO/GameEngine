@@ -1,10 +1,11 @@
 # Spécifications — Moteur 3D (nom à définir)
 
-> Version 0.2 — 20/09/2026 — statut : **proposé, à valider par Donnovan**
+> Version 0.3 — 20/09/2026 — statut : **validé par Donnovan** (ADR 0001 à 0007 acceptés)
 > Documents liés : [ROADMAP](ROADMAP.md) · [JOURNAL](JOURNAL.md) · [ADR](adr/) · [Études](etudes/) ·
 > [Lectures](LECTURES.md) · [Q&R](QA.md)
 >
 > v0.2 : couche graphique NVRHI (ADR-0002) et ECS flecs (ADR-0004) à la place d'une RHI et d'un ECS maison.
+> v0.3 : C++23 au lieu de C++20 (ADR-0001 amendé), machine de référence renseignée, licence MIT.
 
 ## 1. Vision
 

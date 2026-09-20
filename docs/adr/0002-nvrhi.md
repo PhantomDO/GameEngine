@@ -1,6 +1,6 @@
 # ADR-0002 — Couche graphique : NVRHI, backends Vulkan et Direct3D 12
 
-- **Statut** : proposé
+- **Statut** : accepté le 2026-09-20
 - **Date** : 2026-09-20
 - **Milestone** : M0.1 (mise en place en phase 1)
 - **Historique** : la première version de cet ADR proposait une couche RHI écrite par nous au-dessus de Vulkan.

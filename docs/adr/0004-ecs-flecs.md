@@ -1,6 +1,6 @@
 # ADR-0004 — Modèle objet : ECS avec flecs
 
-- **Statut** : proposé
+- **Statut** : accepté le 2026-09-20
 - **Date** : 2026-09-20
 - **Milestone** : M0.1 (intégration en M3.1)
 - **Historique** : la première version proposait d'écrire notre propre ECS. Avec la priorité donnée au jeu,

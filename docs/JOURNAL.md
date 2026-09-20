@@ -44,7 +44,12 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
   `CMAKE_CXX_STANDARD 23` vers `-std:c++latest` chez MSVC. Conséquence : la CI Linux en `-pedantic-errors` fait
   autorité sur la conformité, à mettre en place en M0.2. Trous MSVC à éviter : `[[assume]]` (P1774R8), P2448R2,
   P2582R1, échappements Unicode.
-- Prochaine étape : Donnovan valide l'ADR ; puis M0.2 avec `cxx_std_23` et le garde-fou en CI.
+- Relecture : PR #20 relue et fusionnée en **0,25 h** (15 min). ADR-0001 accepté, et avec lui les ADR 0002 à
+  0007 (« ça me va »). SPECS passe en v0.3, statut « validé ».
+- Cumul M0.1 : **1,25 h passée pour 1,0 h estimée** (ratio 1,25) — l'amendement C++23 n'était pas prévu
+  dans l'estimation initiale.
+- Prochaine étape : M0.2 — `cxx_std_23` dans les presets CMake et `-pedantic-errors` en CI Linux comme
+  garde-fou de conformité, en plus de l'arborescence, de vcpkg et de la CI.
 
 ## 2026-09-20 — M0.1 — Dépôt local, modèles GitHub et machine de référence
 

@@ -1,6 +1,6 @@
 # ADR-0005 — Langage de shaders : Slang
 
-- **Statut** : proposé
+- **Statut** : accepté le 2026-09-20
 - **Date** : 2026-09-20
 - **Milestone** : M0.1 (mise en place en M1.3)
 - **Révision** : 2026-09-20, adaptation à NVRHI (ADR-0002)

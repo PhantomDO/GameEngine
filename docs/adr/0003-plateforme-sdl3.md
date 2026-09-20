@@ -1,6 +1,6 @@
 # ADR-0003 — Fenêtre, input et plateforme : SDL3
 
-- **Statut** : proposé
+- **Statut** : accepté le 2026-09-20
 - **Date** : 2026-09-20
 - **Milestone** : M0.1
 

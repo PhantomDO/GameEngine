@@ -1,6 +1,6 @@
 # ADR-0001 — Langage : C++23, sans modules
 
-- **Statut** : proposé (amendé le 2026-09-20 : C++20 → C++23)
+- **Statut** : accepté le 2026-09-20 (amendé le 2026-09-20 : C++20 → C++23)
 - **Date** : 2026-09-20
 - **Milestone** : M0.1
 
