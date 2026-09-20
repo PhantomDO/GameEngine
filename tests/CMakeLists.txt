@@ -1,6 +1,11 @@
 find_package(doctest CONFIG REQUIRED)
 
-add_executable(levain_tests doctest_main.cpp version_test.cpp)
+add_executable(levain_tests
+    assert_test.cpp
+    doctest_main.cpp
+    error_test.cpp
+    log_test.cpp
+    version_test.cpp)
 target_link_libraries(levain_tests PRIVATE levain::core doctest::doctest)
 
 # La macro qui génère le main de doctest ne doit s'appliquer qu'à une seule unité de

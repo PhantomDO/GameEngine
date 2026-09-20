@@ -25,6 +25,47 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-20 — M0.3 — Logs, assertions et gestion d'erreurs (issue #6)
+
+- Temps Donnovan : à renseigner (relecture estimée 0,25 h)
+- Sessions Claude Code : 1
+- Fait : `log.hpp` (catégories et niveaux, spdlog), `assert.hpp` (`LEVAIN_ASSERT`, `LEVAIN_VERIFY`),
+  `error.hpp` (`Result<T>` = `std::expected<T, Error>`), **ADR-0008**, 7 nouveaux tests, README du module
+  `core` mis à jour.
+- **ADR-0008 : le débat « exceptions ou codes de retour » est mal posé.** Il y a deux sortes d'échecs et elles
+  n'appellent pas la même réponse : un **bug du moteur** s'arrête au plus près de la faute (`LEVAIN_ASSERT`),
+  un **échec de l'environnement** se renvoie (`Result<T>`). C'est le cœur de l'ADR.
+- Décision inattendue : **`-fno-exceptions` n'est pas activé**, alors que c'est la pratique courante des
+  moteurs. Raison trouvée dans la doc Godot : avec les exceptions désactivées, le `throw` de libstdc++ se
+  replie sur `__builtin_trap()` — arrêt brutal sans message. Unreal et Godot peuvent se le permettre parce
+  qu'ils ont remplacé la STL par leurs propres conteneurs ; nous l'utilisons pleinement.
+- Mesures :
+
+  | Critère de l'issue | Résultat | Commande |
+  |---|---|---|
+  | Une assertion affiche fichier, ligne et message, puis s'arrête dans le débogueur | **oui**, et code de sortie **133** (SIGTRAP) | programme de démonstration lié à `levain_core` |
+  | Tests | **9 verts en Debug et en Release** | `ctest --test-dir build/linux-{debug,release}` |
+  | clang-tidy | **0 finding** | `clang-tidy -p build/linux-debug --warnings-as-errors='*'` |
+
+  Sortie de l'assertion violée :
+  ```
+  [critical] [assert] assertion violée : frameCount >= 0
+    message  : le compteur de frames ne peut pas être négatif
+    assert_demo.cpp:5 (int main())
+  ```
+
+- **clang-tidy a encore trouvé deux vrais points** dès la première exécution sur ce code : `ErrorCode` et
+  `LogLevel` utilisaient `int` comme type sous-jacent là où `std::uint8_t` suffit (`performance-enum-size`).
+  Corrigé, pas désactivé. C'est la deuxième fois que l'outil paye dès son premier passage sur du code neuf.
+- Conformité à l'ADR-0011 (forme du code) : tout est en **fonctions libres avec les dépendances dans la
+  signature**, et **chaque piège porte son nom** — `isLogEnabled` avant le formatage pour qu'un `Trace` dans
+  une boucle de rendu ne paie pas son `std::format`, `LEVAIN_VERIFY` pour l'expression à effet qui ne doit pas
+  disparaître en Release. Les trois règles ont tenu sur du vrai code.
+- Écarts et problèmes : `isLogEnabled` fait une **recherche par chaîne à chaque appel**. Noté dans le code :
+  si une capture Tracy (issue #8) montre le log dans le profil, la réponse sera un handle de catégorie obtenu
+  une fois, pas une optimisation de la table.
+- Prochaine étape : issues #7 (allocateurs et benchmarks), #8 (Tracy) et #9 (étude E0), dans une seconde PR.
+
 ## 2026-09-20 — M0.5 — Clôture du milestone
 
 - Temps Donnovan : inclus dans les 0,25 h de la relecture de la PR #33
