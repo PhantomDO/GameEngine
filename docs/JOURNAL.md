@@ -25,6 +25,24 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-20 — M0.5 — Clôture du milestone
+
+- Temps Donnovan : à renseigner
+- Définition de « terminé » (SPECS §9) : 4 critères sur 7 s'appliquent et sont remplis (démo lançable sous
+  Linux, mesures consignées, CI verte, docs à jour). Trois restent sans objet à ce stade : pas de démo Windows
+  (hors périmètre, ADR-0011), pas d'étude de phase due en M0.5, pas de binaire à publier.
+- Fait : ADR-0011 accepté, tag `m0.5`, release avec les mesures, milestone fermé. Issue #32 fermée — elle
+  demandait de réécrire les issues de phase 1 pour la pile Rust, sans objet depuis le retour au C++.
+- **Question archivée en Q&R** : « Clang existe aussi sous Windows, pourquoi MSVC ? » Réponse contre-intuitive —
+  clang-cl ne règle **aucun** des deux bugs de M0.2 (il reproduit volontairement le piège `__cplusplus` et
+  consomme la STL de Microsoft), mais il donnerait **exactement C++23 sur les deux plateformes** au lieu du
+  sur-ensemble `/std:c++latest`. Noté dans l'ADR-0011 comme première option à évaluer quand Windows reviendra.
+- Observation sur la journée : trois décisions prises par défaut ont été attrapées par Donnovan et transformées
+  en choix argumentés — la forme du code (variante C), le périmètre Windows, et le compilateur Windows. Aucune
+  n'était signalée comme incertaine dans les ADR d'origine. **À faire systématiquement : marquer dans un ADR ce
+  qui est un choix raisonné et ce qui est une convention reprise sans examen.**
+- Prochaine étape : M0.3 — logs, assertions, ADR-0008 (gestion d'erreurs), allocateurs, Tracy, étude E0.
+
 ## 2026-09-20 — M0.5 — Retour au C++ (ADR-0011)
 
 - Temps Donnovan : à renseigner (relecture estimée 0,3 h)

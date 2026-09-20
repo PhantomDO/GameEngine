@@ -1,6 +1,6 @@
 # ADR-0011 — Retour au C++, Linux d'abord, écrit pour la lisibilité
 
-- **Statut** : proposé
+- **Statut** : accepté le 2026-09-20
 - **Date** : 2026-09-20
 - **Milestone** : M0.5
 - **Remplace** : [ADR-0010](0010-passage-a-rust.md) (passage à Rust)
