@@ -1,0 +1,17 @@
+# Build
+/build/
+/out/
+/vcpkg_installed/
+CMakeUserPresets.json
+
+# IDE
+/.vs/
+/.vscode/
+/.idea/
+/.cache/
+*.user
+
+# Captures et sorties locales
+*.rdc
+*.tracy
+/captures/
