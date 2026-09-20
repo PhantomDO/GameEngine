@@ -125,8 +125,8 @@ Proton sur la machine de référence en `--api d3d12` (voir SPECS §10, « Véri
 | M2.3 Hot-reload des shaders | 1,5 | 1 | 29/11/2026 |
 
 **M2.1 — Caméra, meshes et binding sets.** Caméra 3D, depth buffer, meshes indexés, constantes par frame
-(volatile constant buffers de NVRHI), instancing, timestamps GPU ; stratégie de binding (ADR-0009 : binding
-sets ou bindless via descriptor tables).
+(volatile constant buffers de NVRHI), instancing, timestamps GPU ; stratégie de binding (**ADR à écrire** :
+binding sets ou bindless via descriptor tables).
 *Critères* : 10 000 cubes instanciés à plus de 60 images/s en 1080p sur la machine de référence ; temps GPU
 affiché.
 
@@ -160,7 +160,7 @@ jour de 100 000 entités (Transform + Velocity) en moins d'1 ms.
 *Critère* : 100 000 entités sur 10 niveaux de profondeur recalculées en moins de 2 ms.
 
 **M3.3 — Boucle à pas fixe.** Pipeline flecs dédié à la simulation, exécuté N fois par frame par un
-accumulateur ; interpolation du rendu ; garde-fou contre la « spirale de la mort » (ADR-0010).
+accumulateur ; interpolation du rendu ; garde-fou contre la « spirale de la mort » (**ADR à écrire**).
 *Critère* : test automatique montrant un état de simulation identique au bit près après N ticks, que le rendu
 tourne à 30, 60 ou 144 images/s.
 
@@ -187,7 +187,7 @@ Actors/Components d'Unreal, GameObject d'Unity, Nodes de Godot.
 **M4.1 — Import glTF.** fastgltf : meshes, matériaux, textures et hiérarchie convertis en entités flecs.
 *Critères* : la scène Sponza (Khronos glTF Sample Assets) s'affiche ; temps de chargement mesuré.
 
-**M4.2 — Base d'assets.** GUID, fichiers `.meta`, registre, handles, comptage de références (ADR-0011).
+**M4.2 — Base d'assets.** GUID, fichiers `.meta`, registre, handles, comptage de références (**ADR à écrire**).
 *Critères* : renommer ou déplacer un fichier ne casse aucune référence ; aucun chemin absolu dans les scènes.
 
 **M4.3 — Cuisson des assets.** Outil hors ligne qui convertit vers un format binaire, textures KTX2 compressées
@@ -212,7 +212,7 @@ avant et après.
 | M5.5 Culling et statistiques | 2,0 | 1 | 04/04/2027 |
 
 **M5.1 — PBR direct.** Modèle metallic-roughness (Cook-Torrance), lumières directionnelle et ponctuelles ;
-choix forward ou forward+ (ADR-0012). Les passes de Donut servent de référence.
+choix forward ou forward+ (**ADR à écrire**). Les passes de Donut servent de référence.
 *Critère* : les modèles de test Khronos (par exemple MetalRoughSpheres) correspondent visuellement à la
 visionneuse de référence.
 
@@ -268,7 +268,7 @@ pourquoi c'est presque toujours une bibliothèque.
 statistiques et de profiling.
 *Critère* : coût de l'UI inférieur à 0,5 ms par frame.
 
-**M7.2 — Réflexion et inspecteur.** Réflexion des composants via l'addon meta de flecs (ADR-0013), panneau de
+**M7.2 — Réflexion et inspecteur.** Réflexion des composants via l'addon meta de flecs (**ADR à écrire**), panneau de
 hiérarchie, inspecteur de composants.
 *Critère* : un nouveau composant devient éditable en une seule déclaration.
 
@@ -321,6 +321,12 @@ pris en charge par NVRHI) · scripting (Lua, C# ou WebAssembly) · réseau · st
 | 0012 | Forward ou forward+ | M5.1 |
 | 0013 | Réflexion des composants (addon meta de flecs) | M7.2 |
 
+## Numérotation des ADR
+
+**La roadmap ne pré-attribue plus de numéros d'ADR.** La v0.1 en annonçait cinq à l'avance ; l'aller-retour par
+Rust en a consommé deux au passage (0010 et 0011), et toute la suite a glissé. Un numéro se prend **au moment
+d'écrire l'ADR**, en suivant le dernier existant dans `docs/adr/`.
+
 ## Recalibrage
 
 À la clôture de chaque phase, Claude calcule le ratio **heures passées / heures estimées** de la phase, l'inscrit
@@ -329,3 +335,18 @@ dans le journal, puis :
 - si le ratio est entre 0,8 et 1,25 : rien à changer ;
 - sinon : les estimations des phases restantes sont multipliées par ce ratio, et les échéances des milestones
   GitHub sont décalées en conséquence (dans une PR `docs(roadmap): recalibrage phase N`).
+
+**Le ratio se calcule sur le temps total de Donnovan**, pas sur sa seule relecture : pilotage, questions et
+décisions en font partie (voir la définition des « Heures Donnovan » plus haut). La phase 0 l'a appris à ses
+dépens — mesurée d'abord à 3,0 h en ne comptant que les relectures, contre **4,9 h réelles**. Le ratio erroné de
+0,50 aurait amputé la roadmap de 30 % sans raison.
+
+### Phase 0 — ratio 0,83, aucun recalibrage
+
+| | Estimé | Passé | Ratio |
+|---|---:|---:|---:|
+| Phase 0 (14 issues, 5 milestones) | 6,0 h | **5,0 h** | **0,83** |
+
+Dans la fourchette 0,8–1,25 : les estimations des phases 1 à 8 sont conservées telles quelles. À réexaminer à
+la clôture de la phase 1, qui sera le premier échantillon de vrai code de rendu — la phase 0 était faite de
+specs, d'ADR et de configuration, et n'en dit pas grand-chose.

@@ -62,7 +62,11 @@ Références pour NVRHI : Donut et Donut-Samples (NVIDIA, MIT), à lire et adapt
    importante : fichiers dans l'ordre, et pour chacun ce qu'il faut y comprendre.
 3. Ajouter une entrée à `docs/JOURNAL.md` (format dans le fichier).
 4. Mettre à jour le board : Status, et « Passé (h) » dès que Donnovan donne son temps de relecture.
-5. Toujours demander à Donnovan à la fin de sa relecture : « Combien de temps y as-tu passé ? »
+5. Toujours demander à Donnovan, à la fin de la session : « **Combien de temps as-tu passé sur le projet en
+   tout ?** » — et non « combien sur la relecture ». Les « Heures Donnovan » de la ROADMAP comptent *tout* son
+   engagement : pilotage, questions, décisions, relecture. En ne comptant que la relecture, la phase 0 a été
+   sous-évaluée de 3,0 h contre 4,9 h réelles, et le ratio calculé sur cette base aurait déclenché un
+   recalibrage injustifié.
 
 ### À la clôture d'un milestone
 

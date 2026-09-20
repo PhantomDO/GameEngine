@@ -20,10 +20,76 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 | Phase | Estimé (h) | Passé (h) | Ratio |
 |---|---:|---:|---:|
-| 0 | 5,0 | 2,75 *(4 jalons sur 5)* | 0,73 |
+| 0 | 6,0 | **5,0** | **0,83** |
 | 1 | 4,5 | — | — |
 
 ---
+
+## 2026-09-20 — M0.3 et phase 0 — Clôture
+
+- **Temps Donnovan : 5,0 h** (12h00–14h30 et 21h30–23h55, soit ~4,9 h, arrondi au quart d'heure sur le board)
+- Définition de « terminé » (SPECS §9) : 5 critères sur 7 remplis — démo lançable sous Linux, mesures
+  consignées, CI verte, README du module à jour, **étude E0 écrite**. Deux sans objet : pas de démo Windows
+  (hors périmètre, ADR-0011), pas de binaire à publier.
+
+### L'erreur de mesure, corrigée par Donnovan
+
+**Je mesurais la mauvaise chose depuis le début du projet.** Je demandais « combien de temps sur la
+**relecture** » et n'enregistrais que ça, alors que les « Heures Donnovan » de la ROADMAP comptent **tout**
+l'engagement : pilotage, questions, décisions, relecture.
+
+| | Estimé | Passé | Ratio | Conséquence |
+|---|---:|---:|---:|---|
+| Mesure erronée (relectures seules) | 6,0 h | 3,0 h | **0,50** | recalibrage déclenché, −30 % sur 63 h |
+| **Mesure réelle** (Donnovan, 20/09) | 6,0 h | **5,0 h** | **0,83** | **dans la fourchette, rien à changer** |
+
+Le ratio erroné aurait amputé la roadmap d'environ 19 h sans aucune raison. CLAUDE.md est corrigé : la question
+de fin de session porte désormais sur le **temps total**, avec la raison écrite pour qu'elle ne redérive pas.
+
+### Phase 0 — bilan
+
+| Milestone | Estimé | Passé |
+|---|---:|---:|
+| M0.1 Dépôt, suivi et specs | 1,0 h | 1,25 h |
+| M0.2 Squelette de build et CI | 1,5 h | 1,50 h |
+| M0.4 Socle Rust | 1,0 h | 0,25 h |
+| M0.5 Retour au C++ | 1,0 h | 0,75 h |
+| M0.3 Core minimal | 1,5 h | 1,25 h |
+| **Phase 0** | **6,0 h** | **5,0 h** — ratio **0,83** |
+
+**Aucun recalibrage** : le ratio est dans la fourchette 0,8–1,25 de la ROADMAP. À réexaminer à la clôture de la
+phase 1, premier échantillon de vrai code de rendu — la phase 0 était faite de specs, d'ADR et de
+configuration, et ne prédit pas grand-chose.
+
+### Trois pannes silencieuses, un même motif
+
+La journée en a produit trois, toutes « vertes » pendant qu'elles ne faisaient rien :
+
+1. **L'épinglage de LLVM 22 en CI** — inopérant depuis M0.2, trois milestones sur clang 18. Le workflow
+   imprimait la version à chaque run ; personne ne l'a lue.
+2. **La baseline vcpkg** — contournée en local par le `spdlog` d'Arch, sans un mot. Découverte parce que Tracy
+   n'existe pas en paquet système.
+3. **Tracy sans `TRACY_NO_EXIT`** — le programme se termine avant qu'un profileur ait pu se connecter, sans
+   avertissement.
+
+Règle inscrite : **un contrôle doit échouer bruyamment quand sa condition n'est pas réunie, jamais se contenter
+de ne pas s'exécuter.** Deux garde-fous ajoutés en conséquence (vérification de la chaîne LLVM, refus de
+configurer sans toolchain vcpkg).
+
+### Numérotation des ADR
+
+La ROADMAP pré-attribuait cinq numéros d'ADR ; l'aller-retour Rust en a consommé deux (0010, 0011) et toute la
+suite avait glissé — M2.1 renvoyait à « ADR-0009 », devenu le style C++. **Les numéros pré-attribués sont
+retirés** : un ADR prend son numéro au moment où on l'écrit. Règle ajoutée à la ROADMAP.
+
+### Phase 2 détaillée
+
+Le rituel de clôture de phase demande de détailler la phase N+2. **8 issues créées** (#40 à #47) pour 5,5 h,
+conformes au découpage de la ROADMAP : stratégie de binding, caméra et meshes, instancing et timestamps,
+textures et mipmaps, samplers, hot-reload Slang, repli sur erreur, étude E2.
+
+- Prochaine étape : **phase 1**, M1.1 — fenêtre SDL3, boucle principale, frame time, sanitizers. Voir aussi
+  l'issue #38 (capture Tracy reportée) et #32 déjà close.
 
 ## 2026-09-20 — M0.3 — Allocateurs, Tracy et étude E0 (issues #7, #8, #9)
 
