@@ -153,6 +153,8 @@ pipeline flecs dédié ; rendu à fréquence libre avec interpolation. Détails 
 - **Commits** : [Conventional Commits](https://www.conventionalcommits.org/fr/) (`feat(render): …`, `fix(gpu): …`,
   `docs(adr): …`).
 - **Branches** : `main` protégée ; une branche par issue (`m1.2/device-vulkan`) ; fusion par PR avec CI verte.
+- **Licence** : MIT (fichier `LICENSE`), compatible avec le code adapté de Donut, qui garde son propre
+  en-tête MIT.
 - **Versions** : un tag par milestone terminé (`m1.3`), avec une GitHub Release qui contient les binaires de la
   démo produits par la CI et les mesures.
 
@@ -212,5 +214,4 @@ logiciel, comme WARP en CI.
 ## 11. Questions ouvertes
 
 - Nom du moteur (et donc du dépôt).
-- Licence du dépôt public (MIT recommandée).
 - Le jeu : à choisir en M3.5, pour que les phases 4 à 8 servent ce jeu-là.

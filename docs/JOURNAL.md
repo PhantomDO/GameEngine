@@ -38,8 +38,10 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
   en M1.2 devra préférer le discret ; plusieurs couches Vulkan implicites tierces sont installées et celle de
   Lossless Scaling est cassée (erreur du loader à chaque `vkCreateInstance`). Les deux points sont notés
   dans SPECS §10.
-- Prochaine étape : `./tools/github-bootstrap.sh GameEngine` (dépôt public, labels, 35 milestones, board, issues
-  des phases 0 et 1), après relecture du dry-run par Donnovan ; puis M0.2.
+- Décision : licence **MIT** (`LICENSE`), retirée des questions ouvertes de SPECS §11 et inscrite dans les
+  conventions (SPECS §8). Compatible avec le code adapté de Donut, qui garde son en-tête MIT.
+- Prochaine étape : dépôt public créé par `./tools/github-bootstrap.sh GameEngine` (labels, 35 milestones,
+  board, issues des phases 0 et 1) ; puis M0.2.
 
 ## 2026-09-20 — M0.1 — Machine de référence et vérification Windows
 

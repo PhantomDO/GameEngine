@@ -17,3 +17,7 @@ Moteur de jeu 3D en C++20 pour Windows et Linux, sur NVRHI (Vulkan, Direct3D 12)
 ## Compiler
 
 *À venir en M0.2.*
+
+## Licence
+
+[MIT](LICENSE).
