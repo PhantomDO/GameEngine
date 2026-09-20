@@ -1,3 +1,9 @@
+// <ostream> avant doctest, et ce n'est pas superflu : pour afficher la valeur d'un CHECK
+// qui échoue, doctest instancie operator<< vers un ostream. La STL de Microsoft déclare cet
+// opérateur pour std::string_view mais n'inclut pas <ostream> en cascade, contrairement à
+// libstdc++ — le test compilait donc sous Linux et pas sous MSVC. Trouvé par la CI Windows.
+#include <ostream>
+
 #include <doctest/doctest.h>
 
 #include "levain/core/version.hpp"
