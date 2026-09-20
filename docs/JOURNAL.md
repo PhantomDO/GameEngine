@@ -25,6 +25,38 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-20 — M0.2 — Réévaluation du langage : passage à Rust (ADR-0010)
+
+- Temps Donnovan : à renseigner (trois manches de lecture de code + relecture de l'ADR, estimée 0,3 h)
+- Sessions Claude Code : 1
+- Contexte : Donnovan demande à la clôture de M0.2 pourquoi ne pas passer à Rust, puisqu'il n'écrit pas le code
+  et qu'il fait du C++ toute la semaine. L'ADR-0001 prévoyait explicitement cette réévaluation.
+- Méthode : trois manches de comparaison sur du code réel plutôt qu'une discussion de principes, comme pour
+  l'ADR-0009.
+  1. **Transform + déplacement FPS** → Donnovan trouve le **Rust plus lisible sans en avoir jamais lu**, et le
+     C++ plus verbeux alors qu'il en fait tous les jours.
+  2. **Propagation hiérarchique des transforms** → manche **favorable au C++** : le `cascade()` de flecs tient
+     en 10 lignes, la version Rust sûre en demande 20. Bevy utilise `unsafe` dans la sienne (bevy#4697).
+  3. **Build et CI** → mesuré sur le dépôt réel : **435 lignes d'infrastructure C++ contre 94 en Rust**, pour
+     107 lignes de moteur. Commande : `wc -l` sur ci.yml, CMakePresets.json, les CMakeLists, vcpkg.json,
+     .clang-format et .clang-tidy, contre l'équivalent cargo écrit et compté.
+- Décision proposée : **ADR-0010**, passage à Rust edition 2024. wgpu, bevy_ecs, winit, glam, rapier3d, gltf,
+  WGSL, egui, tracing, tracy-client, kira. Remplace les ADR 0001, 0002, 0004, 0005, 0007 et la moitié nommage
+  de l'ADR-0009.
+- `bevy_ecs` et non `flecs_ecs` : le binding Rust de flecs existe et couvre les hiérarchies, mais il est
+  auto-déclaré **alpha**, maintenu par une personne, à 11 359 téléchargements, et son `World` est
+  `!Send`/`!Sync`. On ne pose pas le cœur du moteur dessus.
+- Conséquence sur la roadmap : **M1.4 (backend Direct3D 12) disparaît** — wgpu choisit son backend seul.
+  1,0 h de budget et une session rendues. Nouveau milestone **M0.4 — Socle Rust** pour refaire l'équivalent
+  de M0.2.
+- Correction d'une erreur de l'ADR-0001 : « le borrow checker résiste aux graphes d'objets » était vrai en
+  général et hors sujet ici, la réponse Rust à ce problème étant l'ECS, qu'on avait déjà choisi.
+- Écarts et problèmes : on perd le parcours de lecture Donut, sur lequel l'ADR-0002 et CLAUDE.md étaient
+  bâtis, et l'objectif « comprendre Unreal, Unity, Godot » se paie plus cher puisqu'ils sont tous en C++.
+  Assumé et écrit dans l'ADR.
+- Prochaine étape : validation de l'ADR-0010 par Donnovan. **Rien n'est migré tant qu'il n'est pas accepté.**
+  Ensuite : ROADMAP et SPECS mis à jour, milestone M0.4 créé, puis socle Rust.
+
 ## 2026-09-20 — M0.2 — clang-tidy, doctest et protection de main (issue #5)
 
 - Temps Donnovan : à renseigner (relecture estimée 0,3 h)
