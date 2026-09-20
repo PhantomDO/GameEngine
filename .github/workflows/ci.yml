@@ -43,13 +43,39 @@ jobs:
       # zip est indispensable au bootstrap de vcpkg et manque sur l'image.
       - name: Outils
         run: |
+          set -euo pipefail
           sudo apt-get update && sudo apt-get install -y ninja-build zip unzip
-          wget -qO- https://apt.llvm.org/llvm.sh | sudo bash -s -- ${{ env.LLVM_VERSION }}
-          sudo apt-get install -y clang-format-${{ env.LLVM_VERSION }} clang-tidy-${{ env.LLVM_VERSION }}
+
+          # Le script est téléchargé puis exécuté, et non passé en pipe à bash : un `wget`
+          # qui échoue donnerait sinon une entrée vide à bash, qui rendrait 0 et laisserait
+          # l'étape verte sans rien avoir installé.
+          wget -qO /tmp/llvm.sh https://apt.llvm.org/llvm.sh
+          chmod +x /tmp/llvm.sh
+          sudo /tmp/llvm.sh ${{ env.LLVM_VERSION }}
+          sudo apt-get install -y \
+            clang-format-${{ env.LLVM_VERSION }} clang-tidy-${{ env.LLVM_VERSION }}
+
+          # Des liens dans /usr/local/bin, qui précède /usr/bin dans le PATH.
+          # `update-alternatives` ne convient pas ici : /usr/bin/clang++ est un vrai
+          # fichier livré par le paquet clang, pas un lien géré par alternatives — la
+          # commande ne le remplace donc pas, et la version installée reste ignorée.
           for t in clang clang++ clang-format clang-tidy; do
-            sudo update-alternatives --install "/usr/bin/$t" "$t" "/usr/bin/$t-${{ env.LLVM_VERSION }}" 100
+            sudo ln -sf "/usr/bin/$t-${{ env.LLVM_VERSION }}" "/usr/local/bin/$t"
           done
+
+      # Garde-fou : une chaîne silencieusement différente de celle attendue est exactement
+      # ce qui nous a échappé de M0.2 à M0.3. La CI a tourné trois milestones sur clang 18
+      # en croyant utiliser clang 22, et personne n'a lu la version qu'elle imprimait.
+      - name: Vérifier la chaîne
+        run: |
+          set -euo pipefail
           clang++ --version | head -1
+          clang-format --version
+          clang-tidy --version | head -2
+          for t in clang++ clang-format clang-tidy; do
+            $t --version | grep -q "${{ env.LLVM_VERSION }}\." \
+              || { echo "::error::$t n'est pas en version ${{ env.LLVM_VERSION }}"; exit 1; }
+          done
 
       - name: Cloner vcpkg
         run: git clone --depth 1 --branch "${{ env.VCPKG_TAG }}" https://github.com/microsoft/vcpkg.git vcpkg
