@@ -1,6 +1,7 @@
 find_package(doctest CONFIG REQUIRED)
 
 add_executable(levain_tests
+    allocator_test.cpp
     assert_test.cpp
     doctest_main.cpp
     error_test.cpp
@@ -23,3 +24,9 @@ target_compile_definitions(levain_tests PRIVATE LEVAIN_EXPECTED_VERSION="${PROJE
 # « levain_tests a échoué ». Fourni par le port vcpkg de doctest.
 include(doctest)
 doctest_discover_tests(levain_tests)
+
+# Benchmark : compilé par la CI pour qu'il ne pourrisse pas, mais pas lancé par ctest.
+# Un chiffre de performance dépend de la machine ; il se mesure à la main sur la machine
+# de référence et se consigne dans le journal (CLAUDE.md, règle non négociable n°6).
+add_executable(levain_bench allocator_bench.cpp)
+target_link_libraries(levain_bench PRIVATE levain::core)

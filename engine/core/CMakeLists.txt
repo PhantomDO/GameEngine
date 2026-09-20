@@ -1,9 +1,12 @@
 find_package(spdlog CONFIG REQUIRED)
+find_package(Tracy CONFIG REQUIRED)
 
 add_library(levain_core STATIC
     src/assert.cpp
     src/error.cpp
+    src/linear_allocator.cpp
     src/log.cpp
+    src/pool_allocator.cpp
     src/version.cpp)
 add_library(levain::core ALIAS levain_core)
 
@@ -20,3 +23,15 @@ target_compile_definitions(levain_core PRIVATE LEVAIN_VERSION="${PROJECT_VERSION
 # donc la définition doit le suivre, sinon sandbox et tests la verraient désactivée.
 target_compile_definitions(levain_core PUBLIC
     $<$<CONFIG:Debug>:LEVAIN_ASSERTIONS_ENABLED=1>)
+
+# Profilage désactivé par défaut, y compris en Debug : un client Tracy ouvre un socket et
+# démarre un thread, ce qui n'a rien à faire dans un build qu'on lance sans profiler.
+# Activation explicite : cmake --preset linux-release -DLEVAIN_PROFILING=ON
+option(LEVAIN_PROFILING "Activer l'instrumentation Tracy" OFF)
+
+if(LEVAIN_PROFILING)
+    # PUBLIC des deux côtés : les macros sont compilées chez l'appelant, donc sandbox et
+    # tests doivent voir la définition et les en-têtes de Tracy.
+    target_compile_definitions(levain_core PUBLIC LEVAIN_PROFILING_ENABLED=1)
+    target_link_libraries(levain_core PUBLIC Tracy::TracyClient)
+endif()

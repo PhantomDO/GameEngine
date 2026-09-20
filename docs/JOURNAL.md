@@ -25,6 +25,74 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-20 — M0.3 — Allocateurs, Tracy et étude E0 (issues #7, #8, #9)
+
+- Temps Donnovan : à renseigner (relecture estimée 0,3 h)
+- Sessions Claude Code : 1
+- Fait : `LinearAllocator` et `PoolAllocator` avec 11 tests, benchmark, macros de profilage Tracy,
+  instrumentation du sandbox, étude **E0 — Comment démarre un moteur**.
+- **Benchmark des allocateurs** (Release, machine de référence, médiane de 5 exécutions de 100 000 allocations
+  de 64 octets) :
+
+  | Allocateur | ns / allocation | Rapport à `malloc` |
+  |---|---:|---:|
+  | `malloc` + `free` | 14,50 | 1,0× |
+  | `LinearAllocator` | **1,32** | **11,0×** |
+  | `PoolAllocator` (alloc + free) | **2,38** | **6,1×** |
+
+  Commande : `cmake --preset linux-release && cmake --build --preset linux-release &&
+  ./build/linux-release/tests/levain_bench`
+
+- **Tracy, coût nul quand désactivé — vérifié, pas affirmé** :
+
+  | | Symboles Tracy | Bibliothèques liées | Taille du sandbox |
+  |---|---:|---:|---:|
+  | Désactivé (défaut) | **0** | **0** | 7 607 232 o |
+  | `-DLEVAIN_PROFILING=ON` | 1 025 | 1 | 9 422 024 o |
+
+  Commandes : `nm -C <binaire> \| grep -ci tracy`, `ldd <binaire> \| grep -ci tracy`.
+
+- **Un test a trouvé un vrai bug dans mon allocateur.** `LinearAllocator::allocate` alignait l'**offset** dans
+  le tampon et non l'**adresse réelle** ; `make_unique<std::byte[]>` ne garantit que l'alignement par défaut
+  (16 octets), donc toute demande supérieure rendait un pointeur mal aligné — silencieusement, puisque ça
+  « marche » sur x86. Corrigé en alignant l'adresse. C'est exactement ce que le critère « tests d'alignement »
+  de l'issue devait attraper.
+- **clang-tidy a trouvé quatre défauts de plus** : deux conversions implicites `void**` → `void*` dans les
+  `memcpy` de la liste des libres, une multiplication en `int` élargie en `size_t`, et une exception pouvant
+  s'échapper du `main` du benchmark. Tous corrigés, aucun désactivé. Troisième passage de l'outil sur du code
+  neuf, troisième récolte.
+- **Défaut de ma démo, trouvé par Donnovan en la lançant** : 120 frames à 200 µs font ~24 ms, impossible d'y
+  connecter un profileur à la main. La parade est `TRACY_NO_EXIT=1`, qui fait attendre le client jusqu'à ce que
+  le profileur se connecte et ait tout reçu. Documenté dans CLAUDE.md. Sans elle, le programme se termine sans
+  le moindre avertissement — encore une panne silencieuse.
+- Écarts et problèmes : **le critère « capture d'écran Tracy » de l'issue #8 n'est pas rempli, et il est
+  reporté à M1.1** (issue #38) plutôt que maquillé. Trois raisons cumulées :
+  1. **Versions incompatibles.** Le client vient de vcpkg en **0.13.1** ; les binaires Linux du profileur ne
+     commencent qu'à **0.14.0**, et Tracy refuse une connexion dont le protocole ne correspond pas. vcpkg ne
+     connaît aucune version ≥ 0.14 (`versions/t-/tracy.json`), donc pas d'`override` possible. Compiler le
+     profileur 0.13.1 par `tracy[gui-tools]` reste faisable, mais c'est une interface graphique complète à
+     construire depuis les sources.
+  2. Aucun profileur installé sur la machine, et pas de paquet Arch.
+  3. **La capture n'aurait rien montré d'utile** : boucle factice de 120 frames dont l'essentiel est un `sleep`.
+     À M1.1 il y aura une vraie boucle, et une capture dira enfin où part la frame.
+
+  Ce qui est vérifié aujourd'hui : les symboles `__tracy_source_location` sont présents dans le binaire
+  instrumenté, et le coût nul quand Tracy est désactivé est mesuré.
+- Le sandbox a maintenant une **boucle simulée de 120 frames** : il fallait quelque chose à découper pour que
+  `LEVAIN_PROFILE_FRAME` ait un sens. La vraie boucle arrive en M1.1.
+- **Deuxième contrôle silencieusement inopérant de la session**, trouvé par Donnovan en lançant la commande
+  Tracy que je lui avais donnée. `VCPKG_ROOT` n'était pas exportée dans son shell, donc la toolchain vcpkg
+  n'était pas chargée — et **CMake a trouvé le `spdlog` d'Arch dans `/usr/lib/cmake/spdlog` et continué sans
+  rien dire**, contournant la baseline figée de l'ADR-0007. Le build n'a échoué que sur Tracy, qui n'existe pas
+  en paquet système. Une dépendance de moins et personne ne s'apercevait de rien.
+  Garde-fou posé : le `CMakeLists.txt` racine refuse de se configurer si `VCPKG_TOOLCHAIN` n'est pas défini,
+  avec un message qui dit quoi faire. Vérifié dans les deux sens.
+- **Le motif de la session** : deux vérifications ont passé pendant des semaines en ne faisant rien — l'épinglage
+  de LLVM en CI, et la baseline vcpkg en local. Les deux étaient « vertes ». À retenir : **un contrôle doit
+  échouer bruyamment quand sa condition n'est pas réunie, jamais se contenter de ne pas s'exécuter.**
+- Prochaine étape : clôture de M0.3 et de la phase 0 — ratio, recalibrage de la roadmap, et détail des issues
+  de la phase 2.
+
 ## 2026-09-20 — M0.3 — Logs, assertions et gestion d'erreurs (issue #6)
 
 - Temps Donnovan : à renseigner (relecture estimée 0,25 h)
