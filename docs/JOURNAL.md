@@ -41,6 +41,23 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
   | Un défaut clippy fait échouer la CI | **erreur** sur une fonction jamais utilisée | `cargo clippy --workspace --all-targets -- -D warnings` |
   | Infrastructure de build et CI | **136 lignes** contre 435 en C++ | `wc -l` sur Cargo.toml ×3 et ci.yml |
 
+- Durées de CI, premier run, **les 4 jobs verts du premier coup** :
+
+  | Job | Rust (à froid) | C++ à froid | C++ à chaud |
+  |---|---:|---:|---:|
+  | `linux-debug` | **16 s** | 85 s | 24 s |
+  | `linux-release` | **8 s** | 125 s | 24 s |
+  | `windows-debug` | **38 s** | 233 s | 52 s |
+  | `windows-release` | **34 s** | 288 s | 91 s |
+  | **Total** | **96 s** | 731 s | 191 s |
+
+  **Réserve importante : ce n'est pas une comparaison équitable.** Le workspace Rust n'a aujourd'hui
+  **aucune dépendance externe**, là où le build C++ compilait nvrhi, flecs et vulkan-headers. L'écart mesuré
+  reflète surtout ça. La comparaison honnête viendra quand wgpu et bevy_ecs seront réellement ajoutés (M1.2 et
+  M3.1) — et wgpu est un gros crate. Ce que ces chiffres établissent vraiment, c'est que **le chemin Windows a
+  fonctionné du premier coup**, sans `vcvars`, sans `vswhere` et sans divergence de bibliothèque standard, là
+  où M0.2 avait demandé deux correctifs.
+
 - Outillage : `rustup` installé en mode utilisateur dans `~/.cargo` (pas de sudo), Rust **1.98.1**, avec
   rustfmt et clippy.
 - Décisions prises en chemin :
