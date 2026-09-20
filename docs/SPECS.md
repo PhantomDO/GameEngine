@@ -8,7 +8,7 @@
 
 ## 1. Vision
 
-**Faire un jeu avec un moteur 3D construit ensemble.** Le moteur est écrit en C++20, sur NVRHI (Vulkan et
+**Faire un jeu avec un moteur 3D construit ensemble.** Le moteur est écrit en C++23, sur NVRHI (Vulkan et
 Direct3D 12) et flecs, et grandit par étapes mesurables.
 
 La compréhension reste un objectif : chaque système est accompagné d'une note qui explique ce qu'il fait, pourquoi
@@ -83,7 +83,7 @@ consoles, mobile, macOS (NVRHI n'a pas de backend Metal), VR.
 
 | Domaine | Choix | Justification |
 |---|---|---|
-| Langage | C++20, sans modules | [ADR-0001](adr/0001-langage-cpp20.md) |
+| Langage | C++23, sans modules | [ADR-0001](adr/0001-langage-cpp23.md) |
 | Couche graphique | NVRHI : Vulkan (Windows, Linux) et Direct3D 12 (Windows) | [ADR-0002](adr/0002-nvrhi.md) |
 | Fenêtre, input, surface | SDL3 | [ADR-0003](adr/0003-plateforme-sdl3.md) |
 | Modèle objet | flecs (ECS à archetypes) | [ADR-0004](adr/0004-ecs-flecs.md) |
