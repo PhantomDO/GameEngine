@@ -25,6 +25,58 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-20 — M0.2 — clang-tidy, doctest et protection de main (issue #5)
+
+- Temps Donnovan : à renseigner (relecture estimée 0,3 h)
+- Sessions Claude Code : 1
+- Fait : `.clang-tidy` (nommage de l'ADR-0009 + bugprone, performance, quelques modernize), doctest par vcpkg
+  avec 2 cas découverts individuellement, `ctest` branché, contrôle de format et analyse statique en CI,
+  protection de `main`.
+- Mesures — les trois critères de l'issue :
+
+  | Critère | Résultat | Commande |
+  |---|---|---|
+  | Un code mal formaté fait échouer la CI | code de sortie **123** sur format invalide, **0** sinon | `find … \| xargs clang-format --dry-run --Werror` |
+  | `ctest` lance au moins un test | **2 tests**, verts | `ctest --test-dir build/linux-debug` |
+  | Push direct sur `main` refusé | **refusé** (voir plus bas) | `git push origin main` |
+
+  Le test sait échouer : `LEVAIN_EXPECTED_VERSION` forcé à `9.9.9` → `50% tests passed, 1 tests failed`.
+
+- Durées de CI avec LLVM 22 et les tests : `linux-debug` 69 s, `linux-release` 56 s, `windows-debug` 289 s,
+  `windows-release` 278 s. L'installation de LLVM 22 coûte une trentaine de secondes aux jobs Linux par rapport
+  au run précédent (24 s), pour la garantie que clang-format et clang-tidy sont les mêmes qu'en local.
+
+- **Deux vraies trouvailles, aucune stylistique.**
+
+  1. **clang-tidy, première exécution** : `std::print` peut lever et `main` laissait l'exception s'échapper, ce
+     qui appelle `std::terminate`. Corrigé dans `main`, pas désactivé (règle n°4). La politique générale reste
+     l'affaire de l'ADR-0008 en M0.3.
+  2. **CI Windows** : `version_test.cpp` ne compilait pas sous MSVC alors que Linux était vert. Pour afficher la
+     valeur d'un `CHECK` qui échoue, doctest instancie `operator<<` vers un `ostream` ; la STL de Microsoft
+     déclare cet opérateur pour `std::string_view` **sans inclure `<ostream>` en cascade**, là où libstdc++ le
+     fait. Réglé par un `#include <ostream>`. **Première divergence de plateforme du projet**, sur 20 lignes de
+     test, et détectable uniquement par le job Windows — celui qu'on avait gardé non bloquant « au cas où ».
+
+- Correction d'une erreur d'analyse de ma part : j'avais justifié Clang 18 en CI par « la CI est plus
+  conservatrice ». C'est faux — Clang 18 n'est pas plus strict, il est moins complet, et surtout clang-format 18
+  et 22 ne produisent pas la même sortie. Un contrôle de format en 18 aurait rejeté des fichiers corrects
+  formatés en 22. LLVM 22 installé en CI via `apt.llvm.org`, `LLVM_VERSION` dans le workflow à garder égal à la
+  machine de référence (SPECS §10).
+
+- Protection de `main` : PR obligatoire, `linux-debug` et `linux-release` requis, force-push et suppression
+  interdits, **`enforce_admins` activé**. Les jobs Windows sont volontairement **hors des checks requis** :
+  ils sont `continue-on-error`, les inscrire annulerait ce compromis. À ajouter le jour où ils deviendront
+  bloquants.
+
+- Écarts et problèmes : `enforce_admins: true` s'applique aussi à Donnovan. Pour lever la protection en cas de
+  besoin : `gh api -X DELETE repos/PhantomDO/Levain/branches/main/protection`. Conséquence pour les sessions
+  suivantes : **plus aucun push direct sur `main`**, y compris pour une entrée de journal.
+
+- `bugprone-easily-swappable-parameters` est le seul check écarté : il signalerait
+  `allocate(size_t size, size_t alignment)` et à peu près toute l'API d'un moteur.
+
+- Prochaine étape : clôture de M0.2, puis M0.3 — logs, assertions, ADR-0008, allocateurs, Tracy, étude E0.
+
 ## 2026-09-20 — M0.2 — CI Windows + Linux (issue #4)
 
 - Temps Donnovan : à renseigner (relecture estimée 0,25 h)
