@@ -1,6 +1,6 @@
 # ADR-0004 — Modèle objet : ECS avec flecs
 
-- **Statut** : remplacé par [ADR-0010](0010-passage-a-rust.md) le 2026-09-20
+- **Statut** : accepté le 2026-09-20 ; remis en vigueur par [ADR-0011](0011-retour-au-cpp.md) après la parenthèse Rust
 - **Date** : 2026-09-20
 - **Milestone** : M0.1 (intégration en M3.1)
 - **Historique** : la première version proposait d'écrire notre propre ECS. Avec la priorité donnée au jeu,

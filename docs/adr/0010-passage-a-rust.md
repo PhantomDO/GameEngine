@@ -1,6 +1,6 @@
 # ADR-0010 — Passage à Rust
 
-- **Statut** : accepté le 2026-09-20
+- **Statut** : remplacé par [ADR-0011](0011-retour-au-cpp.md) le 2026-09-20 — ses deux mesures étaient biaisées contre le C++, voir ADR-0011 §Contexte
 - **Date** : 2026-09-20
 - **Milestone** : M0.2 (décidé à sa clôture)
 - **Remplace** : [ADR-0001](0001-langage-cpp23.md) (langage), [ADR-0002](0002-nvrhi.md) (NVRHI),

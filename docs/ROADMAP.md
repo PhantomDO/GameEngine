@@ -1,14 +1,15 @@
 # Roadmap v1
 
-> Version 0.3 — 20/09/2026 — statut : **validé par Donnovan**
+> Version 0.4 — 20/09/2026 — statut : **validé par Donnovan**
 >
 > v0.2 : NVRHI remplace la RHI maison (ADR-0002) et flecs remplace l'ECS maison (ADR-0004). Le jalon « RHI
 > mince » disparaît, les phases 1, 2, 3, 5 et 7 sont allégées, un backend Direct3D 12 et le choix du jeu sont
 > ajoutés. Total : **77 h → 68 h**.
 >
-> v0.3 : **passage à Rust** (ADR-0010). **M1.4 (backend Direct3D 12) est supprimé** — wgpu choisit son backend
-> seul. **M0.4 (socle Rust) est ajouté**. Les jalons qui nommaient une bibliothèque C++ nomment son équivalent
-> Rust. Total : **68 h → 68 h** (−1,0 h pour M1.4, +1,0 h pour M0.4).
+> v0.3 : passage à Rust (ADR-0010), annulé le jour même.
+> v0.4 : **retour au C++23** (ADR-0011), périmètre **Linux d'abord**. **M1.4 (backend Direct3D 12) reste hors
+> périmètre** — différé jusqu'à ce qu'une machine Windows soit disponible, et non plus supprimé. **M0.5 (retour
+> au C++) ajouté.** Total : **68 h → 68 h** (−1,0 h pour M1.4 différé, +1,0 h pour M0.5).
 
 ## Comment lire les estimations
 
@@ -25,7 +26,7 @@
 
 | Phase | Contenu | Heures Donnovan | Sessions | Fin visée (1,5 h/sem.) |
 |---|---|---:|---:|---|
-| 0 | Fondations | 5,0 | 5 | 11/10/2026 |
+| 0 | Fondations | 5,0 | 4 | 11/10/2026 |
 | 1 | Fenêtre et premier triangle | 4,5 | 3 | 01/11/2026 |
 | 2 | 3D de base | 5,5 | 4 | 29/11/2026 |
 | 3 | Scène et ECS | 6,0 | 4 | 27/12/2026 |
@@ -55,7 +56,7 @@ physique, gizmos, audio, le jeu et son bilan) pèse à lui seul 34,5 h.
 |---|---:|---:|---|
 | M0.1 Dépôt, suivi et specs | 1,0 | 0 | 27/09/2026 |
 | M0.2 Squelette de build et CI | 1,5 | 2 | 04/10/2026 |
-| M0.4 Socle Rust | 1,0 | 2 | 27/09/2026 |
+| M0.5 Retour au C++ | 1,0 | 1 | 27/09/2026 |
 | M0.3 Core minimal | 1,5 | 1 | 11/10/2026 |
 
 **M0.1 — Dépôt, suivi et specs.** Specs, roadmap et ADR validés ; dépôt GitHub public créé ; board, labels et
@@ -68,11 +69,10 @@ Windows + Linux, cache vcpkg, protection de `main`.
 *Critères* : build depuis un clone propre avec deux commandes sur chaque OS ; CI verte sur les deux ; temps de
 CI à froid et à chaud mesurés et notés.
 
-**M0.4 — Socle Rust.** Migration vers Rust décidée à la clôture de M0.2 (ADR-0010) : workspace cargo, crates
-`levain-core` et `levain-sandbox`, CI GitHub Actions, rustfmt et clippy, premiers tests, documentation mise à
-jour. Le C++ de M0.2 reste dans l'historique et sous le tag `m0.2`.
-*Critères* : `cargo run -p levain-sandbox` affiche la bannière ; CI verte sur les deux OS ; un code mal formaté
-ou un warning clippy font échouer la CI.
+**M0.5 — Retour au C++.** Le projet est passé à Rust puis revenu au C++ le 20/09/2026 (ADR-0010 puis
+ADR-0011). Le retour apporte trois changements : périmètre **Linux d'abord**, presets et CI Windows retirés, et
+la **forme du code** fixée par l'ADR-0011 — fonctions libres, dépendances dans la signature, pièges nommés.
+*Critères* : build et tests verts sur Linux ; presets et CI Windows retirés ; ADR-0011 accepté.
 
 **M0.3 — Core minimal.** Logs, assertions, politique de gestion d'erreurs (ADR-0008), horloge haute
 résolution, lecture de fichiers, allocateurs linéaire (par frame) et pool, intégration de Tracy.
@@ -87,15 +87,16 @@ dans une capture Tracy.
 | Milestone | Heures D. | Sessions | Échéance |
 |---|---:|---:|---|
 | M1.1 Fenêtre et boucle | 1,5 | 1 | 18/10/2026 |
-| M1.2 Device wgpu et surface | 1,5 | 1 | 25/10/2026 |
+| M1.2 Device NVRHI (Vulkan) et swapchain | 1,5 | 1 | 25/10/2026 |
 | M1.3 Premier triangle | 1,5 | 1 | 01/11/2026 |
+| ~~M1.4 Backend Direct3D 12~~ | — | — | **différé** (ADR-0011) |
 
 **M1.1 — Fenêtre et boucle.** Fenêtre SDL3, boucle principale, événements, redimensionnement, mesure du
 frame time ; ASan et UBSan en CI Linux.
 *Critères* : redimensionnement et minimisation sans plantage ; frame time affiché ; zéro fuite signalée par
 les sanitizers.
 
-**M1.2 — Device wgpu et surface.** `DeviceManager` Vulkan inspiré de celui de Donut et adapté à
+**M1.2 — Device NVRHI (Vulkan) et swapchain.** `DeviceManager` Vulkan inspiré de celui de Donut et adapté à
 SDL3 : instance, device, queues, swapchain recréée au redimensionnement ; `nvrhi::vulkan::createDevice` ;
 couche de validation NVRHI et validation layers Vulkan ; écran effacé à une couleur.
 *Critères* : zéro erreur de validation sur 5 minutes avec redimensionnements ; temps de démarrage mesuré.
@@ -105,10 +106,10 @@ list NVRHI ; test de fumée headless sous lavapipe en CI Linux.
 *Critères* : triangle affiché sous Linux ; zéro erreur de validation ; frame time CPU < 1 ms ; image du test de
 fumée identique à la référence.
 
-**M1.4 — supprimé (ADR-0010).** wgpu sélectionne lui-même son backend (Vulkan, Direct3D 12, Metal) : il n'y a
-plus de backend à écrire. Texte d'origine conservé pour mémoire.
+**M1.4 — différé (ADR-0011).** Le projet cible Linux d'abord : pas de backend Direct3D 12 tant qu'aucune
+machine Windows n'est disponible. Le texte reste ici pour quand ce sera le cas.
 
-*Ancien contenu :* **Backend Direct3D 12.** `DeviceManager` D3D12 ; choix du backend au lancement (`--api vulkan|d3d12`) ;
+*Contenu différé :* **Backend Direct3D 12.** `DeviceManager` D3D12 ; choix du backend au lancement (`--api vulkan|d3d12`) ;
 test de fumée sous WARP (D3D12 logiciel) en CI Windows.
 *Critères* : le même triangle sous les deux backends ; CI Windows verte ; binaire Windows de la CI lancé sous
 Proton sur la machine de référence en `--api d3d12` (voir SPECS §10, « Vérification sous Windows »).
@@ -144,13 +145,13 @@ variantes de shaders d'Unity.
 
 | Milestone | Heures D. | Sessions | Échéance |
 |---|---:|---:|---|
-| M3.1 Intégration de bevy_ecs | 1,5 | 1 | 06/12/2026 |
+| M3.1 Intégration de flecs et explorer | 1,5 | 1 | 06/12/2026 |
 | M3.2 Transforms et hiérarchie | 1,0 | 1 | 13/12/2026 |
 | M3.3 Boucle à pas fixe | 1,5 | 1 | 20/12/2026 |
 | M3.4 Input par actions et caméra libre | 1,5 | 1 | 27/12/2026 |
 | M3.5 Choix du jeu | 0,5 | 0 | 27/12/2026 |
 
-**M3.1 — Intégration de bevy_ecs.** Monde bevy_ecs, composants de base, systèmes rangés par phases,
+**M3.1 — Intégration de flecs et explorer.** Monde flecs, composants de base, systèmes rangés par phases,
 modules flecs ; le renderer dessine ce que contient le monde ; explorer web activé en Debug.
 *Critères* : les entités de la démo sont visibles et modifiables dans l'explorer (flecs.dev/explorer) ; mise à
 jour de 100 000 entités (Transform + Velocity) en moins d'1 ms.
@@ -235,11 +236,11 @@ triangles.
 
 | Milestone | Heures D. | Sessions | Échéance |
 |---|---:|---:|---|
-| M6.1 Intégration rapier3d | 2,5 | 2 | 11/04/2027 |
+| M6.1 Intégration Jolt | 2,5 | 2 | 11/04/2027 |
 | M6.2 Colliders, requêtes, debug draw | 2,0 | 1 | 25/04/2027 |
 | M6.3 Character controller | 2,0 | 1 | 02/05/2027 |
 
-**M6.1 — Intégration rapier3d.** Monde physique, corps statiques et dynamiques, synchronisation bevy_ecs ↔ rapier3d au pas
+**M6.1 — Intégration Jolt.** Monde physique, corps statiques et dynamiques, synchronisation flecs ↔ Jolt au pas
 fixe.
 *Critère* : 1 000 caisses en chute libre, pas de simulation sous 4 ms.
 
@@ -257,13 +258,13 @@ pourquoi c'est presque toujours une bibliothèque.
 
 | Milestone | Heures D. | Sessions | Échéance |
 |---|---:|---:|---|
-| M7.1 egui et panneaux de debug | 1,5 | 1 | 09/05/2027 |
+| M7.1 ImGui et panneaux de debug | 1,5 | 1 | 09/05/2027 |
 | M7.2 Réflexion et inspecteur | 2,0 | 1 | 16/05/2027 |
 | M7.3 Sérialisation et undo/redo | 2,0 | 2 | 30/05/2027 |
 | M7.4 Gizmos et picking | 2,5 | 2 | 06/06/2027 |
 | M7.5 Play/Stop dans l'éditeur | 1,5 | 1 | 13/06/2027 |
 
-**M7.1 — egui et panneaux de debug.** Intégration egui sur wgpu et winit, panneaux de
+**M7.1 — ImGui et panneaux de debug.** Renderer ImGui pour NVRHI (adapté de Donut), backend SDL3, panneaux de
 statistiques et de profiling.
 *Critère* : coût de l'UI inférieur à 0,5 ms par frame.
 
@@ -291,7 +292,7 @@ de flecs.
 | M8.2 Le jeu (vertical slice) | 8,0 | 6 | 01/08/2027 |
 | M8.3 Bilan v1 | 1,5 | 1 | 08/08/2027 |
 
-**M8.1 — Audio.** kira, composants AudioSource et AudioListener, spatialisation 3D.
+**M8.1 — Audio.** miniaudio, composants AudioSource et AudioListener, spatialisation 3D.
 *Critère* : 32 sons 3D simultanés sans coupure.
 
 **M8.2 — Le jeu (vertical slice).** Le jeu choisi en M3.5, fait uniquement avec le moteur et l'éditeur.

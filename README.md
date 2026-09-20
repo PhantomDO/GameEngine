@@ -1,14 +1,13 @@
 # Levain
 
-Moteur de jeu 3D en **Rust** pour Windows et Linux, sur **wgpu** (Vulkan, Direct3D 12, Metal) et **bevy_ecs**,
-construit étape par étape pour faire un jeu et comprendre comment fonctionnent les moteurs du marché
-(Unreal, Unity, Godot…).
+Moteur de jeu 3D en C++23 pour Linux, sur NVRHI (Vulkan) et flecs, construit étape par
+étape pour faire un jeu et comprendre comment fonctionnent les moteurs du marché (Unreal, Unity, Godot…).
 
 Un levain, c'est ce qu'on nourrit un peu chaque semaine, qui reste vivant entre deux fournées, et à partir de
 quoi on cuit autre chose. C'est le rythme et le rôle de ce moteur.
 
-**Statut** : phase 0. Le moteur a démarré en C++23 (tag `m0.2`) et est passé à Rust à la clôture de M0.2,
-pour les raisons mesurées dans l'[ADR-0010](docs/adr/0010-passage-a-rust.md).
+**Statut** : phase 0. Le moteur a fait un aller-retour par Rust le 20/09/2026 (tags `m0.2` et `m0.4`) ;
+les raisons du retour au C++ sont dans l'[ADR-0011](docs/adr/0011-retour-au-cpp.md).
 
 - [Spécifications](docs/SPECS.md)
 - [Roadmap chiffrée](docs/ROADMAP.md)
@@ -21,11 +20,7 @@ pour les raisons mesurées dans l'[ADR-0010](docs/adr/0010-passage-a-rust.md).
 
 ## Compiler
 
-Un seul prérequis : [rustup](https://rustup.rs).
-
-```bash
-cargo run -p levain-sandbox
-```
+*À venir en M0.2.*
 
 ## Licence
 
