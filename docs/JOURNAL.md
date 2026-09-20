@@ -65,11 +65,19 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
   connecter un profileur à la main. La parade est `TRACY_NO_EXIT=1`, qui fait attendre le client jusqu'à ce que
   le profileur se connecte et ait tout reçu. Documenté dans CLAUDE.md. Sans elle, le programme se termine sans
   le moindre avertissement — encore une panne silencieuse.
-- Écarts et problèmes : **le critère « capture d'écran Tracy » de l'issue #8 n'est pas rempli.** Le profileur
-  Tracy n'est installé ni sur la machine ni dans le dépôt, et je ne peux pas produire de capture d'écran d'une
-  interface graphique. Les zones sont vérifiées autrement : les symboles `__tracy_source_location` sont présents
-  dans le binaire instrumenté. Donnovan peut faire la capture avec le profileur Tracy en lançant
-  `./build/.../levain_sandbox` construit avec `-DLEVAIN_PROFILING=ON`.
+- Écarts et problèmes : **le critère « capture d'écran Tracy » de l'issue #8 n'est pas rempli, et il est
+  reporté à M1.1** (issue #38) plutôt que maquillé. Trois raisons cumulées :
+  1. **Versions incompatibles.** Le client vient de vcpkg en **0.13.1** ; les binaires Linux du profileur ne
+     commencent qu'à **0.14.0**, et Tracy refuse une connexion dont le protocole ne correspond pas. vcpkg ne
+     connaît aucune version ≥ 0.14 (`versions/t-/tracy.json`), donc pas d'`override` possible. Compiler le
+     profileur 0.13.1 par `tracy[gui-tools]` reste faisable, mais c'est une interface graphique complète à
+     construire depuis les sources.
+  2. Aucun profileur installé sur la machine, et pas de paquet Arch.
+  3. **La capture n'aurait rien montré d'utile** : boucle factice de 120 frames dont l'essentiel est un `sleep`.
+     À M1.1 il y aura une vraie boucle, et une capture dira enfin où part la frame.
+
+  Ce qui est vérifié aujourd'hui : les symboles `__tracy_source_location` sont présents dans le binaire
+  instrumenté, et le coût nul quand Tracy est désactivé est mesuré.
 - Le sandbox a maintenant une **boucle simulée de 120 frames** : il fallait quelque chose à découper pour que
   `LEVAIN_PROFILE_FRAME` ait un sens. La vraie boucle arrive en M1.1.
 - **Deuxième contrôle silencieusement inopérant de la session**, trouvé par Donnovan en lançant la commande
