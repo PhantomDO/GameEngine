@@ -1,12 +1,14 @@
 # ADR-0010 — Passage à Rust
 
-- **Statut** : proposé
+- **Statut** : accepté le 2026-09-20
 - **Date** : 2026-09-20
 - **Milestone** : M0.2 (décidé à sa clôture)
 - **Remplace** : [ADR-0001](0001-langage-cpp23.md) (langage), [ADR-0002](0002-nvrhi.md) (NVRHI),
-  [ADR-0004](0004-ecs-flecs.md) (flecs), [ADR-0005](0005-shaders-slang.md) (Slang),
-  [ADR-0007](0007-build-cmake-vcpkg.md) (CMake + vcpkg). Remplace partiellement
-  [ADR-0009](0009-style-cpp.md) (style).
+  [ADR-0003](0003-plateforme-sdl3.md) (SDL3), [ADR-0004](0004-ecs-flecs.md) (flecs),
+  [ADR-0005](0005-shaders-slang.md) (Slang), [ADR-0007](0007-build-cmake-vcpkg.md) (CMake + vcpkg).
+  Remplace partiellement [ADR-0009](0009-style-cpp.md) (style).
+- **Corrigé le 2026-09-20** : l'ADR-0003 manquait à cette liste alors que la décision remplace bien SDL3 par
+  winit. Oubli relevé en appliquant l'ADR.
 
 ## Contexte
 

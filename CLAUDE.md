@@ -2,22 +2,23 @@
 
 ## Le projet
 
-**Levain** — moteur de jeu 3D en C++23, Windows et Linux, sur **NVRHI** (backends Vulkan et Direct3D 12) et
-**flecs** (ECS). Namespace racine `levain`, cibles CMake préfixées `levain_`.
+**Levain** — moteur de jeu 3D en **Rust** (edition 2024), Windows et Linux, sur **wgpu** (backends Vulkan,
+Direct3D 12, Metal) et **bevy_ecs**. Crates préfixés `levain-`, workspace cargo à la racine.
 Priorité de Donnovan : **faire un jeu avec un moteur construit ensemble**, et comprendre au passage comment
 fonctionnent les moteurs du marché (Unreal, Unity, Godot…) grâce aux études et aux lectures.
 
 À lire avant toute session : `docs/SPECS.md`, `docs/ROADMAP.md`, la dernière entrée de `docs/JOURNAL.md`.
-Références pour NVRHI : Donut et Donut-Samples (NVIDIA, MIT), à lire et adapter, pas à ajouter en dépendance.
+Références de lecture : **Bevy** (notamment `bevy_render`) et les **exemples wgpu**, à lire et adapter, pas à
+ajouter en dépendance. Le parcours Donut de la v0.3 est caduc depuis l'ADR-0010.
 
 ## Les rôles
 
 - **Toi** : tu conçois et tu écris le code, les tests, la CI, la documentation, les études. Tu tiens le board et
   le journal à jour.
 - **Donnovan** : il décide, relit et pose des questions. Il dispose de **1 à 2 h par semaine** : chaque minute de
-  son attention compte. Il est développeur C++ expérimenté (Unreal, Unity) : pas besoin d'expliquer le C++, mais
-  il faut expliquer les concepts moteur. Les détails de Vulkan ne l'intéressent pas : explique ce que NVRHI fait
-  pour nous, pas l'API qu'il y a en dessous, sauf s'il le demande.
+  son attention compte. Il est développeur C++ expérimenté (Unreal, Unity) et **débutant en Rust** : les
+  concepts moteur et les idiomes Rust méritent une explication, la programmation générale non. Les détails de
+  Vulkan ne l'intéressent pas : explique ce que wgpu fait pour nous, pas l'API en dessous, sauf demande.
 
 ## Règles non négociables
 
@@ -29,8 +30,9 @@ Références pour NVRHI : Donut et Donut-Samples (NVIDIA, MIT), à lire et adapt
 4. **Zéro erreur de validation en Debug** (couche de validation NVRHI, validation layers Vulkan, couche de debug
    D3D12). Ne désactive jamais une validation, un test, un warning ou un sanitizer pour faire passer quelque
    chose. Signale le problème.
-5. **Dépendances via vcpkg** (ou `FetchContent` avec commit figé s'il n'y a pas de port), licence permissive,
-   visibilité limitée aux modules prévus (voir SPECS §7). Du code adapté de Donut garde son en-tête de licence MIT.
+5. **Dépendances via cargo**, licence permissive, visibilité limitée aux modules prévus (voir SPECS §7).
+   `unsafe_code = "deny"` au niveau du workspace : toute levée est locale, commentée et justifiée. Du code adapté
+   de Bevy ou des exemples wgpu garde son en-tête de licence.
 6. **Mesures reproductibles** : chaque chiffre du journal vient d'une commande ou d'un script versionné, sur la
    machine de référence (SPECS §10).
 
@@ -47,7 +49,7 @@ Références pour NVRHI : Donut et Donut-Samples (NVIDIA, MIT), à lire et adapt
 - Branche `m<phase>.<n>/<sujet>`, commits en Conventional Commits (en anglais).
 - Commentaires de code : expliquer le **pourquoi**, pas le quoi.
 - Un `README.md` par module : rôle, invariants, points d'entrée, équivalents dans Unreal, Unity et Godot.
-- Quand on utilise NVRHI ou flecs d'une manière non évidente, un commentaire renvoie à la section de leur
+- Quand on utilise wgpu ou bevy_ecs d'une manière non évidente, un commentaire renvoie à la section de leur
   documentation qui l'explique.
 
 ### À la fin
@@ -74,7 +76,7 @@ recalibrer si besoin (ROADMAP, section « Recalibrage »), détailler en issues 
 
 ## Répondre aux questions de Donnovan
 
-- Citer le code précisément (`engine/gpu/device_manager_vk.cpp:142`).
+- Citer le code précisément (`engine/gpu/src/device.rs:142`).
 - Expliquer le pourquoi avant le comment ; donner le compromis et l'alternative écartée.
 - Comparer avec Unreal, Unity et Godot quand c'est pertinent, en distinguant ce qui est **documenté** (avec la
   source) de ce qui est **supposé**. Pour REEngine, Anvil ou Frostbite, ne citer que des sources publiques
@@ -97,39 +99,20 @@ gh project item-edit --project-id <PROJECT_ID> --id <ITEM_ID> --field-id <FIELD_
 
 ## Commandes de build
 
-**Prérequis, une seule fois** : vcpkg cloné et bootstrappé, puis `VCPKG_ROOT` exporté. Les presets lisent cette
-variable ; sans elle, `cmake --preset` échoue sur le fichier toolchain.
+**Prérequis, une seule fois** : `rustup` installé (`curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`).
+Aucune autre dépendance système : c'est tout l'intérêt de l'ADR-0010.
 
 ```bash
-git clone https://github.com/microsoft/vcpkg ~/vcpkg && ~/vcpkg/bootstrap-vcpkg.sh -disableMetrics
-set -Ux VCPKG_ROOT ~/vcpkg   # fish ; bash : echo 'export VCPKG_ROOT=~/vcpkg' >> ~/.bashrc
+cargo build --workspace          # compiler
+cargo run -p levain-sandbox      # lancer la démo
+cargo test --workspace           # tests
+cargo fmt --all                  # formater
+cargo clippy --workspace --all-targets -- -D warnings   # lint, comme en CI
 ```
 
-**Build depuis un clone propre, deux commandes** :
+Profils : `dev` par défaut, `--release` pour les mesures. Les jobs de CI s'appellent `linux-debug`,
+`linux-release`, `windows-debug`, `windows-release` — **ne pas les renommer** : ce sont les checks requis par la
+protection de `main`, et les changer rendrait la branche infusionnable.
 
-```bash
-cmake --preset linux-debug
-cmake --build --preset linux-debug
-```
-
-Le **premier** `cmake --preset` est long : vcpkg compile `nvrhi` et `flecs` depuis les sources. Les suivants
-sont instantanés (cache local `~/.cache/vcpkg`).
-
-Presets disponibles : `linux-debug`, `linux-release`, `windows-debug`, `windows-release`. Générateur Ninja
-partout. Linux compile avec Clang, Windows avec MSVC (ADR-0001). Les `linux-*` et `windows-*` sont conditionnés
-par l'OS hôte : `cmake --list-presets` ne montre que ceux qui s'appliquent.
-
-```bash
-./build/linux-debug/sandbox/levain_sandbox   # lancer la démo
-```
-
-`compile_commands.json` est généré dans `build/<preset>/`. Pour clangd à la racine :
-
-```bash
-ln -sf build/linux-debug/compile_commands.json compile_commands.json
-```
-
-**Ne jamais retirer `-pedantic-errors`** du `CMakeLists.txt` racine : c'est le garde-fou qui maintient le code en
-C++23 strict, puisque MSVC compile en `/std:c++latest` (ADR-0001). Une extension C++26 doit casser la CI Linux.
-
-*Tests, format et lint : à compléter en M0.2, issue #5.*
+**Ne jamais lever `unsafe_code = "deny"` globalement.** Les frontières GPU qui en auront besoin le font
+localement, avec un commentaire de sûreté, pour rester repérables par un `grep`.
