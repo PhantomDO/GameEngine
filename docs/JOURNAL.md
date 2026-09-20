@@ -25,6 +25,20 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-20 — M0.1 — Le moteur s'appelle Levain
+
+- Temps Donnovan : inclus dans l'heure de M0.1
+- Sessions Claude Code : 1
+- Fait : nom choisi, **Levain**. Dépôt renommé `PhantomDO/GameEngine` → `PhantomDO/Levain` (GitHub redirige
+  l'ancienne URL), board renommé « Levain — Roadmap », SPECS en v0.3, README, CLAUDE.md et SETUP mis à jour.
+  Namespace racine `levain`, cibles CMake préfixées `levain_`.
+- Décisions : le namespace français est une **exception assumée** à la règle « identifiants en anglais »
+  (SPECS §8) — nom propre, comme Godot. Notée dans les conventions plutôt que subie.
+- Écarts et problèmes : le dossier local est encore `~/Projects/GameEngine`. À renommer entre deux sessions
+  (`mv ~/Projects/GameEngine ~/Projects/Levain`), pas pendant, pour ne pas casser la session en cours.
+- Prochaine étape : M0.1 close. M0.2 — arborescence, presets CMake avec `cxx_std_23`, vcpkg en manifeste, CI
+  avec `-pedantic-errors` sur le job Linux.
+
 ## 2026-09-20 — M0.1 — Passage à C++23 (ADR-0001 amendé)
 
 - Temps Donnovan : 1,0 h (estimé 1,0 h pour M0.1 — ratio 1,0), porté sur le board (0,75 h sur l'issue #1,

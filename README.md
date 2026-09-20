@@ -1,7 +1,10 @@
-# Moteur 3D (nom à définir)
+# Levain
 
 Moteur de jeu 3D en C++23 pour Windows et Linux, sur NVRHI (Vulkan, Direct3D 12) et flecs, construit étape par
 étape pour faire un jeu et comprendre comment fonctionnent les moteurs du marché (Unreal, Unity, Godot…).
+
+Un levain, c'est ce qu'on nourrit un peu chaque semaine, qui reste vivant entre deux fournées, et à partir de
+quoi on cuit autre chose. C'est le rythme et le rôle de ce moteur.
 
 **Statut** : phase 0, specs en cours de validation.
 

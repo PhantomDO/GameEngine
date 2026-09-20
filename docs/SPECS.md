@@ -1,11 +1,12 @@
-# Spécifications — Moteur 3D (nom à définir)
+# Spécifications — Levain
 
 > Version 0.3 — 20/09/2026 — statut : **validé par Donnovan** (ADR 0001 à 0007 acceptés)
 > Documents liés : [ROADMAP](ROADMAP.md) · [JOURNAL](JOURNAL.md) · [ADR](adr/) · [Études](etudes/) ·
 > [Lectures](LECTURES.md) · [Q&R](QA.md)
 >
 > v0.2 : couche graphique NVRHI (ADR-0002) et ECS flecs (ADR-0004) à la place d'une RHI et d'un ECS maison.
-> v0.3 : C++23 au lieu de C++20 (ADR-0001 amendé), machine de référence renseignée, licence MIT.
+> v0.3 : C++23 au lieu de C++20 (ADR-0001 amendé), machine de référence renseignée, licence MIT, moteur nommé
+> **Levain**.
 
 ## 1. Vision
 
@@ -149,7 +150,9 @@ pipeline flecs dédié ; rendu à fréquence libre avec interpolation. Détails 
 ## 8. Conventions
 
 - **Langue** : code, identifiants, commits et logs en anglais (norme de l'industrie) ; documentation, ADR, études,
-  journal et Q&R en français.
+  journal et Q&R en français. **Une exception assumée** : le moteur s'appelle `Levain`, nom propre français, donc
+  le namespace racine est `levain` et les cibles CMake sont préfixées `levain_`. Comme Godot, le nom ne se
+  traduit pas.
 - **Style** : clang-format et clang-tidy versionnés dans le dépôt et vérifiés en CI.
 - **Commits** : [Conventional Commits](https://www.conventionalcommits.org/fr/) (`feat(render): …`, `fix(gpu): …`,
   `docs(adr): …`).
@@ -214,5 +217,4 @@ logiciel, comme WARP en CI.
 
 ## 11. Questions ouvertes
 
-- Nom du moteur (et donc du dépôt).
 - Le jeu : à choisir en M3.5, pour que les phases 4 à 8 servent ce jeu-là.

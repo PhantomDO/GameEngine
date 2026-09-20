@@ -12,6 +12,24 @@ Réponse courte, puis détails. Références : fichier:ligne, ADR, source extern
 
 ---
 
+### Pourquoi « Levain » ? (2026-09-20, M0.1)
+
+Parce que c'est le rythme du projet. Un levain se nourrit un peu chaque semaine, reste vivant entre deux
+fournées, et sert de **base à partir de laquelle on cuit autre chose** — ce qu'est un moteur par rapport à un
+jeu. Il se partage aussi, ce qui colle au « cuisiner à plusieurs » de Donnovan.
+
+Le champ culinaire était déjà présent dans le projet avant le nom : M4.3 de la roadmap s'appelle
+« Cuisson des assets » (*asset baking*).
+
+Écartés et pourquoi : **Blitter** (la puce Amiga/Atari ST — Donnovan a commencé sur Game Boy Color et
+PlayStation, la référence ne lui parlait pas) ; **Encore**, **Ludus**, **Noria**, **Marmite**, **Brigade**
+(collisions GitHub sérieuses, dont `ludusavi`, un outil de sauvegardes de jeux — même domaine) ; **Braise**
+(sémantiquement décroissante, elle pointe vers le passé) ; **Mijote** (verbe conjugué, mauvais namespace) ;
+**Madeleine** et **Cartouche** (muets sur la technique).
+
+Le namespace `levain` est une exception assumée à la règle « identifiants en anglais » (SPECS §8) : c'est un nom
+propre, il ne se traduit pas, comme Godot.
+
 ### Le C++23 est-il stable en 2026 ? Peut-on y passer ? (2026-09-20, M0.1)
 
 Oui côté Linux, « pas officiellement » côté Windows — et c'est gérable.

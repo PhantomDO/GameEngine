@@ -44,12 +44,12 @@ Claude Code peut faire toute cette étape, sauf la connexion à GitHub (`gh auth
 
 > Lis CLAUDE.md et docs/SETUP.md, puis fais l'étape 3 : modèles GitHub, `git init`, premier commit. Lance
 > `vulkaninfo --summary` pour compléter la machine de référence dans SPECS §10. Puis lance
-> `DRY_RUN=1 ./tools/github-bootstrap.sh GameEngine` et montre-moi le résultat avant de lancer pour de vrai.
+> `DRY_RUN=1 ./tools/github-bootstrap.sh Levain` et montre-moi le résultat avant de lancer pour de vrai.
 
 Les commandes, si tu préfères les lancer toi-même :
 
 ```bash
-cd ~/Projects/GameEngine        # le dossier qui contient le kit
+cd ~/Projects/Levain            # le dossier qui contient le kit
 
 # Les outils distants de Claude ne peuvent pas écrire dans .github/ : les modèles d'issue et de PR
 # sont livrés dans tools/github-templates/. À faire une seule fois, s'il existe :
