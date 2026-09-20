@@ -68,6 +68,16 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
   `./build/.../levain_sandbox` construit avec `-DLEVAIN_PROFILING=ON`.
 - Le sandbox a maintenant une **boucle simulée de 120 frames** : il fallait quelque chose à découper pour que
   `LEVAIN_PROFILE_FRAME` ait un sens. La vraie boucle arrive en M1.1.
+- **Deuxième contrôle silencieusement inopérant de la session**, trouvé par Donnovan en lançant la commande
+  Tracy que je lui avais donnée. `VCPKG_ROOT` n'était pas exportée dans son shell, donc la toolchain vcpkg
+  n'était pas chargée — et **CMake a trouvé le `spdlog` d'Arch dans `/usr/lib/cmake/spdlog` et continué sans
+  rien dire**, contournant la baseline figée de l'ADR-0007. Le build n'a échoué que sur Tracy, qui n'existe pas
+  en paquet système. Une dépendance de moins et personne ne s'apercevait de rien.
+  Garde-fou posé : le `CMakeLists.txt` racine refuse de se configurer si `VCPKG_TOOLCHAIN` n'est pas défini,
+  avec un message qui dit quoi faire. Vérifié dans les deux sens.
+- **Le motif de la session** : deux vérifications ont passé pendant des semaines en ne faisant rien — l'épinglage
+  de LLVM en CI, et la baseline vcpkg en local. Les deux étaient « vertes ». À retenir : **un contrôle doit
+  échouer bruyamment quand sa condition n'est pas réunie, jamais se contenter de ne pas s'exécuter.**
 - Prochaine étape : clôture de M0.3 et de la phase 0 — ratio, recalibrage de la roadmap, et détail des issues
   de la phase 2.
 

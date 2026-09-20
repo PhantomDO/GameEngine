@@ -1,6 +1,22 @@
 cmake_minimum_required(VERSION 3.28)
 project(Levain VERSION 0.1.0 LANGUAGES CXX)
 
+# Garde-fou : sans la toolchain vcpkg, CMake va chercher les dépendances dans le système.
+#
+# Ce n'est pas théorique : un build configuré sans elle a trouvé le spdlog d'Arch dans
+# /usr/lib/cmake/spdlog et a continué sans rien dire, contournant la baseline figée de
+# l'ADR-0007. Il n'a échoué que sur Tracy, qui n'existe pas en paquet système — une
+# dépendance de moins et personne ne s'apercevait de rien.
+if(NOT DEFINED VCPKG_TOOLCHAIN)
+    message(FATAL_ERROR
+        "La toolchain vcpkg n'est pas active : les dépendances viendraient du système et non "
+        "de la baseline figée dans vcpkg.json.\n"
+        "  Utilise un preset : cmake --preset linux-debug\n"
+        "  Le preset lit la variable d'environnement VCPKG_ROOT, qui doit être exportée :\n"
+        "    set -Ux VCPKG_ROOT ~/vcpkg      # fish\n"
+        "    export VCPKG_ROOT=~/vcpkg       # bash")
+endif()
+
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)

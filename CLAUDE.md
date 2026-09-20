@@ -133,6 +133,18 @@ retirés (ADR-0011) : à remettre avec leur CI le jour où Windows redevient une
 ln -sf build/linux-debug/compile_commands.json compile_commands.json
 ```
 
+**`VCPKG_ROOT` doit être exportée.** Sans elle, CMake cherche les dépendances dans le système : un build a
+déjà trouvé le `spdlog` d'Arch dans `/usr/lib/cmake/spdlog` et continué sans rien dire, contournant la baseline
+figée de l'ADR-0007. Le `CMakeLists.txt` racine refuse désormais de se configurer sans la toolchain vcpkg.
+
+**Profilage Tracy**, désactivé par défaut :
+
+```bash
+cmake -S . -B build/prof -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=clang++ \
+  -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake -DLEVAIN_PROFILING=ON
+cmake --build build/prof && ./build/prof/sandbox/levain_sandbox   # profileur lancé AVANT
+```
+
 **Ne jamais retirer `-pedantic-errors`** du `CMakeLists.txt` racine : c'est le garde-fou qui maintient le code en
 C++23 strict, puisque MSVC compile en `/std:c++latest` (ADR-0001). Une extension C++26 doit casser la CI Linux.
 
