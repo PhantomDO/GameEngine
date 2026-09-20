@@ -1,17 +1,18 @@
 # Spécifications — Levain
 
-> Version 0.3 — 20/09/2026 — statut : **validé par Donnovan** (ADR 0001 à 0007 acceptés)
+> Version 0.4 — 20/09/2026 — statut : **validé par Donnovan** (ADR-0010 accepté)
 > Documents liés : [ROADMAP](ROADMAP.md) · [JOURNAL](JOURNAL.md) · [ADR](adr/) · [Études](etudes/) ·
 > [Lectures](LECTURES.md) · [Q&R](QA.md)
 >
 > v0.2 : couche graphique NVRHI (ADR-0002) et ECS flecs (ADR-0004) à la place d'une RHI et d'un ECS maison.
 > v0.3 : C++23 au lieu de C++20 (ADR-0001 amendé), machine de référence renseignée, licence MIT, moteur nommé
 > **Levain**.
+> v0.4 : **passage à Rust** (ADR-0010). wgpu, bevy_ecs, winit remplacent NVRHI, flecs et SDL3.
 
 ## 1. Vision
 
-**Faire un jeu avec un moteur 3D construit ensemble.** Le moteur est écrit en C++23, sur NVRHI (Vulkan et
-Direct3D 12) et flecs, et grandit par étapes mesurables.
+**Faire un jeu avec un moteur 3D construit ensemble.** Le moteur est écrit en Rust, sur wgpu (Vulkan,
+Direct3D 12, Metal) et bevy_ecs, et grandit par étapes mesurables.
 
 La compréhension reste un objectif : chaque système est accompagné d'une note qui explique ce qu'il fait, pourquoi
 il est conçu ainsi, et comment Unreal, Unity et Godot résolvent le même problème (et REEngine, Anvil ou Frostbite
@@ -85,48 +86,50 @@ consoles, mobile, macOS (NVRHI n'a pas de backend Metal), VR.
 
 | Domaine | Choix | Justification |
 |---|---|---|
-| Langage | C++23, sans modules | [ADR-0001](adr/0001-langage-cpp23.md) |
-| Couche graphique | NVRHI : Vulkan (Windows, Linux) et Direct3D 12 (Windows) | [ADR-0002](adr/0002-nvrhi.md) |
-| Fenêtre, input, surface | SDL3 | [ADR-0003](adr/0003-plateforme-sdl3.md) |
-| Modèle objet | flecs (ECS à archetypes) | [ADR-0004](adr/0004-ecs-flecs.md) |
-| Shaders | Slang → SPIR-V et DXIL | [ADR-0005](adr/0005-shaders-slang.md) |
+| Langage | Rust, edition 2024 | [ADR-0010](adr/0010-passage-a-rust.md) |
+| Couche graphique | wgpu (Vulkan, Direct3D 12, Metal) | [ADR-0010](adr/0010-passage-a-rust.md) |
+| Fenêtre, input | winit | [ADR-0010](adr/0010-passage-a-rust.md) |
+| Modèle objet | bevy_ecs (ECS à archétypes) | [ADR-0010](adr/0010-passage-a-rust.md) |
+| Shaders | WGSL, validés par naga | [ADR-0010](adr/0010-passage-a-rust.md) |
 | Hébergement et suivi | GitHub (dépôt public) | [ADR-0006](adr/0006-hebergement-github.md) |
-| Build et dépendances | CMake (presets) + Ninja + vcpkg (manifeste) | [ADR-0007](adr/0007-build-cmake-vcpkg.md) |
-| Référence d'intégration NVRHI | Donut et Donut-Samples (NVIDIA, MIT) | Lus et adaptés, pas utilisés comme dépendance (ADR-0002) |
-| Initialisation Vulkan | vk-bootstrap (optionnel) | Décidé en M1.2 |
-| Maths | GLM | Conventions proches de celles des shaders |
-| Import glTF | fastgltf | Rapide, C++ moderne |
-| Images | stb_image, puis libktx (KTX2) | Simple d'abord, format GPU compressé ensuite |
-| Physique | Jolt Physics | Utilisé par Horizon Forbidden West et Death Stranding 2, intégré à Godot 4.4 |
-| Audio | miniaudio | Multiplateforme, spatialisation incluse |
-| UI de l'éditeur | Dear ImGui (branche docking) + ImGuizmo | Standard des outils internes ; Donut fournit un renderer ImGui pour NVRHI |
-| Profiling | Tracy | CPU et GPU, standard de l'industrie |
-| Logs | spdlog | — |
-| Tests | doctest | Léger, rapide à compiler |
-| Sérialisation | JSON de flecs (addon meta) | Réflexion et JSON intégrés ; format binaire des assets en phase 4 |
+| Build, tests, format, lint | cargo, `cargo test`, rustfmt, clippy | [ADR-0010](adr/0010-passage-a-rust.md) |
+| Références de lecture | Bevy et les exemples wgpu | Lus, pas ajoutés en dépendance |
+| Maths | glam | Conçu pour le jeu, conventions proches des shaders |
+| Import glTF | gltf | Crate de référence de l'écosystème |
+| Images | image, puis ktx2 | Simple d'abord, format GPU compressé ensuite |
+| Physique | rapier3d | Physique Rust native, même famille que Jolt |
+| Audio | kira | Pensé pour le jeu |
+| UI de l'éditeur | egui | Mode immédiat, intégration wgpu native |
+| Profiling | tracy-client | Même Tracy, client Rust |
+| Logs | tracing | Standard de l'écosystème |
+| Sérialisation | serde | Standard de l'écosystème |
 
 ## 7. Architecture cible
 
 ```
+Cargo.toml          workspace
 engine/
-├── core/       types de base, logs, asserts, allocateurs, temps, fichiers
-├── platform/   SDL3 : fenêtre, événements, input brut
-├── gpu/        DeviceManager par backend (Vulkan, D3D12), swapchain, cadence des frames ; expose nvrhi::IDevice
-├── render/     renderer sur NVRHI : caméras, matériaux, passes, éclairage, ombres
-├── scene/      monde flecs, composants de base, transforms, hiérarchie, modules flecs
+├── core/       types de base, logs, temps, fichiers
+├── platform/   winit : fenêtre, événements, input brut
+├── gpu/        device et surface wgpu, swapchain, cadence des frames
+├── render/     renderer sur wgpu : caméras, matériaux, passes, éclairage, ombres
+├── scene/      monde bevy_ecs, composants de base, transforms, hiérarchie
 ├── assets/     import, base d'assets (GUID), cuisson, cache, hot-reload
-├── physics/    intégration Jolt
-├── audio/      intégration miniaudio
+├── physics/    intégration rapier3d
+├── audio/      intégration kira
 ├── input/      actions et axes au-dessus de platform
 └── app/        boucle principale, cycle de vie
-editor/         exécutable de l'éditeur
+editor/         binaire de l'éditeur
 sandbox/        une démo par milestone
 games/          le jeu construit sur le moteur
-shaders/        sources Slang
-tests/          tests unitaires et benchmarks
+shaders/        sources WGSL
 tools/          scripts (bootstrap GitHub, mesures)
 docs/           SPECS, ROADMAP, JOURNAL, LECTURES, QA, SETUP, adr/, etudes/
 ```
+
+Chaque module est un crate du workspace. Les **tests unitaires vivent dans le crate** qu'ils testent
+(`#[cfg(test)] mod tests`), les tests d'intégration dans `<crate>/tests/` : il n'y a pas de dossier `tests/`
+à la racine, contrairement à l'arborescence C++ de la v0.3.
 
 **Dépendances entre modules** (du bas vers le haut, jamais l'inverse) :
 
@@ -138,14 +141,17 @@ tout ce qui précède ← app ← editor, sandbox, games
 
 Visibilité des bibliothèques :
 
-- SDL3 : uniquement dans `platform/` (et `gpu/` pour la création de surface).
-- NVRHI : dans `gpu/`, `render/`, et `editor/` pour le rendu d'ImGui.
-- flecs : c'est l'API du modèle objet, visible dans `scene/` et tout ce qui est au-dessus ; jamais dans `core/`,
-  `platform/` ni `gpu/`.
-- Jolt : uniquement dans `physics/`.
+- winit : uniquement dans `platform/` (et `gpu/` pour la création de surface).
+- wgpu : dans `gpu/`, `render/`, et `editor/` pour le rendu d'egui.
+- bevy_ecs : c'est l'API du modèle objet, visible dans `scene/` et tout ce qui est au-dessus ; jamais dans
+  `core/`, `platform/` ni `gpu/`.
+- rapier3d : uniquement dans `physics/`.
+
+`unsafe_code = "deny"` s'applique à tout le workspace. Les rares levées — frontières GPU — sont locales,
+commentées, et repérables par un `grep` sur `allow(unsafe_code)`.
 
 **Boucle principale (cible)** : simulation à pas fixe (60 Hz par défaut) avec accumulateur, exécutée par un
-pipeline flecs dédié ; rendu à fréquence libre avec interpolation. Détails dans un ADR en M3.3.
+planning bevy_ecs dédié ; rendu à fréquence libre avec interpolation. Détails dans un ADR en M3.3.
 
 ## 8. Conventions
 

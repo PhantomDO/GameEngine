@@ -25,6 +25,46 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-20 — M0.4 — Socle Rust (issues #27 à #30)
+
+- Temps Donnovan : à renseigner (relecture estimée 0,4 h)
+- Sessions Claude Code : 1
+- Fait : migration complète vers Rust. Workspace cargo, crates `levain-core` et `levain-sandbox`, CI réécrite,
+  documentation répercutée, C++ supprimé de l'arbre de travail.
+- Mesures :
+
+  | Critère | Résultat | Commande |
+  |---|---|---|
+  | Le sandbox tourne | `Levain 0.1.0 — linux/x86_64 — rust edition 2024` | `cargo run -p levain-sandbox` |
+  | Tests | **2 tests verts** | `cargo test --workspace` |
+  | Un code mal formaté fait échouer la CI | code de sortie **1** | `cargo fmt --all --check` |
+  | Un défaut clippy fait échouer la CI | **erreur** sur une fonction jamais utilisée | `cargo clippy --workspace --all-targets -- -D warnings` |
+  | Infrastructure de build et CI | **136 lignes** contre 435 en C++ | `wc -l` sur Cargo.toml ×3 et ci.yml |
+
+- Outillage : `rustup` installé en mode utilisateur dans `~/.cargo` (pas de sudo), Rust **1.98.1**, avec
+  rustfmt et clippy.
+- Décisions prises en chemin :
+  - **Noms de jobs de CI conservés à l'identique** (`linux-debug`, `linux-release`, `windows-debug`,
+    `windows-release`) alors que le profil cargo s'appelle `dev`. Les renommer aurait rendu `main`
+    infusionnable : ce sont les checks requis par la protection de branche. Le piège était noté dans l'issue #28,
+    et le contourner coûte moins cher que de reconfigurer la protection.
+  - **`clippy::all` seulement, pas `pedantic`.** Même raisonnement que pour clang-tidy en M0.2 : on active ce
+    qui attrape de vrais défauts. `pedantic` pousse vers `must_use` partout, ce que l'ADR-0009 a écarté sous le
+    nom de « décoration maximale ».
+  - **Le test de version du C++ n'a pas été porté tel quel.** Il vérifiait que CMake injectait correctement
+    `LEVAIN_VERSION` — un câblage qui n'existe plus, `env!("CARGO_PKG_VERSION")` étant automatique. Remplacé par
+    un test qui vérifie que la version est un semver à trois composants, ce qui attrape un `Cargo.toml` malformé.
+  - **Pas de dossier `tests/` à la racine** : les tests unitaires vivent dans le crate (`#[cfg(test)] mod tests`).
+    SPECS §7 mis à jour en conséquence.
+- **Erreur corrigée dans l'ADR-0010** : l'en-tête ne listait pas l'ADR-0003 (SDL3) parmi les ADR remplacés, alors
+  que la décision remplace bien SDL3 par winit. Relevé en appliquant l'ADR. L'ADR-0003 est passé à « remplacé ».
+- Écarts et problèmes : **les issues de la phase 1 nomment encore NVRHI, SDL3 et Slang** (#10, #12 à #17). Elles
+  ne sont pas réécrites ici — le périmètre de l'issue #30 s'arrêtait à SPECS, ROADMAP, CLAUDE.md et aux statuts
+  d'ADR — mais elles devront l'être **avant d'attaquer M1.1**.
+- Roadmap : **M1.4 supprimé**, **M0.4 ajouté**, total inchangé à 68 h. Phase 0 passe de 4,0 à 5,0 h, phase 1 de
+  5,5 à 4,5 h.
+- Prochaine étape : clôture de M0.4, puis M0.3 — logs, assertions, ADR-0008, allocateurs, Tracy, étude E0.
+
 ## 2026-09-20 — M0.2 — Réévaluation du langage : passage à Rust (ADR-0010)
 
 - Temps Donnovan : à renseigner (trois manches de lecture de code + relecture de l'ADR, estimée 0,3 h)

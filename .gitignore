@@ -1,8 +1,5 @@
 # Build
-/build/
-/out/
-/vcpkg_installed/
-CMakeUserPresets.json
+/target/
 
 # IDE
 /.vs/
@@ -11,14 +8,7 @@ CMakeUserPresets.json
 /.cache/
 *.user
 
-# Lien clangd vers le compile_commands.json du preset courant
-/compile_commands.json
-
 # Captures et sorties locales
 *.rdc
 *.tracy
 /captures/
-
-# Clone et cache de vcpkg en CI
-/vcpkg/
-/vcpkg-cache/

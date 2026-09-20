@@ -12,122 +12,60 @@ concurrency:
 
 jobs:
   build:
-    name: ${{ matrix.preset }}
+    # Les noms de jobs sont repris à l'identique de la CI C++ (« debug » et non « dev »,
+    # le nom du profil cargo) : ce sont eux que la protection de `main` exige comme checks
+    # requis. Les renommer rendrait `main` infusionnable, GitHub attendant indéfiniment
+    # deux checks qui ne viendraient jamais.
+    name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
 
-    # Les jobs Windows sont non bloquants pour l'instant : Donnovan n'a pas de machine
-    # Windows, et une casse propre à MSVC ne doit pas empêcher de fusionner du travail
-    # Linux. Ils restent lancés, parce qu'ils sont le seul endroit qui vérifie le pari
-    # /std:c++latest de l'ADR-0001. À repasser en bloquant quand une machine sera dispo.
+    # Jobs Windows non bloquants tant que Donnovan n'a pas de machine Windows, comme en
+    # M0.2. Ils tournent quand même : c'est le seul endroit qui vérifie la cible MSVC.
     continue-on-error: ${{ matrix.experimental }}
 
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { os: ubuntu-latest,  preset: linux-debug,     experimental: false }
-          - { os: ubuntu-latest,  preset: linux-release,   experimental: false }
-          - { os: windows-latest, preset: windows-debug,   experimental: true }
-          - { os: windows-latest, preset: windows-release, experimental: true }
+          - { name: linux-debug,     os: ubuntu-latest,  profile: dev,     experimental: false }
+          - { name: linux-release,   os: ubuntu-latest,  profile: release, experimental: false }
+          - { name: windows-debug,   os: windows-latest, profile: dev,     experimental: true }
+          - { name: windows-release, os: windows-latest, profile: release, experimental: true }
 
     env:
-      # Doit rester égal au "builtin-baseline" de vcpkg.json : vcpkg résout les versions
-      # de ports à partir de ce commit, il doit donc exister dans le clone.
-      VCPKG_TAG: "2026.07.29"
-      # Doit rester égal à la version de la machine de référence (SPECS §10).
-      LLVM_VERSION: "22"
-      VCPKG_ROOT: ${{ github.workspace }}/vcpkg
-      # Chemin imposé plutôt que le défaut (~/.cache sous Linux, %LOCALAPPDATA% sous
-      # Windows) : une seule entrée de cache à déclarer, identique sur les deux OS.
-      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/vcpkg-cache
+      CARGO_TERM_COLOR: always
 
     steps:
       - uses: actions/checkout@v4
 
-      # zip est indispensable au bootstrap de vcpkg et manque sur certaines images.
-      # On l'a appris à la dure sur la machine de référence (journal, M0.2).
-      # LLVM 22 plutôt que le Clang 18 de l'image : il faut la MÊME version qu'en local,
-      # sinon clang-format produit une mise en forme différente et le contrôle de format
-      # échoue sur des fichiers pourtant corrects. Même raison pour clang-tidy, dont les
-      # règles évoluent d'une version à l'autre.
-      - name: Outils (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update && sudo apt-get install -y ninja-build zip unzip
-          wget -qO- https://apt.llvm.org/llvm.sh | sudo bash -s -- ${{ env.LLVM_VERSION }}
-          sudo apt-get install -y clang-format-${{ env.LLVM_VERSION }} clang-tidy-${{ env.LLVM_VERSION }}
-          for t in clang clang++ clang-format clang-tidy; do
-            sudo update-alternatives --install "/usr/bin/$t" "$t" "/usr/bin/$t-${{ env.LLVM_VERSION }}" 100
-          done
-          clang++ --version | head -1
+      # rustup est préinstallé sur les images GitHub : pas d'action tierce à ajouter,
+      # comme on s'y était tenu côté C++ en refusant ilammy/msvc-dev-cmd.
+      - name: Chaîne Rust
+        run: rustup toolchain install stable --profile minimal --component rustfmt,clippy --no-self-update
 
-      - name: Cloner vcpkg
-        run: git clone --depth 1 --branch "${{ env.VCPKG_TAG }}" https://github.com/microsoft/vcpkg.git vcpkg
-
-      - name: Bootstrap vcpkg (Linux)
-        if: runner.os == 'Linux'
-        run: ./vcpkg/bootstrap-vcpkg.sh -disableMetrics
-
-      - name: Bootstrap vcpkg (Windows)
-        if: runner.os == 'Windows'
-        run: .\vcpkg\bootstrap-vcpkg.bat -disableMetrics
-
-      # On cache les archives binaires de vcpkg, pas ses sources : ce sont les paquets
-      # déjà compilés. Mesuré à 19 Mo sur la machine de référence pour nvrhi + flecs +
-      # vulkan-headers, contre 23 s de compilation à froid.
-      - name: Cache vcpkg
+      - name: Cache cargo
         uses: actions/cache@v4
         with:
-          path: vcpkg-cache
-          key: vcpkg-${{ matrix.os }}-${{ env.VCPKG_TAG }}-${{ hashFiles('vcpkg.json') }}
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-${{ matrix.name }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: cargo-${{ matrix.name }}-
 
-      # vcpkg refuse de démarrer si le dossier de cache binaire n'existe pas.
-      - name: Créer le dossier de cache
-        shell: bash
-        run: mkdir -p vcpkg-cache
+      - run: cargo build --profile ${{ matrix.profile }} --workspace
+      - run: cargo test --profile ${{ matrix.profile }} --workspace
 
-      - name: Configurer et compiler (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          cmake --preset ${{ matrix.preset }}
-          cmake --build --preset ${{ matrix.preset }}
+      # Le sandbox reste lancé en plus des tests, comme en M0.2 : sa sortie dit quelle
+      # cible a réellement été produite, ce qu'un test n'affiche pas dans les logs.
+      - run: cargo run --profile ${{ matrix.profile }} -q -p levain-sandbox
 
-      # Ninja + MSVC exige l'environnement vcvars, qui ne survit pas d'une étape à
-      # l'autre : configuration et compilation tiennent donc dans une seule étape.
-      # vswhere localise Visual Studio sans coder en dur l'édition du runner.
-      - name: Configurer et compiler (Windows)
-        if: runner.os == 'Windows'
-        shell: cmd
-        run: |
-          for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath`) do call "%%i\VC\Auxiliary\Build\vcvars64.bat"
-          cmake --preset ${{ matrix.preset }} || exit /b 1
-          cmake --build --preset ${{ matrix.preset }} || exit /b 1
+      # Format et lint une seule fois : ce sont des propriétés des sources, pas de la
+      # configuration de build.
+      - name: Format
+        if: matrix.name == 'linux-debug'
+        run: cargo fmt --all --check
 
-      - name: Tests
-        run: ctest --test-dir build/${{ matrix.preset }} --output-on-failure
-
-      # Le sandbox reste lancé en plus des tests : sa sortie porte __cplusplus et la version
-      # du compilateur, c'est notre diagnostic pour voir ce que chaque plateforme fournit
-      # réellement (ADR-0001). Un test n'afficherait pas ça dans les logs.
-      - name: Lancer le sandbox
-        shell: bash
-        run: |
-          case "$RUNNER_OS" in
-            Windows) ./build/${{ matrix.preset }}/sandbox/levain_sandbox.exe ;;
-            *)       ./build/${{ matrix.preset }}/sandbox/levain_sandbox ;;
-          esac
-
-      # Format et analyse statique : une seule fois, sur un seul job. Ce sont des propriétés
-      # des sources, pas de la configuration de build — les lancer quatre fois ne dirait
-      # rien de plus et allongerait la CI d'autant.
-      - name: Format (clang-format)
-        if: matrix.preset == 'linux-debug'
-        run: |
-          find engine sandbox tests -name '*.cpp' -o -name '*.hpp' \
-            | xargs clang-format --dry-run --Werror
-
-      - name: Analyse statique (clang-tidy)
-        if: matrix.preset == 'linux-debug'
-        run: |
-          find engine sandbox tests -name '*.cpp' \
-            | xargs clang-tidy -p build/${{ matrix.preset }} --warnings-as-errors='*'
+      - name: Lint
+        if: matrix.name == 'linux-debug'
+        run: cargo clippy --workspace --all-targets -- -D warnings
