@@ -25,6 +25,52 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-20 — M0.3 — Allocateurs, Tracy et étude E0 (issues #7, #8, #9)
+
+- Temps Donnovan : à renseigner (relecture estimée 0,3 h)
+- Sessions Claude Code : 1
+- Fait : `LinearAllocator` et `PoolAllocator` avec 11 tests, benchmark, macros de profilage Tracy,
+  instrumentation du sandbox, étude **E0 — Comment démarre un moteur**.
+- **Benchmark des allocateurs** (Release, machine de référence, médiane de 5 exécutions de 100 000 allocations
+  de 64 octets) :
+
+  | Allocateur | ns / allocation | Rapport à `malloc` |
+  |---|---:|---:|
+  | `malloc` + `free` | 14,50 | 1,0× |
+  | `LinearAllocator` | **1,32** | **11,0×** |
+  | `PoolAllocator` (alloc + free) | **2,38** | **6,1×** |
+
+  Commande : `cmake --preset linux-release && cmake --build --preset linux-release &&
+  ./build/linux-release/tests/levain_bench`
+
+- **Tracy, coût nul quand désactivé — vérifié, pas affirmé** :
+
+  | | Symboles Tracy | Bibliothèques liées | Taille du sandbox |
+  |---|---:|---:|---:|
+  | Désactivé (défaut) | **0** | **0** | 7 607 232 o |
+  | `-DLEVAIN_PROFILING=ON` | 1 025 | 1 | 9 422 024 o |
+
+  Commandes : `nm -C <binaire> \| grep -ci tracy`, `ldd <binaire> \| grep -ci tracy`.
+
+- **Un test a trouvé un vrai bug dans mon allocateur.** `LinearAllocator::allocate` alignait l'**offset** dans
+  le tampon et non l'**adresse réelle** ; `make_unique<std::byte[]>` ne garantit que l'alignement par défaut
+  (16 octets), donc toute demande supérieure rendait un pointeur mal aligné — silencieusement, puisque ça
+  « marche » sur x86. Corrigé en alignant l'adresse. C'est exactement ce que le critère « tests d'alignement »
+  de l'issue devait attraper.
+- **clang-tidy a trouvé quatre défauts de plus** : deux conversions implicites `void**` → `void*` dans les
+  `memcpy` de la liste des libres, une multiplication en `int` élargie en `size_t`, et une exception pouvant
+  s'échapper du `main` du benchmark. Tous corrigés, aucun désactivé. Troisième passage de l'outil sur du code
+  neuf, troisième récolte.
+- Écarts et problèmes : **le critère « capture d'écran Tracy » de l'issue #8 n'est pas rempli.** Le profileur
+  Tracy n'est installé ni sur la machine ni dans le dépôt, et je ne peux pas produire de capture d'écran d'une
+  interface graphique. Les zones sont vérifiées autrement : les symboles `__tracy_source_location` sont présents
+  dans le binaire instrumenté. Donnovan peut faire la capture avec le profileur Tracy en lançant
+  `./build/.../levain_sandbox` construit avec `-DLEVAIN_PROFILING=ON`.
+- Le sandbox a maintenant une **boucle simulée de 120 frames** : il fallait quelque chose à découper pour que
+  `LEVAIN_PROFILE_FRAME` ait un sens. La vraie boucle arrive en M1.1.
+- Prochaine étape : clôture de M0.3 et de la phase 0 — ratio, recalibrage de la roadmap, et détail des issues
+  de la phase 2.
+
 ## 2026-09-20 — M0.3 — Logs, assertions et gestion d'erreurs (issue #6)
 
 - Temps Donnovan : à renseigner (relecture estimée 0,25 h)

@@ -5,8 +5,9 @@
 Le socle : types de base, logs, assertions, allocateurs, temps, fichiers. Tout le moteur en dépend, et lui ne
 dépend de rien — ni SDL3, ni NVRHI, ni flecs.
 
-**État en M0.3** : logs par catégorie, assertions, et la politique d'erreurs de l'[ADR-0008](../../docs/adr/0008-gestion-erreurs.md).
-Les allocateurs, l'horloge et les fichiers suivent dans le même milestone.
+**État en M0.3** : logs par catégorie, assertions, politique d'erreurs de
+l'[ADR-0008](../../docs/adr/0008-gestion-erreurs.md), allocateurs linéaire et pool, macros de profilage Tracy.
+L'horloge et les fichiers suivront quand un besoin concret apparaîtra.
 
 ## Invariants
 
@@ -24,6 +25,9 @@ Les allocateurs, l'horloge et les fichiers suivent dans le même milestone.
 | [`include/levain/core/log.hpp`](include/levain/core/log.hpp) | `log(category, level, fmt, …)` — une catégorie par module, le niveau est testé **avant** le formatage |
 | [`include/levain/core/assert.hpp`](include/levain/core/assert.hpp) | `LEVAIN_ASSERT` (Debug seulement) et `LEVAIN_VERIFY` (évalue toujours) |
 | [`include/levain/core/error.hpp`](include/levain/core/error.hpp) | `Result<T>` = `std::expected<T, Error>`, pour les échecs qui ne sont pas des bugs |
+| [`include/levain/core/linear_allocator.hpp`](include/levain/core/linear_allocator.hpp) | `LinearAllocator` — arène vidée d'un coup, **9,4× plus rapide que `malloc`** |
+| [`include/levain/core/pool_allocator.hpp`](include/levain/core/pool_allocator.hpp) | `PoolAllocator` — blocs de taille fixe rendus dans n'importe quel ordre, **5,9×** |
+| [`include/levain/core/profile.hpp`](include/levain/core/profile.hpp) | `LEVAIN_PROFILE_SCOPE`, `LEVAIN_PROFILE_FRAME` — compilées hors du binaire par défaut |
 | [`include/levain/core/version.hpp`](include/levain/core/version.hpp) | `version()` et `toolchain()` — la bannière de démarrage |
 
 **La règle de lecture qui découle de l'ADR-0008** : si une fonction rend un `Result`, elle peut échouer sans que
@@ -36,7 +40,7 @@ Les en-têtes publics vivent sous `include/levain/core/`, l'implémentation sous
 
 | Moteur | Module | Ce qu'on y trouve |
 |---|---|---|
-| **Unreal** | `Runtime/Core` | `FString`, `FMemory`, `check`/`ensure`/`verify`, `FPlatformTime`, `FMemStack`. Même rôle, même position au bas du graphe. Notre `LEVAIN_VERIFY` est directement leur `verify` (**documenté** : sources publiques). |
+| **Unreal** | `Runtime/Core` | `FString`, `FMemory`, `check`/`ensure`/`verify`, `FPlatformTime`, `FMemStack`. Notre `LEVAIN_VERIFY` est directement leur `verify`, et notre `LinearAllocator` joue le rôle de leur `FMemStack` (**documenté** : sources publiques). |
 | **Godot** | `core/` | `Variant`, `Error`, `Memory`, `OS`, `String`. Godot y met aussi son système d'objets (`Object`, `ClassDB`), ce que nous **ne faisons pas** : chez nous le modèle objet est flecs et vit dans `scene` (**documenté** : dépôt public). |
 | **Unity** | — | Le cœur C++ d'Unity n'est pas public. Ne pas supposer de correspondance. |
 

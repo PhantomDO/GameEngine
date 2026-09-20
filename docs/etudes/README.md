@@ -5,7 +5,7 @@ plus. On distingue toujours ce qui est **documenté** (avec la source) de ce qui
 
 | Étude | Sujet | Phase |
 |---|---|---|
-| E0 | Comment démarre un moteur | 0 |
+| E0 | Comment démarre un moteur ([écrite](E0-demarrage.md)) | 0 |
 | E1 | Les couches RHI ([écrite](E1-rhi.md)) | 1 |
 | E2 | Ressources GPU et shaders | 2 |
 | E3 | Modèles objets : archetypes (flecs) et sparse sets (EnTT) | 3 |

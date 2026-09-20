@@ -9,6 +9,7 @@
     "doctest",
     "flecs",
     "nvrhi",
-    "spdlog"
+    "spdlog",
+    "tracy"
   ]
 }
