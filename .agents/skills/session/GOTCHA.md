@@ -16,12 +16,14 @@ Un piège par entrée : symptôme, cause, parade. Le plus récent en haut.
   « 83 lignes » et « 25 pièges » écrits dans la PR de ce fichier même, 68 et 22 mesurés.
 - **Parade** : mesurer d'abord, sur **tous** les presets, puis annoncer. Un chiffre non mesuré se dit comme tel.
 
-## Le temps de Donnovan est son temps total (2026-09-20)
+## Le temps de Donnovan est son temps total (2026-09-20, 2026-09-21)
 
 - **Symptôme** : la phase 0 semblait coûter 3,0 h ; elle en avait coûté 4,9. Le ratio de 0,50 aurait amputé la
-  roadmap d'environ 19 h.
-- **Cause** : la question portait sur la relecture seule.
-- **Parade** : demander le temps **total** sur le projet, et le noter tel quel.
+  roadmap d'environ 19 h. Le 21/09, M1.1 semblait coûter 40 min (ratio 0,44) ; la journée en avait pris 75.
+- **Cause** : d'abord la question portait sur la relecture seule. Puis, posée après chaque PR (« depuis ta
+  dernière réponse »), elle oubliait le temps passé entre deux, en allers-retours.
+- **Parade** : demander le temps **total** sur le projet, et en fin de journée **le total depuis le matin**.
+  Réconcilier le board sur ce total (écart réparti au prorata des issues).
 
 ## Numéros d'ADR (2026-09-20)
 
