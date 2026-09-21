@@ -131,6 +131,13 @@ retirés (ADR-0011) : à remettre avec leur CI le jour où Windows redevient une
 ./build/linux-debug/sandbox/levain_sandbox   # lancer la démo
 ```
 
+**Sous Wayland, la fenêtre reste invisible jusqu'en M1.2** : une surface Wayland n'apparaît qu'après sa première
+image, et le moteur n'en présente pas encore. En attendant, passer par XWayland :
+`SDL_VIDEO_DRIVER=x11 ./build/linux-debug/sandbox/levain_sandbox`. Voir `engine/platform/README.md`.
+
+Pour tester redimensionnement et minimisation comme un utilisateur, sandbox lancé sous X11 :
+`./tools/kwin-window-smoke.sh` (Plasma uniquement).
+
 `compile_commands.json` est généré dans `build/<preset>/`. Pour clangd à la racine :
 
 ```bash

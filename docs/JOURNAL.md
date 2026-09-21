@@ -25,6 +25,39 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-21 — M1.1 — Fenêtre SDL3, boucle et événements (#10)
+
+- Temps Donnovan : à renseigner (estimé 0,75 h pour #10)
+- Sessions Claude Code : 1
+- Fait : module `engine/platform` sur SDL3 3.4.12 (vcpkg, fonctionnalités `x11` et `wayland` seulement, sans
+  ibus ni dbus) ; événements traduits vers nos types (`CloseRequested`, `Resized` en pixels, `Hidden`,
+  `Shown`) ; boucle du sandbox qui dort quand la fenêtre est masquée ; script `tools/kwin-window-smoke.sh`
+  qui pilote la vraie fenêtre à travers KWin ; sandbox lancé 3 s en CI, arrêté par SIGTERM.
+- Mesures :
+  - redimensionnement puis minimisation et restauration sous X11 : aucun plantage, tailles reçues
+    640 × 332 et 1600 × 872 px pour des cadres de 640 × 360 et 1600 × 900 — la barre de titre prend 28 px
+    (`tools/kwin-window-smoke.sh`) ;
+  - temps CPU : **2 010 ms en 2 s visible, 0 ms minimisée** (même script) ;
+  - arrêt propre sur SIGTERM, code 0, en Debug et en Release
+    (`SDL_VIDEO_DRIVER=offscreen timeout --foreground --preserve-status -k 10 3 ./build/<preset>/sandbox/levain_sandbox`) ;
+  - aucun en-tête SDL hors de `engine/platform/src/` (`grep -rn "include.*SDL" engine sandbox tests`) ;
+  - SDL3 compilé par vcpkg en 22 s à froid (`time cmake --preset linux-debug`).
+- Écarts et problèmes :
+  - **Sous Wayland, la fenêtre n'apparaît pas.** Une surface Wayland n'est affichée qu'après son premier
+    buffer, et le moteur ne présente encore rien : KWin ne la connaît pas, alors qu'elle s'affiche sous X11.
+    M1.1 se teste donc sous XWayland (`SDL_VIDEO_DRIVER=x11`), et la minimisation sous Wayland est reportée à
+    M1.2, ajoutée à l'issue #13.
+  - **Assertion de SDL sur un double signal** (`SDL_quit.c:171`) : `timeout` envoie SIGTERM à l'enfant puis
+    au groupe de processus ; le second signal tombe entre la remise à zéro d'un drapeau et l'assertion qui la
+    vérifie. Le SDL de Debug a alors ouvert une boîte de dialogue zenity sur le bureau, et le programme a
+    attendu jusqu'au SIGKILL. Parade : `timeout --foreground`, un seul signal.
+  - Un processus lancé avec `&` depuis un shell non interactif hérite d'un SIGINT **ignoré**, et SDL respecte
+    ce choix : c'est pourquoi la CI et le script arrêtent le sandbox par SIGTERM.
+  - **PR découpée** : la version complète de M1.1 faisait environ 710 lignes, près du double de la règle
+    n°2. Le frame time et les sanitizers (#11) suivent dans une seconde PR, déjà prête.
+  - Tracy (#38) : vcpkg `master` est toujours en 0.13.1 au 21/09.
+- Prochaine étape : PR de l'issue #11 — frame time dans le titre, ASan et UBSan en CI.
+
 ## 2026-09-20 — M0.3 et phase 0 — Clôture
 
 - **Temps Donnovan : 5,0 h** (12h00–14h30 et 21h30–23h55, soit ~4,9 h, arrondi au quart d'heure sur le board)

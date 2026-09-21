@@ -1,42 +1,74 @@
-#include <chrono>
-#include <cstddef>
 #include <cstdio>
 #include <exception>
 #include <print>
-#include <thread>
 
-#include "levain/core/linear_allocator.hpp"
 #include "levain/core/log.hpp"
 #include "levain/core/profile.hpp"
 #include "levain/core/version.hpp"
+#include "levain/platform/window.hpp"
 
 namespace
 {
 
-/// Nombre de frames simulées. Le sandbox n'a pas encore de vraie boucle — elle arrive avec
-/// la fenêtre en M1.1 — mais il en faut une pour que Tracy ait quelque chose à découper.
-constexpr int SimulatedFrames = 120;
-
-/// Imite le travail d'une frame : une arène remise à zéro, des allocations, un peu de
-/// calcul. C'est le patron que suivra la vraie boucle.
-void simulateFrame(levain::core::LinearAllocator& frameArena)
+struct LoopState
 {
-    LEVAIN_PROFILE_SCOPE();
+    bool isRunning = true;
+    bool isVisible = true;
+};
 
-    frameArena.reset();
+void applyWindowEvent(LoopState& state, const levain::platform::WindowEvent& event)
+{
+    using levain::platform::WindowEventType;
 
+    switch (event.type)
     {
-        LEVAIN_PROFILE_SCOPE_NAMED("allocations de frame");
-
-        for (int i = 0; i < 1000; ++i)
+    case WindowEventType::CloseRequested:
+        state.isRunning = false;
+        break;
+    // Les deux arrivent en double : sous Wayland, SDL renvoie EXPOSED après chaque
+    // redimensionnement. On ne journalise donc que les changements d'état.
+    case WindowEventType::Hidden:
+        if (state.isVisible)
         {
-            [[maybe_unused]] volatile auto* block = frameArena.allocate(64, 16);
+            levain::core::log("sandbox", levain::core::LogLevel::Info, "masquée : boucle en pause");
         }
+        state.isVisible = false;
+        break;
+    case WindowEventType::Shown:
+        if (!state.isVisible)
+        {
+            levain::core::log("sandbox", levain::core::LogLevel::Info, "visible : boucle relancée");
+        }
+        state.isVisible = true;
+        break;
+    case WindowEventType::Resized:
+        // M1.2 : c'est ici que la swapchain sera recréée à la nouvelle taille.
+        levain::core::log("sandbox", levain::core::LogLevel::Info, "redimensionnée : {} × {} px",
+                          event.pixelSize.width, event.pixelSize.height);
+        break;
     }
+}
 
+void runMainLoop(levain::platform::Window& window)
+{
+    LoopState state;
+
+    while (state.isRunning)
     {
-        LEVAIN_PROFILE_SCOPE_NAMED("travail simulé");
-        std::this_thread::sleep_for(std::chrono::microseconds{200});
+        // Masquée, il n'y a rien à dessiner : on dort jusqu'au prochain événement au lieu de
+        // tourner à vide.
+        const auto events = state.isVisible ? levain::platform::pollEvents(window)
+                                            : levain::platform::waitEvents(window);
+        for (const auto& event : events)
+        {
+            applyWindowEvent(state, event);
+        }
+
+        // Le rendu viendra ici en M1.2. D'ici là, rien ne cadence la boucle : elle tourne aussi
+        // vite que le processeur le permet. C'est le present de la swapchain, calé sur le
+        // rafraîchissement de l'écran, qui la ralentira.
+
+        LEVAIN_PROFILE_FRAME();
     }
 }
 
@@ -44,27 +76,23 @@ void simulateFrame(levain::core::LinearAllocator& frameArena)
 
 int main()
 {
-    // std::print peut lever : format_error sur une chaîne de format invalide, system_error
-    // si l'écriture échoue. Une exception qui s'échappe de main appelle std::terminate,
-    // donc on la rattrape ici (ADR-0008 : les exceptions ne servent pas de contrôle de flux
-    // et sont rattrapées au sommet).
+    // std::print peut lever : format_error sur une chaîne de format invalide, system_error si
+    // l'écriture échoue. On rattrape au sommet (ADR-0008).
     try
     {
         std::print("Levain {} — {} — __cplusplus {}\n", levain::core::version(),
                    levain::core::toolchain(), __cplusplus);
 
-        levain::core::log("sandbox", levain::core::LogLevel::Info,
-                          "{} frames simulées, arène de {} Kio", SimulatedFrames, 128);
-
-        levain::core::LinearAllocator frameArena{std::size_t{128} * 1024};
-
-        for (int frame = 0; frame < SimulatedFrames; ++frame)
+        auto window = levain::platform::createWindow("Levain", 1280, 720);
+        if (!window)
         {
-            simulateFrame(frameArena);
-            LEVAIN_PROFILE_FRAME();
+            levain::core::log("sandbox", levain::core::LogLevel::Critical, "{}",
+                              window.error().message);
+            return 1;
         }
 
-        levain::core::log("sandbox", levain::core::LogLevel::Info, "terminé");
+        runMainLoop(*window);
+        levain::core::log("sandbox", levain::core::LogLevel::Info, "fenêtre fermée");
     }
     catch (const std::exception& e)
     {
