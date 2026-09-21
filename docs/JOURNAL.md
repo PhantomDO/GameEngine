@@ -25,9 +25,51 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-21 — M1.2 — Clôture
+
+- **Temps Donnovan pour M1.2 : 0,58 h déclarées** (10 + 10 + 15 min), **provisoire** : ce sont des réponses
+  « depuis la dernière fois », que la clôture de M1.1 a montrées incomplètes. À réconcilier avec le total de la
+  journée en fin de session (skill `session`).
+- Définition de « terminé » (SPECS §9) : démo lançable sous Linux (Windows hors périmètre, ADR-0011) ; critères
+  mesurés et consignés ; CI verte, zéro erreur de validation ; README de `gpu` et de `platform` à jour ; board
+  renseigné ; tag `m1.2` et release. Pas d'étude : elle vient à la fin de la phase 1 (E1, déjà écrite).
+
+### Critères du milestone
+
+| Critère (ROADMAP) | Mesuré | Commande |
+|---|---|---|
+| Zéro erreur de validation sur 5 minutes avec redimensionnements | **0 message, 584 redimensionnements**, sandbox vivant | `./tools/kwin-window-smoke.sh 300` |
+| Temps de démarrage mesuré | device créé en **30 à 40 ms** (RADV) ; 0,9 à 1,3 s en CI (lavapipe) | sandbox, « device créé en » |
+| En plus, reporté de M1.1 : minimisation sous Wayland | la boucle s'endort, 0 ms de CPU | même script |
+
+### Temps (provisoire)
+
+| Issue | Estimé | Passé déclaré |
+|---|---:|---:|
+| #12 Device Vulkan et NVRHI | 1,0 h | 0,33 h |
+| #13 Swapchain et écran effacé | 0,5 h | 0,25 h |
+| **M1.2** (ROADMAP) | **1,5 h** | **0,58 h** — ratio 0,39, à réconcilier |
+
+### Décisions
+
+- **ADR-0012** : vk-bootstrap pour le device Vulkan, choisi par Donnovan sur question posée avant l'implémentation.
+- **Règle n°2** : du code Vulkan qui forme un bloc peut dépasser les ~400 lignes s'il reste lisible et que l'écart
+  est signalé (Donnovan, après relecture de #56). Inscrit dans `AGENTS.md`.
+
+### Ce que M1.2 a appris
+
+- **Une panne silencieuse de plus, en CI** : le démarrage sur lavapipe mangeait tout le délai du sandbox, qui ne
+  testait plus la boucle en restant vert. La CI exige maintenant une boucle d'au moins une seconde.
+- **Les pièges de NVRHI viennent de sa façon d'être compilé et enveloppé** : dispatcher de Vulkan-Hpp à définir
+  soi-même (bibliothèque statique), sémaphores accessibles seulement sous l'enveloppe de validation.
+- **Mon propre `GOTCHA.md` ne sert que s'il est relu** : le piège `[[maybe_unused]]`, inscrit le matin, m'a coûté
+  un build l'après-midi. Relu avant #13, il n'a pas resservi.
+
+- Prochaine étape : M1.3 — premier triangle (shaders Slang, pipeline graphique, test de fumée sous lavapipe).
+
 ## 2026-09-21 — M1.2 — Swapchain, redimensionnement et écran effacé (#13)
 
-- Temps Donnovan : à renseigner (estimé 0,5 h pour #13)
+- **Temps Donnovan : 0,25 h** (15 min déclarées, relecture de #56 comprise ; estimé 0,5 h)
 - Sessions Claude Code : 1
 - Fait : swapchain Vulkan (vk-bootstrap) dont les images sont enveloppées en textures NVRHI ; reconstruction dès
   que la taille de la fenêtre change ; sémaphores d'acquisition et de présentation ; deux frames en vol au plus
