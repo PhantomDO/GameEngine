@@ -27,12 +27,13 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ## 2026-09-21 — Recalibrage après la phase 1
 
-- Temps Donnovan : à renseigner
+- Temps Donnovan : compté dans les 3,0 h de la journée
 - Fait : ROADMAP v0.5 — estimations des phases 2 à 8 multipliées par le ratio de la phase 1 (0,67), arrondies au
   quart d'heure, échéances recalculées à 1,5 h par semaine (script dans la PR). **58,5 h → 39,0 h restantes ;
   68 h → 47 h au total ; le jeu jouable passe du 01/08/2027 au 21/03/2027.**
-- Décisions : à valider par Donnovan dans la PR. Le ratio cumulé des phases 0 et 1 (0,76) est présenté comme
-  alternative plus robuste.
+- Décisions : **Donnovan retient l'option 1**, la règle appliquée telle quelle (ratio 0,67), parmi trois : le ratio
+  cumulé des phases 0 et 1 (0,76), ou attendre la phase 2. Le prochain point de contrôle est la clôture de la
+  phase 2.
 - Après fusion : échéances des milestones GitHub M2.1 à M8.3 et estimations des issues des phases 2 et 3 (#40 à
   #47, #61 à #69) mises à jour au même ratio.
 - Prochaine étape : M2.1, en commençant par l'ADR de liaison (#40).

@@ -1,6 +1,6 @@
 # Roadmap v1
 
-> Version 0.5 — 21/09/2026 — statut : **recalibrage proposé**, à valider par Donnovan
+> Version 0.5 — 21/09/2026 — statut : **validé par Donnovan** (recalibrage, option 1 : ratio 0,67)
 >
 > v0.5 : **recalibrage après la phase 1** (ratio 0,67) : les estimations des phases 2 à 8 sont multipliées par
 > 0,67, arrondies au quart d'heure, et les échéances recalculées. Total : **68 h → 47 h** (5,0 h et 3,0 h réelles
