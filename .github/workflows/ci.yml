@@ -40,13 +40,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # zip est indispensable au bootstrap de vcpkg et manque sur l'image. Les paquets -dev
-      # sont ceux que réclame le port vcpkg de SDL3 pour ses fonctionnalités x11 et wayland.
+      # zip est indispensable au bootstrap de vcpkg et manque sur l'image.
+      #
+      # Les paquets -dev sont la partie vidéo de la liste officielle de SDL (README-linux,
+      # « Build dependencies », Ubuntu). SDL refuse de se configurer s'il manque une extension
+      # X11 demandée — contrôles stricts de cmake/sdlchecks.cmake : Xcursor, Xdbe, XInput2,
+      # Xfixes, Xsync, Xrandr, Xshape, XTest. La liste réduite que suggère le port vcpkg ne
+      # suffit pas. L'audio est absent exprès, SDL s'en passe sans erreur.
       - name: Outils
         run: |
           set -euo pipefail
           sudo apt-get update && sudo apt-get install -y ninja-build zip unzip \
-            libx11-dev libxft-dev libxext-dev libwayland-dev libxkbcommon-dev libegl1-mesa-dev
+            libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxtst-dev \
+            libxkbcommon-dev libwayland-dev libdecor-0-dev libegl1-mesa-dev \
+            libgl1-mesa-dev libgles2-mesa-dev libdrm-dev libgbm-dev libudev-dev
 
           # Le script est téléchargé puis exécuté, et non passé en pipe à bash : un `wget`
           # qui échoue donnerait sinon une entrée vide à bash, qui rendrait 0 et laisserait
