@@ -134,8 +134,8 @@ Proton sur la machine de référence en `--api d3d12` (voir SPECS §10, « Véri
 | M2.3 Hot-reload des shaders | 1,0 | 1 | 11/10/2026 |
 
 **M2.1 — Caméra, meshes et binding sets.** Caméra 3D, depth buffer, meshes indexés, constantes par frame
-(volatile constant buffers de NVRHI), instancing, timestamps GPU ; stratégie de binding (**ADR à écrire** :
-binding sets ou bindless via descriptor tables).
+(volatile constant buffers de NVRHI), instancing, timestamps GPU ; stratégie de binding : **binding sets**,
+rangés par fréquence de changement ([ADR-0013](adr/0013-binding-sets.md)).
 *Critères* : 10 000 cubes instanciés à plus de 60 images/s en 1080p sur la machine de référence ; temps GPU
 affiché.
 
