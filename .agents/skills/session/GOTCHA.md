@@ -1,0 +1,55 @@
+# Pièges — session, PR, journal, board
+
+Un piège par entrée : symptôme, cause, parade. Le plus récent en haut.
+
+## Une PR trop grosse se découpe en branches empilées (2026-09-21)
+
+- **Symptôme** : M1.1 complet faisait ~710 lignes, près du double de la règle n°2.
+- **Parade** : une PR par issue, en branches empilées (B part de A). La règle n°1 interdit d'ouvrir B avant la
+  fusion de A : B reste poussée sans PR. Après la fusion de A **en squash**, les commits de A n'existent plus
+  sur `main` : `git rebase --onto main <dernier commit de A>` sur B, sinon le rebase rejoue A.
+
+## Mesurer avant d'annoncer un chiffre (2026-09-20, 2026-09-21)
+
+- **Symptôme** : « environ 300 lignes » annoncées pour l'infrastructure de l'ADR-0011, 347 mesurées ;
+  « 4 avertissements » annoncés pour `-Wall -Wextra`, 5 en réalité, parce que seul le Debug avait été compilé ;
+  « 83 lignes » et « 25 pièges » écrits dans la PR de ce fichier même, 68 et 22 mesurés.
+- **Parade** : mesurer d'abord, sur **tous** les presets, puis annoncer. Un chiffre non mesuré se dit comme tel.
+
+## Le temps de Donnovan est son temps total (2026-09-20)
+
+- **Symptôme** : la phase 0 semblait coûter 3,0 h ; elle en avait coûté 4,9. Le ratio de 0,50 aurait amputé la
+  roadmap d'environ 19 h.
+- **Cause** : la question portait sur la relecture seule.
+- **Parade** : demander le temps **total** sur le projet, et le noter tel quel.
+
+## Numéros d'ADR (2026-09-20)
+
+- **Symptôme** : deux collisions (0009 et 0012 déjà pris par des ADR « prévus » dans la ROADMAP).
+- **Parade** : ne jamais réserver de numéro à l'avance. Le numéro se prend à l'écriture : `ls docs/adr/`.
+
+## Labels et milestones GitHub (2026-09-20)
+
+- **Labels** : n'utiliser que des labels existants (`gh label list`). `type:docs` n'existe pas : c'est
+  `type:infra` + `area:docs`.
+- **Milestone fermé** : `gh issue edit --milestone "<titre>"` ne trouve pas un milestone fermé. Passer par l'API :
+  `gh api -X PATCH repos/PhantomDO/Levain/issues/<n> -F milestone=<numéro>`.
+
+## Un revert emporte aussi la documentation (2026-09-20)
+
+- **Symptôme** : le revert du passage à Rust a aussi retiré l'entrée du journal et l'ADR-0010.
+- **Parade** : après un `git revert`, restaurer depuis `main` ce qui doit rester (`git checkout main -- docs/…`).
+
+## Réglages du dépôt (2026-09-21)
+
+- La protection de `main` exige les checks `linux-debug`, `linux-release`, `linux-asan` : ce sont les noms des
+  entrées de la matrice CI. Renommer un preset impose de mettre la protection à jour d'abord.
+- Modifier la protection est un réglage du dépôt : **seulement avec l'accord de Donnovan**. Ajouter un check
+  après qu'il a tourné au moins une fois, pour être sûr de son nom :
+  `gh api -X PATCH repos/PhantomDO/Levain/branches/main/protection/required_status_checks --input <json>`
+  (`app_id` 15368 = GitHub Actions).
+
+## Bugs en amont (2026-09-21)
+
+- **Ne rien signaler à SDL** : ses mainteneurs n'acceptent pas les contributions d'IA (décision de Donnovan).
+  Documenter le contournement dans le README du module et le journal. Pour un autre projet, demander d'abord.
