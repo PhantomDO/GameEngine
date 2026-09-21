@@ -2,6 +2,14 @@
 
 Un piège par entrée : symptôme, cause, parade. Le plus récent en haut.
 
+## `git stash` et `git add -N` (2026-09-21)
+
+- **Symptôme** : « Entry … not uptodate. Cannot merge » ; rien n'est remisé.
+- **Cause** : des fichiers marqués « à ajouter » par `git add -N` (utilisé pour mesurer une PR avec
+  `git diff --numstat`) bloquent le remisage.
+- **Parade** : sauvegarder l'arbre, puis `git reset` pour vider l'index avant `git stash -u`. Après une mesure,
+  toujours finir par `git reset`.
+
 ## Heredoc sans guillemets dans une description de PR (2026-09-21)
 
 - **Symptôme** : « permission non accordée : docs/ROADMAP.md » à la création de #71, et les noms de fichiers entre

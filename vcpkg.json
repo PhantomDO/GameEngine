@@ -12,6 +12,7 @@
       "host": true
     },
     "flecs",
+    "glm",
     "nvrhi",
     {
       "name": "shader-slang",

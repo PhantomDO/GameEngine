@@ -25,6 +25,27 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-21 — M2.1 — Caméra, chargement des shaders et cache CI (#41, 1/3)
+
+- Temps Donnovan : à renseigner (estimé 0,65 h pour #41, après recalibrage)
+- Sessions Claude Code : 1
+- Fait : première des trois PR de #41. GLM (port vcpkg 1.0.3) ; `Camera` et `viewProjectionOf` dans `render`,
+  avec deux tests ; chargement des shaders sorti de `triangle.cpp` dans `src/shader.cpp`, pour servir aussi la
+  passe des meshes ; cache des téléchargements de vcpkg en CI, à la demande de Donnovan.
+- Mesures :
+  - **le piège de la profondeur est testé** : `viewProjectionOf` range la profondeur de 0 à 1 ; contre-test avec
+    la projection d'OpenGL (`perspectiveRH_NO`), le plan proche tombe à −1 et le test échoue ;
+  - 28 tests.
+- Écarts et problèmes :
+  - **#41 découpée en trois PR** : la version d'un bloc faisait 640 lignes, et ce n'était pas du code Vulkan
+    indivisible. Suivent le cube (mesh indexé, depth buffer, passe) et son test de fumée, déjà écrits et vérifiés.
+  - Un `git stash` a refusé de remiser des fichiers marqués `git add -N` : sauvegarde complète d'abord, index
+    vidé, puis remisage. Rien de perdu.
+  - **Premier passage de la CI rouge sur les trois jobs** : le script de bootstrap de vcpkg refuse de démarrer
+    si le dossier `VCPKG_DOWNLOADS` n'existe pas, et je ne le créais qu'après. Second commit : restauration et
+    création du dossier avant le bootstrap.
+- Prochaine étape : le cube (#41, 2/3).
+
 ## 2026-09-21 — M2.1 — ADR-0013 : binding sets (#40)
 
 - Temps Donnovan : à renseigner (estimé 0,35 h pour #40, après recalibrage)
