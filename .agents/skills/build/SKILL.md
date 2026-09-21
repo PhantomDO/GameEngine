@@ -52,16 +52,16 @@ ctest (`dxil.*`), faute de backend Direct3D 12 pour l'exécuter.
 
 ## Test de fumée du rendu
 
-`smoke.triangle` (ctest, `tests/smoke_triangle.cpp`) dessine le triangle hors écran, relit l'image et la compare
-à `tests/data/triangle.ppm`, à ±2 près par canal. Après un changement voulu du rendu, réécrire la référence,
-puis la regarder avant de la commiter :
+`smoke.triangle` et `smoke.cube` (ctest, `tests/smoke_render.cpp`) dessinent leur scène hors écran, relisent
+l'image et la comparent à `tests/data/<scène>.ppm`, à ±2 près par canal. Après un changement voulu du rendu,
+réécrire la référence, puis la regarder avant de la commiter :
 
 ```bash
-LEVAIN_UPDATE_REFERENCE=1 SDL_VIDEO_DRIVER=offscreen ./build/linux-debug/tests/levain_smoke_triangle
-magick tests/data/triangle.ppm -filter point -resize 400% /tmp/triangle.png   # pour la voir
+LEVAIN_UPDATE_REFERENCE=1 SDL_VIDEO_DRIVER=offscreen ./build/linux-debug/tests/levain_smoke_render cube
+magick tests/data/cube.ppm -filter point -resize 400% /tmp/cube.png   # pour la voir
 ```
 
-En échec, l'image obtenue est écrite dans `build/<preset>/tests/triangle.actual.ppm`.
+En échec, l'image obtenue est écrite dans le dossier courant, `<scène>.actual.ppm`.
 
 ## Lancer le sandbox
 
