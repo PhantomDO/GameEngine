@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdio>
 #include <exception>
+#include <expected>
 #include <format>
 #include <limits>
 #include <optional>
@@ -11,6 +12,10 @@
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <utility>
+
+#include <glm/gtc/constants.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 #include "levain/core/assert.hpp"
 #include "levain/core/frame_time.hpp"
@@ -19,7 +24,9 @@
 #include "levain/core/version.hpp"
 #include "levain/gpu/device.hpp"
 #include "levain/platform/window.hpp"
-#include "levain/render/triangle.hpp"
+#include "levain/render/camera.hpp"
+#include "levain/render/mesh.hpp"
+#include "levain/render/mesh_pass.hpp"
 
 namespace
 {
@@ -84,9 +91,47 @@ std::string describeFrameTimes(const levain::core::FrameTimeSummary& summary)
                        summary.averageMs, summary.minMs, summary.maxMs, 1000.0 / summary.averageMs);
 }
 
-/// Efface l'image de la swapchain, y dessine le triangle, et la présente.
+/// Ce que dessine le sandbox en M2.1 : un cube qui tourne, vu par une caméra fixe.
+struct DemoScene
+{
+    levain::render::MeshPass meshPass;
+    levain::render::Mesh cube;
+    levain::render::Camera camera;
+    nvrhi::TextureHandle depth; ///< Créé à la première frame, à la taille de l'image.
+};
+
+/// Crée la passe des meshes et envoie le cube au GPU.
+levain::core::Result<DemoScene> createDemoScene(levain::gpu::GpuDevice& gpu)
+{
+    auto meshPass = levain::render::createMeshPass(
+        *gpu.nvrhi, nvrhi::FramebufferInfo()
+                        .addColorFormat(levain::gpu::swapchainFormat(gpu))
+                        .setDepthFormat(levain::render::DepthFormat));
+    if (!meshPass)
+    {
+        return std::unexpected(meshPass.error());
+    }
+
+    const nvrhi::CommandListHandle upload = gpu.nvrhi->createCommandList();
+    upload->open();
+    levain::render::Mesh cube = levain::render::createCube(*gpu.nvrhi, *upload);
+    upload->close();
+    gpu.nvrhi->executeCommandList(upload);
+
+    return DemoScene{
+        .meshPass = std::move(*meshPass), .cube = std::move(cube), .camera = {}, .depth = {}};
+}
+
+/// Un tour toutes les 6 secondes, autour d'un axe incliné pour montrer trois faces à la fois.
+glm::mat4 cubeRotation(double seconds)
+{
+    const float angle = static_cast<float>(seconds) * glm::two_pi<float>() / 6.0f;
+    return glm::rotate(glm::mat4{1.0f}, angle, glm::vec3{1.0f, 1.0f, 0.0f});
+}
+
+/// Efface l'image de la swapchain et son depth buffer, y dessine le cube, et la présente.
 void renderFrame(levain::gpu::GpuDevice& gpu, const levain::platform::Window& window,
-                 const levain::render::TrianglePass& triangle, nvrhi::ICommandList& commandList)
+                 DemoScene& scene, nvrhi::ICommandList& commandList, double seconds)
 {
     nvrhi::ITexture* backBuffer = levain::gpu::beginFrame(gpu, window);
     if (backBuffer == nullptr)
@@ -95,15 +140,25 @@ void renderFrame(levain::gpu::GpuDevice& gpu, const levain::platform::Window& wi
     }
 
     {
-        // Le travail CPU d'une frame, hors attente de l'écran : c'est cette zone que mesure le
-        // critère « frame time CPU < 1 ms » de M1.3 (tools/tracy-capture.sh).
+        // Le travail CPU d'une frame, hors attente de l'écran (critère de M1.3,
+        // tools/tracy-capture.sh).
         LEVAIN_PROFILE_SCOPE_NAMED("commandes");
+
+        const nvrhi::TextureDesc& target = backBuffer->getDesc();
+        nvrhi::ITexture* depth = levain::render::ensureDepthTexture(*gpu.nvrhi, scene.depth,
+                                                                    target.width, target.height);
 
         // ponytail: framebuffer recréé à chaque frame. C'est léger avec le rendu dynamique de
         // Vulkan 1.3 (NVRHI ne crée pas de VkFramebuffer) ; un cache par image si un profil le
         // montre.
-        const nvrhi::FramebufferHandle framebuffer =
-            gpu.nvrhi->createFramebuffer(nvrhi::FramebufferDesc().addColorAttachment(backBuffer));
+        const nvrhi::FramebufferHandle framebuffer = gpu.nvrhi->createFramebuffer(
+            nvrhi::FramebufferDesc().addColorAttachment(backBuffer).setDepthAttachment(depth));
+
+        const levain::render::SceneConstants constants{
+            .viewProjection = levain::render::viewProjectionOf(
+                scene.camera, static_cast<float>(target.width) / static_cast<float>(target.height)),
+            .model = cubeRotation(seconds),
+        };
 
         // La couleur de fond : une croûte de levain. Locale et non globale : le constructeur de
         // nvrhi::Color n'est pas noexcept, et une exception levée à l'initialisation d'une
@@ -112,7 +167,9 @@ void renderFrame(levain::gpu::GpuDevice& gpu, const levain::platform::Window& wi
 
         commandList.open();
         commandList.clearTextureFloat(backBuffer, nvrhi::AllSubresources, clearColor);
-        levain::render::drawTriangle(commandList, triangle, *framebuffer);
+        // 1 : la profondeur la plus lointaine, que tout ce qu'on dessine vient remplacer.
+        commandList.clearDepthStencilTexture(depth, nvrhi::AllSubresources, true, 1.0f, false, 0);
+        levain::render::drawMesh(commandList, scene.meshPass, *framebuffer, scene.cube, constants);
         commandList.close();
         gpu.nvrhi->executeCommandList(&commandList);
     }
@@ -147,8 +204,8 @@ std::optional<double> parseLoopSeconds(std::span<char* const> arguments)
     return seconds;
 }
 
-void runMainLoop(levain::platform::Window& window, levain::gpu::GpuDevice& gpu,
-                 const levain::render::TrianglePass& triangle, double loopSeconds)
+void runMainLoop(levain::platform::Window& window, levain::gpu::GpuDevice& gpu, DemoScene& scene,
+                 double loopSeconds)
 {
     const nvrhi::CommandListHandle commandList = gpu.nvrhi->createCommandList();
     LoopState state;
@@ -184,7 +241,7 @@ void runMainLoop(levain::platform::Window& window, levain::gpu::GpuDevice& gpu,
 
         {
             LEVAIN_PROFILE_SCOPE_NAMED("rendu");
-            renderFrame(gpu, window, triangle, *commandList);
+            renderFrame(gpu, window, scene, *commandList, secondsBetween(loopStart, Clock::now()));
         }
 
         const Clock::time_point frameEnd = Clock::now();
@@ -249,17 +306,15 @@ int main(int argc, char** argv)
         levain::core::log("sandbox", levain::core::LogLevel::Info, "device créé en {:.1f} ms",
                           secondsBetween(deviceStart, Clock::now()) * 1000.0);
 
-        auto triangle = levain::render::createTrianglePass(
-            *gpu->nvrhi,
-            nvrhi::FramebufferInfo().addColorFormat(levain::gpu::swapchainFormat(*gpu)));
-        if (!triangle)
+        auto scene = createDemoScene(*gpu);
+        if (!scene)
         {
             levain::core::log("sandbox", levain::core::LogLevel::Critical, "{}",
-                              triangle.error().message);
+                              scene.error().message);
             return 1;
         }
 
-        runMainLoop(*window, *gpu, *triangle, *loopSeconds);
+        runMainLoop(*window, *gpu, *scene, *loopSeconds);
         levain::core::log("sandbox", levain::core::LogLevel::Info, "fenêtre fermée");
     }
     catch (const std::exception& e)
