@@ -32,3 +32,12 @@ doctest_discover_tests(levain_tests)
 # de référence et se consigne dans le journal (AGENTS.md, règle non négociable n°6).
 add_executable(levain_bench allocator_bench.cpp)
 target_link_libraries(levain_bench PRIVATE levain::core)
+
+# Test de fumée du rendu (#16) : dessine le triangle hors écran et compare l'image à une référence.
+# SDL_VIDEO_DRIVER=offscreen : pas d'écran en CI, la surface est « headless » (lavapipe la fournit).
+add_executable(levain_smoke_triangle smoke_triangle.cpp)
+target_link_libraries(levain_smoke_triangle PRIVATE levain::gpu levain::render levain::platform)
+target_compile_definitions(levain_smoke_triangle PRIVATE
+    LEVAIN_REFERENCE_IMAGE="${CMAKE_CURRENT_SOURCE_DIR}/data/triangle.ppm")
+add_test(NAME smoke.triangle COMMAND levain_smoke_triangle)
+set_tests_properties(smoke.triangle PROPERTIES ENVIRONMENT "SDL_VIDEO_DRIVER=offscreen")
