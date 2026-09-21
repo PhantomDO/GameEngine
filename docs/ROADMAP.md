@@ -1,6 +1,10 @@
 # Roadmap v1
 
-> Version 0.4 — 20/09/2026 — statut : **validé par Donnovan**
+> Version 0.5 — 21/09/2026 — statut : **validé par Donnovan** (recalibrage, option 1 : ratio 0,67)
+>
+> v0.5 : **recalibrage après la phase 1** (ratio 0,67) : les estimations des phases 2 à 8 sont multipliées par
+> 0,67, arrondies au quart d'heure, et les échéances recalculées. Total : **68 h → 47 h** (5,0 h et 3,0 h réelles
+> pour les phases 0 et 1, puis 39,0 h estimées au lieu de 58,5). Voir « Recalibrage ».
 >
 > v0.2 : NVRHI remplace la RHI maison (ADR-0002) et flecs remplace l'ECS maison (ADR-0004). Le jalon « RHI
 > mince » disparaît, les phases 1, 2, 3, 5 et 7 sont allégées, un backend Direct3D 12 et le choix du jeu sont
@@ -26,23 +30,28 @@
 
 | Phase | Contenu | Heures Donnovan | Sessions | Fin visée (1,5 h/sem.) |
 |---|---|---:|---:|---|
-| 0 | Fondations | 5,0 | 4 | 11/10/2026 |
-| 1 | Fenêtre et premier triangle | 4,5 | 3 | 01/11/2026 |
-| 2 | 3D de base | 5,5 | 4 | 29/11/2026 |
-| 3 | Scène et ECS | 6,0 | 4 | 27/12/2026 |
-| 4 | Assets | 9,0 | 7 | 07/02/2027 |
-| 5 | Rendu PBR | 11,0 | 8 | 04/04/2027 |
-| 6 | Physique | 6,5 | 4 | 02/05/2027 |
-| 7 | Éditeur | 9,5 | 7 | 13/06/2027 |
-| 8 | Audio et le jeu | 11,0 | 8 | 08/08/2027 |
-| **Total** | | **68,0** | **49** | |
+| 0 | Fondations | 5,0 (réel) | 4 | fini le 20/09/2026 |
+| 1 | Fenêtre et premier triangle | 3,0 (réel, 4,5 estimées) | 3 | fini le 21/09/2026 |
+| 2 | 3D de base | 3,75 | 4 | 11/10/2026 |
+| 3 | Scène et ECS | 4,0 | 4 | 01/11/2026 |
+| 4 | Assets | 6,0 | 7 | 29/11/2026 |
+| 5 | Rendu PBR | 7,5 | 8 | 03/01/2027 |
+| 6 | Physique | 4,25 | 4 | 17/01/2027 |
+| 7 | Éditeur | 6,25 | 7 | 21/02/2027 |
+| 8 | Audio et le jeu | 7,25 | 8 | 21/03/2027 |
+| **Total** | | **47,0** | **49** | |
 
-Durée totale selon le rythme : **2 h/sem. → environ 8 mois** (mi-mai 2027) · **1,5 h/sem. → environ 11 mois**
-(début août 2027) · **1 h/sem. → environ 16 mois** (janvier 2028).
+Les sessions Claude Code ne sont pas recalibrées : le ratio mesure le temps de Donnovan, pas le quota.
 
-Jalons visibles : **premier triangle** le 01/11/2026 · **choix du jeu** le 27/12/2026 · **le jeu jouable** le 01/08/2027.
+Durée restante (39 h) selon le rythme : **2 h/sem. → 20 semaines** (début février 2027) · **1,5 h/sem. →
+26 semaines** (fin mars 2027) · **1 h/sem. → 39 semaines** (juin 2027).
+
+Jalons visibles : **premier triangle** atteint le 21/09/2026 (prévu le 01/11/2026) · **choix du jeu** le
+01/11/2026 · **le jeu jouable** le 21/03/2027.
 
 ### Pourquoi 68 h et pas 60
+
+> Section historique : depuis le recalibrage de la phase 1 (v0.5), le total est de 47 h.
 
 L'estimation annoncée à l'oral (« autour de 60 h ») ne tenait pas compte de deux ajouts : le backend Direct3D 12
 (1 h) et le choix du jeu (0,5 h). Surtout, ce que NVRHI et flecs ne touchent pas (fondations, assets, input,
@@ -120,9 +129,9 @@ Proton sur la machine de référence en `--api d3d12` (voir SPECS §10, « Véri
 
 | Milestone | Heures D. | Sessions | Échéance |
 |---|---:|---:|---|
-| M2.1 Caméra, meshes et binding sets | 2,5 | 2 | 15/11/2026 |
-| M2.2 Textures | 1,5 | 1 | 22/11/2026 |
-| M2.3 Hot-reload des shaders | 1,5 | 1 | 29/11/2026 |
+| M2.1 Caméra, meshes et binding sets | 1,75 | 2 | 04/10/2026 |
+| M2.2 Textures | 1,0 | 1 | 04/10/2026 |
+| M2.3 Hot-reload des shaders | 1,0 | 1 | 11/10/2026 |
 
 **M2.1 — Caméra, meshes et binding sets.** Caméra 3D, depth buffer, meshes indexés, constantes par frame
 (volatile constant buffers de NVRHI), instancing, timestamps GPU ; stratégie de binding (**ADR à écrire** :
@@ -145,11 +154,11 @@ variantes de shaders d'Unity.
 
 | Milestone | Heures D. | Sessions | Échéance |
 |---|---:|---:|---|
-| M3.1 Intégration de flecs et explorer | 1,5 | 1 | 06/12/2026 |
-| M3.2 Transforms et hiérarchie | 1,0 | 1 | 13/12/2026 |
-| M3.3 Boucle à pas fixe | 1,5 | 1 | 20/12/2026 |
-| M3.4 Input par actions et caméra libre | 1,5 | 1 | 27/12/2026 |
-| M3.5 Choix du jeu | 0,5 | 0 | 27/12/2026 |
+| M3.1 Intégration de flecs et explorer | 1,0 | 1 | 18/10/2026 |
+| M3.2 Transforms et hiérarchie | 0,75 | 1 | 18/10/2026 |
+| M3.3 Boucle à pas fixe | 1,0 | 1 | 25/10/2026 |
+| M3.4 Input par actions et caméra libre | 1,0 | 1 | 25/10/2026 |
+| M3.5 Choix du jeu | 0,25 | 0 | 01/11/2026 |
 
 **M3.1 — Intégration de flecs et explorer.** Monde flecs, composants de base, systèmes rangés par phases,
 modules flecs ; le renderer dessine ce que contient le monde ; explorer web activé en Debug.
@@ -179,10 +188,10 @@ Actors/Components d'Unreal, GameObject d'Unity, Nodes de Godot.
 
 | Milestone | Heures D. | Sessions | Échéance |
 |---|---:|---:|---|
-| M4.1 Import glTF | 2,0 | 2 | 10/01/2027 |
-| M4.2 Base d'assets | 2,5 | 2 | 17/01/2027 |
-| M4.3 Cuisson des assets | 3,0 | 2 | 31/01/2027 |
-| M4.4 Hot-reload des assets | 1,5 | 1 | 07/02/2027 |
+| M4.1 Import glTF | 1,25 | 2 | 01/11/2026 |
+| M4.2 Base d'assets | 1,75 | 2 | 15/11/2026 |
+| M4.3 Cuisson des assets | 2,0 | 2 | 22/11/2026 |
+| M4.4 Hot-reload des assets | 1,0 | 1 | 29/11/2026 |
 
 **M4.1 — Import glTF.** fastgltf : meshes, matériaux, textures et hiérarchie convertis en entités flecs.
 *Critères* : la scène Sponza (Khronos glTF Sample Assets) s'affiche ; temps de chargement mesuré.
@@ -205,11 +214,11 @@ avant et après.
 
 | Milestone | Heures D. | Sessions | Échéance |
 |---|---:|---:|---|
-| M5.1 PBR direct | 2,5 | 2 | 21/02/2027 |
-| M5.2 HDR et tonemapping | 1,5 | 1 | 28/02/2027 |
-| M5.3 Ombres en cascades | 2,5 | 2 | 14/03/2027 |
-| M5.4 Éclairage d'environnement (IBL) | 2,5 | 2 | 21/03/2027 |
-| M5.5 Culling et statistiques | 2,0 | 1 | 04/04/2027 |
+| M5.1 PBR direct | 1,75 | 2 | 06/12/2026 |
+| M5.2 HDR et tonemapping | 1,0 | 1 | 06/12/2026 |
+| M5.3 Ombres en cascades | 1,75 | 2 | 20/12/2026 |
+| M5.4 Éclairage d'environnement (IBL) | 1,75 | 2 | 27/12/2026 |
+| M5.5 Culling et statistiques | 1,25 | 1 | 03/01/2027 |
 
 **M5.1 — PBR direct.** Modèle metallic-roughness (Cook-Torrance), lumières directionnelle et ponctuelles ;
 choix forward ou forward+ (**ADR à écrire**). Les passes de Donut servent de référence.
@@ -236,9 +245,9 @@ triangles.
 
 | Milestone | Heures D. | Sessions | Échéance |
 |---|---:|---:|---|
-| M6.1 Intégration Jolt | 2,5 | 2 | 11/04/2027 |
-| M6.2 Colliders, requêtes, debug draw | 2,0 | 1 | 25/04/2027 |
-| M6.3 Character controller | 2,0 | 1 | 02/05/2027 |
+| M6.1 Intégration Jolt | 1,75 | 2 | 10/01/2027 |
+| M6.2 Colliders, requêtes, debug draw | 1,25 | 1 | 17/01/2027 |
+| M6.3 Character controller | 1,25 | 1 | 17/01/2027 |
 
 **M6.1 — Intégration Jolt.** Monde physique, corps statiques et dynamiques, synchronisation flecs ↔ Jolt au pas
 fixe.
@@ -258,11 +267,11 @@ pourquoi c'est presque toujours une bibliothèque.
 
 | Milestone | Heures D. | Sessions | Échéance |
 |---|---:|---:|---|
-| M7.1 ImGui et panneaux de debug | 1,5 | 1 | 09/05/2027 |
-| M7.2 Réflexion et inspecteur | 2,0 | 1 | 16/05/2027 |
-| M7.3 Sérialisation et undo/redo | 2,0 | 2 | 30/05/2027 |
-| M7.4 Gizmos et picking | 2,5 | 2 | 06/06/2027 |
-| M7.5 Play/Stop dans l'éditeur | 1,5 | 1 | 13/06/2027 |
+| M7.1 ImGui et panneaux de debug | 1,0 | 1 | 24/01/2027 |
+| M7.2 Réflexion et inspecteur | 1,25 | 1 | 31/01/2027 |
+| M7.3 Sérialisation et undo/redo | 1,25 | 2 | 07/02/2027 |
+| M7.4 Gizmos et picking | 1,75 | 2 | 14/02/2027 |
+| M7.5 Play/Stop dans l'éditeur | 1,0 | 1 | 21/02/2027 |
 
 **M7.1 — ImGui et panneaux de debug.** Renderer ImGui pour NVRHI (adapté de Donut), backend SDL3, panneaux de
 statistiques et de profiling.
@@ -288,9 +297,9 @@ de flecs.
 
 | Milestone | Heures D. | Sessions | Échéance |
 |---|---:|---:|---|
-| M8.1 Audio | 1,5 | 1 | 20/06/2027 |
-| M8.2 Le jeu (vertical slice) | 8,0 | 6 | 01/08/2027 |
-| M8.3 Bilan v1 | 1,5 | 1 | 08/08/2027 |
+| M8.1 Audio | 1,0 | 1 | 21/02/2027 |
+| M8.2 Le jeu (vertical slice) | 5,25 | 6 | 21/03/2027 |
+| M8.3 Bilan v1 | 1,0 | 1 | 21/03/2027 |
 
 **M8.1 — Audio.** miniaudio, composants AudioSource et AudioListener, spatialisation 3D.
 *Critère* : 32 sons 3D simultanés sans coupure.
@@ -340,6 +349,23 @@ dans le journal, puis :
 décisions en font partie (voir la définition des « Heures Donnovan » plus haut). La phase 0 l'a appris à ses
 dépens — mesurée d'abord à 3,0 h en ne comptant que les relectures, contre **4,9 h réelles**. Le ratio erroné de
 0,50 aurait amputé la roadmap de 30 % sans raison.
+
+### Phase 1 — ratio 0,67, recalibrage (v0.5)
+
+| Milestone | Estimé | Passé |
+|---|---:|---:|
+| M1.1 Fenêtre et boucle | 1,5 h | 1,25 h |
+| M1.2 Device NVRHI et swapchain | 1,5 h | 0,72 h |
+| M1.3 Premier triangle | 1,5 h | 1,03 h |
+| **Phase 1** | **4,5 h** | **3,0 h** — ratio **0,67** |
+
+Hors de la fourchette : les estimations des phases 2 à 8 sont multipliées par 0,67, arrondies au quart d'heure,
+et les échéances recalculées à 1,5 h par semaine à partir du 21/09/2026. Le temps vient du total déclaré par
+Donnovan pour la journée ; ce n'est pas une erreur de mesure comme en phase 0.
+
+**Deux réserves.** L'échantillon tient en une journée intense ; et la phase 0 donnait 0,83. Le ratio cumulé des
+deux phases, (5,0 + 3,0) / (6,0 + 4,5) = **0,76**, est plus robuste et sortirait lui aussi de la fourchette. Le
+prochain point de contrôle est la clôture de la phase 2 : un ratio remonté vers 1 y corrigerait l'excès.
 
 ### Phase 0 — ratio 0,83, aucun recalibrage
 
