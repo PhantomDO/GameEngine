@@ -139,6 +139,10 @@ dans `engine/platform/README.md`, section « Pièges connus ».
 - **RenderDoc 1.45 masque `VK_KHR_wayland_surface`** : sous RenderDoc, `SDL_CreateWindow` échoue sous Wayland.
   Lancer le programme capturé avec `SDL_VIDEO_DRIVER=x11` (XWayland). `renderdoccmd capture -w …` montre la
   sortie du programme capturé, que `ExecuteAndInject` cache.
+- **Mesurer une image de capture avec ImageMagick** (2026-09-21) : les PNG de RenderDoc ont un canal alpha,
+  compté par `fx:standard_deviation` avec une variance nulle : le contraste mesuré est divisé par deux. Toujours
+  `-alpha off`. Et `-gravity` persiste d'une option à l'autre : un `-splice` après `-gravity center` insère ses
+  lignes au milieu de l'image (`+gravity` d'abord).
 - **Objets sans nom dans une capture** : NVRHI ne transmet les `debugName` que s'il sait `VK_EXT_debug_utils`
   active, annoncée dans `DeviceDesc::instanceExtensions` (`engine/gpu/src/device_vk.cpp`).
 

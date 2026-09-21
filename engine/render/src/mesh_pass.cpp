@@ -65,12 +65,6 @@ core::Result<MeshPass> createMeshPass(nvrhi::IDevice& device, const nvrhi::Frame
                                    nvrhi::BindingLayoutItem::Sampler(0)};
     nvrhi::BindingLayoutHandle materialLayout = device.createBindingLayout(materialLayoutDesc);
 
-    // Trilinéaire : filtrage entre texels et entre niveaux de mip. Wrap : la texture se répète
-    // au-delà de [0, 1]. Le filtrage anisotrope vient avec #44.
-    nvrhi::SamplerHandle sampler =
-        device.createSampler(nvrhi::SamplerDesc().setAllFilters(true).setAllAddressModes(
-            nvrhi::SamplerAddressMode::Wrap));
-
     // Volatile : le contenu ne vit que le temps d'une command list, et NVRHI en fournit une
     // nouvelle version à chaque écriture. Pas de buffer par frame en vol à gérer (QA du
     // 2026-09-21).
@@ -101,7 +95,7 @@ core::Result<MeshPass> createMeshPass(nvrhi::IDevice& device, const nvrhi::Frame
 
     nvrhi::GraphicsPipelineHandle pipeline = device.createGraphicsPipeline(desc, target);
     if (!inputLayout || !frameLayout || !materialLayout || !sceneConstants || !frameBindings ||
-        !sampler || !pipeline)
+        !pipeline)
     {
         return core::makeError(core::ErrorCode::InvalidData, "passe des meshes refusée par NVRHI");
     }
@@ -112,16 +106,15 @@ core::Result<MeshPass> createMeshPass(nvrhi::IDevice& device, const nvrhi::Frame
                     .materialLayout = std::move(materialLayout),
                     .sceneConstants = std::move(sceneConstants),
                     .frameBindings = std::move(frameBindings),
-                    .sampler = std::move(sampler),
                     .pipeline = std::move(pipeline)};
 }
 
 nvrhi::BindingSetHandle createMaterialBindings(nvrhi::IDevice& device, const MeshPass& pass,
-                                               nvrhi::ITexture& albedo)
+                                               nvrhi::ITexture& albedo, nvrhi::ISampler& sampler)
 {
     return device.createBindingSet(nvrhi::BindingSetDesc()
                                        .addItem(nvrhi::BindingSetItem::Texture_SRV(0, &albedo))
-                                       .addItem(nvrhi::BindingSetItem::Sampler(0, pass.sampler)),
+                                       .addItem(nvrhi::BindingSetItem::Sampler(0, &sampler)),
                                    pass.materialLayout);
 }
 

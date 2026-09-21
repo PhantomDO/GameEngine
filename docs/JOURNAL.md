@@ -25,6 +25,31 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-21 — M2.2 — Samplers et filtrage anisotrope (#44)
+
+- Temps Donnovan : à renseigner
+- Sessions Claude Code : 1
+- Fait : `SamplerSettings`, `createSampler`, `clampAnisotropy` ; le sampler passe de la passe au matériau
+  (`createMaterialBindings`) ; fonctionnalité `samplerAnisotropy` du device ; `createPlane` ; le sandbox
+  ajoute un sol de 1000 unités, une caméra basse sur le côté de la grille et `--anisotropy N` (16 par défaut) ;
+  `tools/renderdoc_capture.py`, partagé par `renderdoc-mips.py` et le nouveau `renderdoc-anisotropy.py`.
+- Mesures (machine de référence) :
+  - **différence visible entre trilinéaire et anisotrope** : planche `docs/images/m2.2-anisotropy.png`, tirée de
+    deux captures RenderDoc (`QT_QPA_PLATFORM=offscreen qrenderdoc --python tools/renderdoc-anisotropy.py`) ;
+    contraste du damier près de l'horizon **0,088 → 0,160**, et 0,32 → 0,34 près de la caméra
+    (`magick captures/m2.2-aniso<N>.png -alpha off -crop 920x100+1000+400 +repage -colorspace gray
+    -format '%[fx:standard_deviation]' info:`, puis `+1000+560`) ;
+  - **le niveau est un paramètre** : `SamplerSettings::maxAnisotropy`, `--anisotropy N` ; `clampAnisotropy`
+    testé, NaN compris ;
+  - **coût** (Release, 10 000 cubes et le sol, `--seconds 10`) : 0,047 → 0,072 ms de GPU sous Wayland,
+    0,024 → 0,036 ms hors écran (`./build/linux-release/sandbox/levain_sandbox --seconds 10 --anisotropy <N>`) ;
+  - **contre-test** : sans `samplerAnisotropy`, la validation refuse le sampler
+    (`VUID-VkSamplerCreateInfo-anisotropyEnable-01070`), assertion ; restauré ;
+  - zéro erreur de validation en Debug ; le test de fumée, trilinéaire, est inchangé.
+- Écarts et problèmes : deux pièges de mesure avec ImageMagick (alpha dans l'écart-type, `-gravity` qui
+  persiste), notés dans le skill `build`.
+- Prochaine étape : clôture de M2.2.
+
 ## 2026-09-21 — M2.2 — Cube texturé et mips vérifiées dans RenderDoc (#43, 2/2)
 
 - Temps Donnovan : à renseigner

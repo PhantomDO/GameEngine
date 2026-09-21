@@ -32,7 +32,6 @@ struct MeshPass
     nvrhi::BindingLayoutHandle materialLayout;
     nvrhi::BufferHandle sceneConstants;
     nvrhi::BindingSetHandle frameBindings;
-    nvrhi::SamplerHandle sampler;
     nvrhi::GraphicsPipelineHandle pipeline;
 };
 
@@ -45,10 +44,12 @@ struct MeshPass
                                                   nvrhi::TextureHandle& depth, std::uint32_t width,
                                                   std::uint32_t height);
 
-/// Le binding set d'un matériau (`space2`, ADR-0013) : sa texture et le sampler de la passe. Créé
-/// une fois par matériau, pas à chaque dessin.
-[[nodiscard]] nvrhi::BindingSetHandle
-createMaterialBindings(nvrhi::IDevice& device, const MeshPass& pass, nvrhi::ITexture& albedo);
+/// Le binding set d'un matériau (`space2`, ADR-0013) : sa texture et son sampler. Créé une fois par
+/// matériau, pas à chaque dessin.
+[[nodiscard]] nvrhi::BindingSetHandle createMaterialBindings(nvrhi::IDevice& device,
+                                                             const MeshPass& pass,
+                                                             nvrhi::ITexture& albedo,
+                                                             nvrhi::ISampler& sampler);
 
 /// Enregistre le dessin de toutes les `instances` de `mesh`, en un seul appel, dans `framebuffer`,
 /// qui doit avoir un depth buffer.
