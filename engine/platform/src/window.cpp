@@ -123,6 +123,13 @@ core::Result<Window> createWindow(const std::string& title, int width, int heigh
     return Window{.handle = std::unique_ptr<SDL_Window, WindowDeleter>{handle}};
 }
 
+PixelSize windowPixelSize(const Window& window)
+{
+    PixelSize size;
+    SDL_GetWindowSizeInPixels(window.handle.get(), &size.width, &size.height);
+    return size;
+}
+
 std::vector<WindowEvent> pollEvents(const Window& window)
 {
     std::vector<WindowEvent> events;

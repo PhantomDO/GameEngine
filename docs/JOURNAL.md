@@ -25,6 +25,38 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-21 — M1.2 — Swapchain, redimensionnement et écran effacé (#13)
+
+- Temps Donnovan : à renseigner (estimé 0,5 h pour #13)
+- Sessions Claude Code : 1
+- Fait : swapchain Vulkan (vk-bootstrap) dont les images sont enveloppées en textures NVRHI ; reconstruction dès
+  que la taille de la fenêtre change ; sémaphores d'acquisition et de présentation ; deux frames en vol au plus
+  (*event queries* NVRHI) ; présentation FIFO ; chaque frame efface l'écran à une couleur ; `windowPixelSize`
+  dans `platform` ; redimensionnements en boucle dans `tools/kwin-window-smoke.sh` ; réponse sur Windows et
+  Direct3D 12 archivée dans `docs/QA.md`.
+- Mesures (machine de référence, Wayland sauf mention) :
+  - **5 minutes de redimensionnements, validation active : 584 changements de taille, zéro message de
+    validation**, sandbox toujours vivant, code 0 (`./tools/kwin-window-smoke.sh 300`, sandbox en Debug) ;
+  - **la fenêtre apparaît sous Wayland**, et KWin lit son titre : `Levain - 8.333 ms (min 7.176, max 9.490) -
+    120 images/s` (`gdbus … krunner1.Match Levain`) ;
+  - **minimisation sous Wayland** (reportée de M1.1) : « masquée » puis « visible », 0 ms de CPU en 2 s
+    minimisée ;
+  - **CPU visible : 40 à 50 ms en 2 s, contre 2 010 ms** avant la swapchain : la présentation FIFO cadence la
+    boucle sur les 120 Hz de l'écran (600 frames en 5,0 s) ;
+  - zéro message de validation aussi sous X11, en offscreen (surface headless, comme la CI), en Release, et
+    sous ASan avec RADV préchargé (code 0).
+- Écarts et problèmes :
+  - **`queueWaitForSemaphore` n'existe pas sur `nvrhi::IDevice`**, seulement sur `nvrhi::vulkan::IDevice`, que
+    l'enveloppe de validation n'expose pas. La swapchain garde donc le device Vulkan de NVRHI, et le moteur
+    l'enveloppe, comme Donut.
+  - **Les images de la swapchain sont des textures NVRHI** : elles doivent disparaître avant le device NVRHI.
+    La swapchain devient le troisième membre de `GpuDevice`, déclaré en dernier pour être détruit en premier.
+  - clang-tidy refuse une constante globale `nvrhi::Color` (constructeur non `noexcept`) : rendue locale.
+  - En offscreen, la surface headless ne cadence rien : ~11 000 images/s. Sans conséquence, la CI vérifie la
+    durée de la boucle, pas sa fréquence.
+- Prochaine étape : clôture de M1.2 (critères tenus : 5 minutes sans erreur de validation, temps de démarrage
+  mesuré), puis M1.3 — premier triangle.
+
 ## 2026-09-21 — M1.2 — Device Vulkan et NVRHI (#12)
 
 - Temps Donnovan : 0,17 h jusqu'ici (10 min, relecture de #54 ; estimé 1,0 h pour #12) — 1 h 25 sur la journée

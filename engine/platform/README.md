@@ -22,7 +22,7 @@ reste du moteur ne voit que nos propres types.
 
 | Fichier | Contenu |
 |---|---|
-| [`include/levain/platform/window.hpp`](include/levain/platform/window.hpp) | `createWindow`, `pollEvents`, `waitEvents`, `setWindowTitle` |
+| [`include/levain/platform/window.hpp`](include/levain/platform/window.hpp) | `createWindow`, `windowPixelSize`, `pollEvents`, `waitEvents`, `setWindowTitle` |
 
 ## Trois choses à savoir sur les fenêtres
 
@@ -33,9 +33,9 @@ le moteur : **y a-t-il quelque chose à dessiner ?** Quand la réponse est non, 
 dort. Mesuré avec `tools/kwin-window-smoke.sh` : **0 ms de CPU en 2 s minimisée, contre 2 010 ms visible**.
 
 **Sous Wayland, pas d'image, pas de fenêtre.** Une surface Wayland n'apparaît à l'écran qu'après avoir reçu son
-premier buffer. Tant que le moteur ne présente aucune image (avant M1.2), la fenêtre existe pour SDL mais pas
-pour le compositeur : on ne la voit pas. Pour tester en attendant, `SDL_VIDEO_DRIVER=x11` passe par XWayland,
-où une fenêtre vide s'affiche.
+premier buffer. Jusqu'à M1.2, le moteur ne présentait rien et la fenêtre restait invisible ; depuis la swapchain
+(#13), elle apparaît, et la minimisation sous Wayland est vérifiée : KWin suspend la fenêtre, SDL émet
+`OCCLUDED`, la boucle s'endort.
 
 **Des pixels, pas des points.** Sur un écran à 200 %, une fenêtre de 1280 × 720 points fait 2560 × 1440 pixels.
 `createWindow` prend des points, parce que c'est le compositeur qui applique l'échelle ; `Resized` donne des

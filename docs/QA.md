@@ -12,6 +12,42 @@ Réponse courte, puis détails. Références : fichier:ligne, ADR, source extern
 
 ---
 
+### Si on remet Windows, le moteur est-il prêt pour Direct3D 12, ou y aura-t-il beaucoup de travail ? (2026-09-21, M1.2)
+
+Réponse courte : **c'est pensé pour, et le gros du travail n'est pas graphique.**
+
+**Déjà interchangeable.**
+
+- Tout ce qui s'écrit au-dessus de `nvrhi::IDevice` — command lists, pipelines, textures, passes de rendu —
+  tourne sous Direct3D 12 sans changement : c'est la raison d'être de NVRHI ([ADR-0002](adr/0002-nvrhi.md)).
+  `engine/render`, le plus gros du moteur, n'en saura rien.
+- Hors de `engine/gpu`, un seul endroit connaît Vulkan : le drapeau `SDL_WINDOW_VULKAN` de
+  `engine/platform/src/window.cpp` (vérifié par `grep` le 2026-09-21). SDL3 gère Windows.
+- **Vulkan tourne aussi sous Windows.** Remettre Windows ne demande pas Direct3D 12 : le backend actuel y
+  fonctionnerait tel quel. D3D12 serait un second backend, optionnel.
+
+**À écrire pour Direct3D 12.**
+
+1. `device_d3d12.cpp` à côté de `device_vk.cpp` : factory DXGI, adaptateur, device, queue, couche de debug, puis
+   `nvrhi::d3d12::createDevice`. Donut y consacre **606 lignes, swapchain comprise, contre 1 413 pour Vulkan**
+   (`DeviceManager_DX12.cpp`, `DeviceManager_VK.cpp`, mesuré avec `wc -l`) : D3D12 n'a pas la cérémonie
+   d'instance, d'extensions et de fonctionnalités de Vulkan.
+2. La swapchain DXGI, l'équivalent de `swapchain_vk.cpp`.
+3. Les shaders compilés aussi en DXIL : prévu, Slang produit SPIR-V et DXIL ([ADR-0005](adr/0005-shaders-slang.md)),
+   et nos shaders suivent déjà la convention de slots HLSL de NVRHI.
+4. Le choix du backend au lancement (`--api vulkan|d3d12`).
+5. **Le plus lourd, et rien de graphique** : presets et CI Windows, choix du compilateur (clang-cl d'abord,
+   [ADR-0011](adr/0011-retour-au-cpp.md)), test de fumée sous WARP.
+
+**Le seul couplage de notre API** : `engine/gpu/include/levain/gpu/device.hpp` nomme un type opaque
+`VulkanContext` et un membre `vulkan`. Un second backend demandera un nom neutre, avec une définition par fichier
+de backend. Un renommage de quelques lignes, pas fait tant que Windows est hors périmètre.
+
+**Chez les autres** (documenté, sources publiques) : Unreal a une interface `FDynamicRHI`, avec les modules
+`D3D12RHI` et `VulkanRHI` choisis au lancement (`-d3d12`, `-vulkan`) ; Godot a des `RenderingDeviceDriver`
+Vulkan, D3D12 (depuis la 4.3) et Metal. Chez nous, NVRHI joue le rôle de leur RHI : il ne reste, par backend, que
+la création du device et de la swapchain.
+
 ### Clang existe aussi sous Windows — pourquoi prendre MSVC ? (2026-09-20, M0.5)
 
 Question posée à la clôture de M0.5. Réponse : **clang-cl ne règlerait aucun des deux bugs de M0.2**, ce qui est
