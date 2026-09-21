@@ -4,6 +4,10 @@ Un piège par entrée : symptôme, cause, parade. Le plus récent en haut.
 
 ## Une PR trop grosse se découpe en branches empilées (2026-09-21)
 
+- **Exception** : le code Vulkan de base (#55, 549 lignes ; #56, 545) ne se découpe pas sans étapes qui compilent
+  mais n'affichent rien. Donnovan l'accepte tant que le code reste lisible et que l'écart est signalé (règle
+  n°2 d'`AGENTS.md`). Ce qui se découpe proprement se découpe toujours : l'ADR-0012 est parti seul (#54).
+
 - **Symptôme** : M1.1 complet faisait ~710 lignes, près du double de la règle n°2.
 - **Parade** : une PR par issue, en branches empilées (B part de A). La règle n°1 interdit d'ouvrir B avant la
   fusion de A : B reste poussée sans PR. Après la fusion de A **en squash**, les commits de A n'existent plus
