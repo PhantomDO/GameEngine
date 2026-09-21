@@ -59,6 +59,10 @@ struct GpuDevice
 [[nodiscard]] core::Result<GpuDevice> createGpuDevice(const platform::Window& window,
                                                       const DeviceOptions& options);
 
+/// Le format des images de la swapchain : les pipelines qui y dessinent en ont besoin à leur
+/// création.
+[[nodiscard]] nvrhi::Format swapchainFormat(const GpuDevice& gpu);
+
 /// Commence une frame : l'image de la swapchain où dessiner, ou `nullptr` si cette frame est à
 /// sauter (fenêtre de taille nulle, swapchain en cours de reconstruction). La swapchain est
 /// reconstruite ici dès que la taille de la fenêtre change.

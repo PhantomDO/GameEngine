@@ -13,6 +13,11 @@ dans `engine/platform/README.md`, section « Pièges connus ».
 
 ## Fenêtre et SDL
 
+- **Environ 20 images/s très régulières sous Wayland, et une fenêtre X11 qui ne s'ouvre plus** (2026-09-21,
+  soirée) : `SDL_CreateWindow` bloque dans `X11_ShowWindow`. Le même binaire donnait 120 images/s quelques
+  heures plus tôt, et les deux symptômes ont disparu ensemble quelques minutes après, sans changement de code :
+  c'est l'environnement, pas le moteur. Cause supposée, non vérifiée : l'écran HDMI éteint côté TV. En cas de
+  doute, mesurer en offscreen, où rien ne bride, et relancer plus tard.
 
 - **Fenêtre invisible sous Wayland** (2026-09-21). Une surface Wayland n'apparaît qu'après sa première image ;
   tant que le moteur ne présente rien (avant M1.2), KWin ne la connaît pas. Parade : `SDL_VIDEO_DRIVER=x11`.
@@ -31,10 +36,11 @@ dans `engine/platform/README.md`, section « Pièges connus ».
 
 ## CI
 
-- **Le démarrage peut manger tout le délai du sandbox** (2026-09-21). Sur le runner, lavapipe, les couches de
-  validation et les sanitizers prennent jusqu'à ~3 s ; avec un délai de 3 s, la boucle ne tournait plus du tout
-  et l'étape restait verte. Le sandbox journalise « boucle arrêtée après X s », la CI exige X ≥ 1. Un démarrage
-  qui s'allonge (shaders en M1.3) se verra là.
+- **Le démarrage peut manger tout le délai du sandbox** (2026-09-21). Sur le runner, il varie de 1 à plus de
+  10 s selon la charge (lavapipe, couches de validation, sanitizers). Un délai de 3 s, puis de 8 s, est tombé
+  avant la première frame ; l'étape restait verte la première fois, le contrôle « boucle ≥ 1 s » l'a fait
+  rougir la seconde (PR #59). Parade : `--seconds N`, compté depuis le premier tour de boucle ; `timeout`
+  n'est plus qu'un filet contre un blocage.
 - **`timeout … | tee`** : sans `set -o pipefail`, le code de sortie est celui de `tee`, et une fuite signalée
   par LeakSanitizer passerait inaperçue.
 
@@ -101,6 +107,8 @@ dans `engine/platform/README.md`, section « Pièges connus ».
   rester celle de la machine de référence.
 - **`$env{…}` dans une chaîne de `message()` CMake** est interprété et casse le parsing : l'écrire autrement.
 - **Le bootstrap de vcpkg exige `zip`** (paquet système).
+- **Le shell des commandes de l'agent est zsh** : une variable non quotée n'y est pas découpée en mots
+  (`$args` valant `--seconds 2` arrive en un seul argument). Écrire les arguments en toutes lettres.
 - **Le shell de Donnovan est fish** : `set -Ux` pour une variable d'environnement persistante. Les scripts du
   dépôt commencent par `#!/usr/bin/env bash`.
 

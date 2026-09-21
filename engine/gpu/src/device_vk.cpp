@@ -201,6 +201,12 @@ core::Result<GpuDevice> createGpuDevice(const platform::Window& window,
     // semaphores (mêmes vérifications que Donut, DeviceManager_VK::pickPhysicalDevice). Le GPU
     // discret est préféré, c'est le défaut de vk-bootstrap : la machine de référence a aussi
     // l'iGPU du 7800X3D (SPECS §10).
+    // shaderDrawParameters : en HLSL, SV_VertexID compte depuis 0 sans le sommet de base du draw ;
+    // en Vulkan, il l'inclut. Slang compense en le soustrayant, et doit pour cela le lire.
+    VkPhysicalDeviceVulkan11Features features11{};
+    features11.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
+    features11.shaderDrawParameters = VK_TRUE;
+
     VkPhysicalDeviceVulkan12Features features12{};
     features12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
     features12.timelineSemaphore = VK_TRUE;
@@ -213,6 +219,7 @@ core::Result<GpuDevice> createGpuDevice(const platform::Window& window,
     vkb::PhysicalDeviceSelector selector{vulkan->instance};
     auto physicalDevice = selector.set_surface(vulkan->surface)
                               .set_minimum_version(1, 3)
+                              .set_required_features_11(features11)
                               .set_required_features_12(features12)
                               .set_required_features_13(features13)
                               .add_required_extension(VK_KHR_SWAPCHAIN_EXTENSION_NAME)

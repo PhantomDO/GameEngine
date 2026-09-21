@@ -1,9 +1,16 @@
+#include <charconv>
 #include <chrono>
+#include <cstddef>
 #include <cstdio>
 #include <exception>
 #include <format>
+#include <limits>
+#include <optional>
 #include <print>
+#include <span>
 #include <string>
+#include <string_view>
+#include <system_error>
 
 #include "levain/core/assert.hpp"
 #include "levain/core/frame_time.hpp"
@@ -12,6 +19,7 @@
 #include "levain/core/version.hpp"
 #include "levain/gpu/device.hpp"
 #include "levain/platform/window.hpp"
+#include "levain/render/triangle.hpp"
 
 namespace
 {
@@ -76,10 +84,9 @@ std::string describeFrameTimes(const levain::core::FrameTimeSummary& summary)
                        summary.averageMs, summary.minMs, summary.maxMs, 1000.0 / summary.averageMs);
 }
 
-/// Efface l'image de la swapchain et la présente. Le rendu viendra dans engine/render ; en
-/// attendant, c'est tout ce que dessine une frame.
+/// Efface l'image de la swapchain, y dessine le triangle, et la présente.
 void renderFrame(levain::gpu::GpuDevice& gpu, const levain::platform::Window& window,
-                 nvrhi::ICommandList& commandList)
+                 const levain::render::TrianglePass& triangle, nvrhi::ICommandList& commandList)
 {
     nvrhi::ITexture* backBuffer = levain::gpu::beginFrame(gpu, window);
     if (backBuffer == nullptr)
@@ -87,20 +94,61 @@ void renderFrame(levain::gpu::GpuDevice& gpu, const levain::platform::Window& wi
         return;
     }
 
-    // La couleur de fond, en attendant le premier triangle (M1.3) : une croûte de levain. Locale et
-    // non globale : le constructeur de nvrhi::Color n'est pas noexcept, et une exception levée à
-    // l'initialisation d'une globale ne se rattrape pas.
-    const nvrhi::Color clearColor{0.55f, 0.32f, 0.14f, 1.0f};
+    {
+        // Le travail CPU d'une frame, hors attente de l'écran : c'est cette zone que mesure le
+        // critère « frame time CPU < 1 ms » de M1.3 (tools/tracy-capture.sh).
+        LEVAIN_PROFILE_SCOPE_NAMED("commandes");
 
-    commandList.open();
-    commandList.clearTextureFloat(backBuffer, nvrhi::AllSubresources, clearColor);
-    commandList.close();
-    gpu.nvrhi->executeCommandList(&commandList);
+        // ponytail: framebuffer recréé à chaque frame. C'est léger avec le rendu dynamique de
+        // Vulkan 1.3 (NVRHI ne crée pas de VkFramebuffer) ; un cache par image si un profil le
+        // montre.
+        const nvrhi::FramebufferHandle framebuffer =
+            gpu.nvrhi->createFramebuffer(nvrhi::FramebufferDesc().addColorAttachment(backBuffer));
 
+        // La couleur de fond : une croûte de levain. Locale et non globale : le constructeur de
+        // nvrhi::Color n'est pas noexcept, et une exception levée à l'initialisation d'une
+        // globale ne se rattrape pas.
+        const nvrhi::Color clearColor{0.55f, 0.32f, 0.14f, 1.0f};
+
+        commandList.open();
+        commandList.clearTextureFloat(backBuffer, nvrhi::AllSubresources, clearColor);
+        levain::render::drawTriangle(commandList, triangle, *framebuffer);
+        commandList.close();
+        gpu.nvrhi->executeCommandList(&commandList);
+    }
+
+    LEVAIN_PROFILE_SCOPE_NAMED("présentation");
     levain::gpu::presentFrame(gpu);
 }
 
-void runMainLoop(levain::platform::Window& window, levain::gpu::GpuDevice& gpu)
+/// La durée de la boucle : `--seconds N`, ou sans limite. Vide si les arguments sont invalides.
+///
+/// Comptée depuis le premier tour de boucle, pas depuis le lancement : en CI, le démarrage varie de
+/// 1 à plus de 10 s selon la charge du runner (lavapipe), et un délai extérieur tombait parfois
+/// avant la première frame.
+std::optional<double> parseLoopSeconds(std::span<char* const> arguments)
+{
+    if (arguments.size() == 1)
+    {
+        return std::numeric_limits<double>::infinity();
+    }
+    if (arguments.size() != 3 || std::string_view{arguments[1]} != "--seconds")
+    {
+        return std::nullopt;
+    }
+
+    const std::string_view value{arguments[2]};
+    double seconds = 0.0;
+    const auto [end, error] = std::from_chars(value.data(), value.data() + value.size(), seconds);
+    if (error != std::errc{} || end != value.data() + value.size() || seconds <= 0.0)
+    {
+        return std::nullopt;
+    }
+    return seconds;
+}
+
+void runMainLoop(levain::platform::Window& window, levain::gpu::GpuDevice& gpu,
+                 const levain::render::TrianglePass& triangle, double loopSeconds)
 {
     const nvrhi::CommandListHandle commandList = gpu.nvrhi->createCommandList();
     LoopState state;
@@ -109,7 +157,7 @@ void runMainLoop(levain::platform::Window& window, levain::gpu::GpuDevice& gpu)
     Clock::time_point previousFrameEnd = loopStart;
     int frameCount = 0;
 
-    while (state.isRunning)
+    while (state.isRunning && secondsBetween(loopStart, Clock::now()) < loopSeconds)
     {
         if (!state.isVisible)
         {
@@ -136,7 +184,7 @@ void runMainLoop(levain::platform::Window& window, levain::gpu::GpuDevice& gpu)
 
         {
             LEVAIN_PROFILE_SCOPE_NAMED("rendu");
-            renderFrame(gpu, window, *commandList);
+            renderFrame(gpu, window, triangle, *commandList);
         }
 
         const Clock::time_point frameEnd = Clock::now();
@@ -163,12 +211,20 @@ void runMainLoop(levain::platform::Window& window, levain::gpu::GpuDevice& gpu)
 
 } // namespace
 
-int main()
+int main(int argc, char** argv)
 {
     // std::print et std::format peuvent lever : format_error sur une chaîne de format
     // invalide, system_error si l'écriture échoue. On rattrape au sommet (ADR-0008).
     try
     {
+        const std::optional<double> loopSeconds =
+            parseLoopSeconds(std::span{argv, static_cast<std::size_t>(argc)});
+        if (!loopSeconds)
+        {
+            std::println(stderr, "usage : levain_sandbox [--seconds N]");
+            return 2;
+        }
+
         std::print("Levain {} — {} — __cplusplus {}\n", levain::core::version(),
                    levain::core::toolchain(), __cplusplus);
 
@@ -193,7 +249,17 @@ int main()
         levain::core::log("sandbox", levain::core::LogLevel::Info, "device créé en {:.1f} ms",
                           secondsBetween(deviceStart, Clock::now()) * 1000.0);
 
-        runMainLoop(*window, *gpu);
+        auto triangle = levain::render::createTrianglePass(
+            *gpu->nvrhi,
+            nvrhi::FramebufferInfo().addColorFormat(levain::gpu::swapchainFormat(*gpu)));
+        if (!triangle)
+        {
+            levain::core::log("sandbox", levain::core::LogLevel::Critical, "{}",
+                              triangle.error().message);
+            return 1;
+        }
+
+        runMainLoop(*window, *gpu, *triangle, *loopSeconds);
         levain::core::log("sandbox", levain::core::LogLevel::Info, "fenêtre fermée");
     }
     catch (const std::exception& e)

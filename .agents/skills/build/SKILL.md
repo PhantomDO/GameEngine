@@ -47,7 +47,7 @@ les retirer**. Un avertissement ou une extension C++26 doit casser le build.
 
 Les shaders Slang de `shaders/` sont compilés au build par `slangc` (port vcpkg `shader-slang`) en SPIR-V et en
 DXIL, une commande par point d'entrée (`levain_add_shader` dans `shaders/CMakeLists.txt`, ADR-0005). Sorties
-dans `build/<preset>/shaders/`. Chaque DXIL est désassemblé par un test
+dans `build/<preset>/shaders/`, lues à l'exécution par `engine/render`. Chaque DXIL est désassemblé par un test
 ctest (`dxil.*`), faute de backend Direct3D 12 pour l'exécuter.
 
 ## Lancer le sandbox
@@ -59,8 +59,7 @@ SDL_VIDEO_DRIVER=x11 ./build/linux-debug/sandbox/levain_sandbox   # x11 : voir G
 Comme la CI, avec les sanitizers (code 0 = ni fuite ni comportement indéfini) :
 
 ```bash
-SDL_VIDEO_DRIVER=offscreen timeout --foreground --preserve-status -k 10 3 \
-  ./build/linux-asan/sandbox/levain_sandbox
+SDL_VIDEO_DRIVER=offscreen ./build/linux-asan/sandbox/levain_sandbox --seconds 3
 ```
 
 ## Tester la fenêtre comme un utilisateur

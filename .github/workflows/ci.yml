@@ -141,26 +141,27 @@ jobs:
 
       # Le runner n'a pas d'écran : SDL passe par son pilote « offscreen ».
       #
-      # Une fenêtre ne se ferme pas toute seule. `timeout` envoie SIGTERM au bout de 8 s, que
-      # SDL traduit en demande de fermeture ; le programme sort normalement, et c'est à cette
-      # sortie que LeakSanitizer fait son compte.
+      # --seconds 3 : la boucle s'arrête d'elle-même 3 s après son premier tour, puis le programme sort
+      # normalement, et c'est à cette sortie que LeakSanitizer fait son compte. La durée est comptée
+      # depuis la boucle, pas depuis le lancement : le démarrage varie de 1 à plus de 10 s selon la charge
+      # du runner, et un délai extérieur de 8 s est déjà tombé avant la première frame (PR #59).
       #
-      # 8 s et une vérification : sur le runner, le démarrage (lavapipe, couches de validation,
-      # sanitizers) prend jusqu'à ~3 s. Avec 3 s de délai, la boucle ne tournait plus du tout et
-      # l'étape restait verte. Le sandbox journalise la durée de sa boucle ; moins d'une seconde
-      # fait échouer l'étape.
+      # timeout n'est plus qu'un filet contre un blocage :
       #   --preserve-status : le code de sortie est celui du sandbox, pas celui de timeout.
       #   -k 10 : SIGKILL 10 s plus tard si le programme ignore SIGTERM ; code 137, job rouge.
       #   --foreground : un seul SIGTERM. Sans cette option, timeout en envoie un second au
       #     groupe de processus, et ce second signal fait sauter une assertion du SDL de Debug
       #     (SDL_quit.c:171), qui attend alors une réponse jusqu'au SIGKILL.
+      #
+      # Le contrôle final exige une boucle d'au moins une seconde : une boucle qui s'arrête tôt sans
+      # erreur est une panne silencieuse (règle n°7).
       - name: Lancer le sandbox
         env:
           SDL_VIDEO_DRIVER: offscreen
         run: |
           set -euo pipefail
-          timeout --foreground --preserve-status -k 10 8 \
-            ./build/${{ matrix.preset }}/sandbox/levain_sandbox | tee sandbox.log
+          timeout --foreground --preserve-status -k 10 60 \
+            ./build/${{ matrix.preset }}/sandbox/levain_sandbox --seconds 3 | tee sandbox.log
           grep -Eq "boucle arrêtée après ([1-9]|[0-9]{2,})\.[0-9] s" sandbox.log \
             || { echo "::error::la boucle du sandbox a tourné moins d'une seconde"; exit 1; }
 
