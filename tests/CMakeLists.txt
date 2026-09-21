@@ -10,6 +10,7 @@ add_executable(levain_tests
     frame_time_test.cpp
     image_test.cpp
     log_test.cpp
+    texture_test.cpp
     version_test.cpp)
 target_link_libraries(levain_tests PRIVATE
     levain::assets levain::core levain::render doctest::doctest)

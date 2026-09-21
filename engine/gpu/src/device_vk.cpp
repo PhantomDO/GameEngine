@@ -204,6 +204,11 @@ core::Result<GpuDevice> createGpuDevice(const platform::Window& window,
     // l'iGPU du 7800X3D (SPECS §10).
     // shaderDrawParameters : en HLSL, SV_VertexID compte depuis 0 sans le sommet de base du draw ;
     // en Vulkan, il l'inclut. Slang compense en le soustrayant, et doit pour cela le lire.
+    // samplerAnisotropy : sans elle, un sampler anisotrope est une erreur de validation. Tous les
+    // GPU de bureau l'ont, lavapipe aussi.
+    VkPhysicalDeviceFeatures features{};
+    features.samplerAnisotropy = VK_TRUE;
+
     VkPhysicalDeviceVulkan11Features features11{};
     features11.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
     features11.shaderDrawParameters = VK_TRUE;
@@ -220,6 +225,7 @@ core::Result<GpuDevice> createGpuDevice(const platform::Window& window,
     vkb::PhysicalDeviceSelector selector{vulkan->instance};
     auto physicalDevice = selector.set_surface(vulkan->surface)
                               .set_minimum_version(1, 3)
+                              .set_required_features(features)
                               .set_required_features_11(features11)
                               .set_required_features_12(features12)
                               .set_required_features_13(features13)

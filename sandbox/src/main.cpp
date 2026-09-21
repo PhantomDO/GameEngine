@@ -1,3 +1,4 @@
+#include <array>
 #include <charconv>
 #include <chrono>
 #include <cstddef>
@@ -112,12 +113,20 @@ std::string describeFrameTimes(const levain::core::FrameTimeSummary& summary, do
 constexpr int GridSide = 100;
 constexpr float GridSpacing = 1.5f;
 
-/// Ce que dessine le sandbox en M2.2 : une grille de cubes texturés qui tournent, vue d'en haut.
+/// Le sol : 1000 unités de côté, pour qu'il file jusqu'à l'horizon, et une case du damier par unité
+/// (la texture a 8 cases de côté).
+constexpr float GroundSize = 1000.0f;
+constexpr float GroundTextureRepeat = GroundSize / 8.0f;
+
+/// Ce que dessine le sandbox en M2.2 : une grille de cubes texturés qui tournent, sur un sol qui
+/// file jusqu'à l'horizon, où se voit le filtrage anisotrope.
 struct DemoScene
 {
     levain::render::MeshPass meshPass;
     levain::render::Mesh cube;
     levain::render::Instances grid;
+    levain::render::Mesh ground;
+    levain::render::Instances groundInstance; ///< Une seule, sous les cubes.
     nvrhi::TextureHandle checker;
     nvrhi::BindingSetHandle material;
     levain::render::Camera camera;
@@ -156,8 +165,9 @@ textureLevelsOf(const std::vector<levain::assets::Image>& mips)
     return levels;
 }
 
-/// Crée la passe des meshes et envoie au GPU le cube, la grille et la texture du damier.
-levain::core::Result<DemoScene> createDemoScene(levain::gpu::GpuDevice& gpu)
+/// Crée la passe des meshes et envoie au GPU le cube, la grille, le sol et la texture du damier.
+levain::core::Result<DemoScene> createDemoScene(levain::gpu::GpuDevice& gpu,
+                                                const levain::render::SamplerSettings& sampler)
 {
     auto image = levain::assets::loadImage(LEVAIN_DATA_DIR "/textures/checker.png");
     if (!image)
@@ -181,22 +191,33 @@ levain::core::Result<DemoScene> createDemoScene(levain::gpu::GpuDevice& gpu)
     levain::render::Mesh cube = levain::render::createCube(*gpu.nvrhi, *upload);
     levain::render::Instances grid =
         levain::render::createInstances(*gpu.nvrhi, *upload, gridOffsets());
+    levain::render::Mesh ground =
+        levain::render::createPlane(*gpu.nvrhi, *upload, GroundSize, GroundTextureRepeat);
+    // Juste sous les cubes, qui tournent sur eux-mêmes : leur demi-diagonale fait 0,87.
+    const std::array<glm::vec3, 1> groundOffset{glm::vec3{0.0f, -1.0f, 0.0f}};
+    levain::render::Instances groundInstance =
+        levain::render::createInstances(*gpu.nvrhi, *upload, groundOffset);
     nvrhi::TextureHandle checker =
         levain::render::createTexture(*gpu.nvrhi, *upload, textureLevelsOf(mips), "checker");
     upload->close();
     gpu.nvrhi->executeCommandList(upload);
+    const nvrhi::SamplerHandle samplerHandle = levain::render::createSampler(*gpu.nvrhi, sampler);
     nvrhi::BindingSetHandle material =
-        levain::render::createMaterialBindings(*gpu.nvrhi, *meshPass, *checker);
+        levain::render::createMaterialBindings(*gpu.nvrhi, *meshPass, *checker, *samplerHandle);
 
-    // Assez haut et assez loin pour voir toute la grille, 150 unités de côté.
-    const levain::render::Camera camera{.position = {0.0f, 80.0f, 110.0f},
-                                        .target = {0.0f, 0.0f, 0.0f},
+    // Basse, sur le côté de la grille, et visant loin devant : la grille occupe la gauche de
+    // l'image, le sol file jusqu'à l'horizon à droite, de plus en plus de biais. C'est là que le
+    // filtrage trilinéaire seul le rend flou.
+    const levain::render::Camera camera{.position = {100.0f, 8.0f, 120.0f},
+                                        .target = {92.0f, 0.0f, 76.0f}, // 10° sous l'horizon
                                         .verticalFovRadians = glm::radians(60.0f),
                                         .nearPlane = 0.5f,
-                                        .farPlane = 400.0f};
+                                        .farPlane = 1000.0f};
     return DemoScene{.meshPass = std::move(*meshPass),
                      .cube = std::move(cube),
                      .grid = std::move(grid),
+                     .ground = std::move(ground),
+                     .groundInstance = std::move(groundInstance),
                      .checker = std::move(checker),
                      .material = std::move(material),
                      .camera = camera,
@@ -258,6 +279,10 @@ std::optional<double> renderFrame(levain::gpu::GpuDevice& gpu,
         commandList.clearDepthStencilTexture(depth, nvrhi::AllSubresources, true, 1.0f, false, 0);
         levain::render::drawMesh(commandList, scene.meshPass, *framebuffer, scene.cube, scene.grid,
                                  *scene.material, constants);
+        levain::render::drawMesh(
+            commandList, scene.meshPass, *framebuffer, scene.ground, scene.groundInstance,
+            *scene.material,
+            {.viewProjection = constants.viewProjection, .model = glm::mat4{1.0f}});
         levain::render::endGpuTimer(commandList, scene.gpuTimer);
         commandList.close();
         gpu.nvrhi->executeCommandList(&commandList);
@@ -268,30 +293,56 @@ std::optional<double> renderFrame(levain::gpu::GpuDevice& gpu,
     return gpuMs;
 }
 
-/// La durée de la boucle : `--seconds N`, ou sans limite. Vide si les arguments sont invalides.
-///
-/// Comptée depuis le premier tour de boucle, pas depuis le lancement : en CI, le démarrage varie de
-/// 1 à plus de 10 s selon la charge du runner (lavapipe), et un délai extérieur tombait parfois
-/// avant la première frame.
-std::optional<double> parseLoopSeconds(std::span<char* const> arguments)
+struct SandboxOptions
 {
-    if (arguments.size() == 1)
-    {
-        return std::numeric_limits<double>::infinity();
-    }
-    if (arguments.size() != 3 || std::string_view{arguments[1]} != "--seconds")
-    {
-        return std::nullopt;
-    }
+    /// La durée de la boucle, sans limite par défaut. Comptée depuis le premier tour de boucle, pas
+    /// depuis le lancement : en CI, le démarrage varie de 1 à plus de 10 s selon la charge du
+    /// runner (lavapipe), et un délai extérieur tombait parfois avant la première frame.
+    double loopSeconds = std::numeric_limits<double>::infinity();
+    /// Le filtrage anisotrope du damier ; 1 le désactive (trilinéaire seul).
+    float maxAnisotropy = 16.0f;
+};
 
-    const std::string_view value{arguments[2]};
-    double seconds = 0.0;
-    const auto [end, error] = std::from_chars(value.data(), value.data() + value.size(), seconds);
-    if (error != std::errc{} || end != value.data() + value.size() || seconds <= 0.0)
+/// Un nombre strictement positif, écrit en entier. Vide sinon, NaN compris.
+std::optional<double> parsePositive(std::string_view text)
+{
+    double value = 0.0;
+    const auto [end, error] = std::from_chars(text.data(), text.data() + text.size(), value);
+    if (error != std::errc{} || end != text.data() + text.size() || !(value > 0.0))
     {
         return std::nullopt;
     }
-    return seconds;
+    return value;
+}
+
+/// `[--seconds N] [--anisotropy N]`, dans n'importe quel ordre. Vide si les arguments sont
+/// invalides.
+std::optional<SandboxOptions> parseOptions(std::span<char* const> arguments)
+{
+    SandboxOptions options;
+    for (std::size_t i = 1; i < arguments.size(); i += 2)
+    {
+        const std::optional<double> value =
+            i + 1 < arguments.size() ? parsePositive(arguments[i + 1]) : std::nullopt;
+        const std::string_view name{arguments[i]};
+        if (!value)
+        {
+            return std::nullopt;
+        }
+        if (name == "--seconds")
+        {
+            options.loopSeconds = *value;
+        }
+        else if (name == "--anisotropy")
+        {
+            options.maxAnisotropy = static_cast<float>(*value);
+        }
+        else
+        {
+            return std::nullopt;
+        }
+    }
+    return options;
 }
 
 void runMainLoop(levain::platform::Window& window, levain::gpu::GpuDevice& gpu, DemoScene& scene,
@@ -376,11 +427,11 @@ int main(int argc, char** argv)
     // invalide, system_error si l'écriture échoue. On rattrape au sommet (ADR-0008).
     try
     {
-        const std::optional<double> loopSeconds =
-            parseLoopSeconds(std::span{argv, static_cast<std::size_t>(argc)});
-        if (!loopSeconds)
+        const std::optional<SandboxOptions> options =
+            parseOptions(std::span{argv, static_cast<std::size_t>(argc)});
+        if (!options)
         {
-            std::println(stderr, "usage : levain_sandbox [--seconds N]");
+            std::println(stderr, "usage : levain_sandbox [--seconds N] [--anisotropy N]");
             return 2;
         }
 
@@ -410,7 +461,10 @@ int main(int argc, char** argv)
         levain::core::log("sandbox", levain::core::LogLevel::Info, "device créé en {:.1f} ms",
                           secondsBetween(deviceStart, Clock::now()) * 1000.0);
 
-        auto scene = createDemoScene(*gpu);
+        const levain::render::SamplerSettings sampler{.maxAnisotropy = options->maxAnisotropy};
+        levain::core::log("sandbox", levain::core::LogLevel::Info, "filtrage anisotrope : {}",
+                          levain::render::clampAnisotropy(sampler.maxAnisotropy));
+        auto scene = createDemoScene(*gpu, sampler);
         if (!scene)
         {
             levain::core::log("sandbox", levain::core::LogLevel::Critical, "{}",
@@ -418,7 +472,7 @@ int main(int argc, char** argv)
             return 1;
         }
 
-        runMainLoop(*window, *gpu, *scene, *loopSeconds);
+        runMainLoop(*window, *gpu, *scene, options->loopSeconds);
         levain::core::log("sandbox", levain::core::LogLevel::Info, "fenêtre fermée");
     }
     catch (const std::exception& e)

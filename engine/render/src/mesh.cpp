@@ -53,6 +53,11 @@ Instances createInstances(nvrhi::IDevice& device, nvrhi::ICommandList& commandLi
     return instances;
 }
 
+/// Les coordonnées de texture des quatre coins d'une face carrée, dans l'ordre où createCube et
+/// createPlane les donnent : bas gauche, bas droite, haut droite, haut gauche.
+constexpr std::array<glm::vec2, 4> FaceUvs{
+    {{0.0f, 1.0f}, {1.0f, 1.0f}, {1.0f, 0.0f}, {0.0f, 0.0f}}};
+
 Mesh createCube(nvrhi::IDevice& device, nvrhi::ICommandList& commandList)
 {
     // Les huit coins, nommés par le signe de x, y et z (n : −0,5 ; p : +0,5).
@@ -85,11 +90,9 @@ Mesh createCube(nvrhi::IDevice& device, nvrhi::ICommandList& commandList)
 
     // Chaque face commence par ses deux coins du bas (ou, pour ±y, par un bord), dans le même
     // sens : les quatre coins de chaque face reçoivent les mêmes coordonnées de texture.
-    const std::array<glm::vec2, 4> faceUvs{
-        {{0.0f, 1.0f}, {1.0f, 1.0f}, {1.0f, 0.0f}, {0.0f, 0.0f}}};
     for (std::size_t i = 0; i < vertices.size(); ++i)
     {
-        vertices[i].uv = faceUvs[i % faceUvs.size()];
+        vertices[i].uv = FaceUvs[i % FaceUvs.size()];
     }
 
     // Deux triangles par face : (0, 1, 2) et (0, 2, 3) sur ses quatre coins.
@@ -101,6 +104,27 @@ Mesh createCube(nvrhi::IDevice& device, nvrhi::ICommandList& commandList)
                                                 first, first + 2, first + 3};
         std::ranges::copy(quad, indices.begin() + static_cast<std::ptrdiff_t>(face * 6));
     }
+    return createMesh(device, commandList, vertices, indices);
+}
+
+Mesh createPlane(nvrhi::IDevice& device, nvrhi::ICommandList& commandList, float size,
+                 float textureRepeat)
+{
+    const float h = size / 2.0f;
+    const glm::vec3 white{1.0f};
+    // Les coins dans le sens trigonométrique vu d'en haut, comme la face +y du cube.
+    std::array<MeshVertex, 4> vertices{{
+        {{-h, 0.0f, h}, white, {}},
+        {{h, 0.0f, h}, white, {}},
+        {{h, 0.0f, -h}, white, {}},
+        {{-h, 0.0f, -h}, white, {}},
+    }};
+    // Au-delà de 1, le sampler en Wrap répète la texture : textureRepeat fois sur chaque côté.
+    for (std::size_t i = 0; i < vertices.size(); ++i)
+    {
+        vertices[i].uv = FaceUvs[i] * textureRepeat;
+    }
+    const std::array<std::uint32_t, 6> indices{0, 1, 2, 0, 2, 3};
     return createMesh(device, commandList, vertices, indices);
 }
 

@@ -1,11 +1,30 @@
 #include "levain/render/texture.hpp"
 
+#include <algorithm>
 #include <cstddef>
 
 #include "levain/core/assert.hpp"
 
 namespace levain::render
 {
+
+float clampAnisotropy(float requested)
+{
+    // !(x >= 1) et non x < 1 : un NaN tombe aussi à 1, au lieu de passer tel quel au pilote.
+    if (!(requested >= 1.0f))
+    {
+        return 1.0f;
+    }
+    return std::min(requested, 16.0f);
+}
+
+nvrhi::SamplerHandle createSampler(nvrhi::IDevice& device, const SamplerSettings& settings)
+{
+    return device.createSampler(nvrhi::SamplerDesc()
+                                    .setAllFilters(true)
+                                    .setMaxAnisotropy(clampAnisotropy(settings.maxAnisotropy))
+                                    .setAllAddressModes(settings.addressMode));
+}
 
 nvrhi::TextureHandle createTexture(nvrhi::IDevice& device, nvrhi::ICommandList& commandList,
                                    std::span<const TextureLevel> levels, const char* debugName)

@@ -8,8 +8,8 @@ quel sous Direct3D 12 le jour où ce backend existera (`docs/QA.md`, question du
 
 **État en M2.2** : le premier triangle (`TrianglePass`), une caméra perspective (`Camera`), des meshes indexés
 dessinés avec un depth buffer (`MeshPass`), en plusieurs exemplaires par un seul draw (`Instances`), texturés
-avec tous leurs niveaux de mip (`createTexture`, `createMaterialBindings`), et le temps GPU d'une frame
-(`GpuTimer`).
+avec tous leurs niveaux de mip (`createTexture`, `createMaterialBindings`), lus par un sampler réglable
+(`createSampler`, filtrage anisotrope), et le temps GPU d'une frame (`GpuTimer`).
 
 ## Invariants
 
@@ -25,9 +25,9 @@ avec tous leurs niveaux de mip (`createTexture`, `createMaterialBindings`), et l
 |---|---|
 | [`include/levain/render/triangle.hpp`](include/levain/render/triangle.hpp) | `createTrianglePass`, `drawTriangle` |
 | [`include/levain/render/camera.hpp`](include/levain/render/camera.hpp) | `Camera`, `viewProjectionOf` — profondeur de 0 à 1, comme Vulkan et Direct3D 12 |
-| [`include/levain/render/mesh.hpp`](include/levain/render/mesh.hpp) | `Mesh`, `createMesh`, `createCube` — buffers de sommets et d'indices ; `Instances`, `createInstances` — un décalage par exemplaire |
+| [`include/levain/render/mesh.hpp`](include/levain/render/mesh.hpp) | `Mesh`, `createMesh`, `createCube`, `createPlane` — buffers de sommets et d'indices ; `Instances`, `createInstances` — un décalage par exemplaire |
 | [`include/levain/render/mesh_pass.hpp`](include/levain/render/mesh_pass.hpp) | `createMeshPass`, `ensureDepthTexture`, `createMaterialBindings`, `drawMesh` — la première passe avec constantes, profondeur et texture |
-| [`include/levain/render/texture.hpp`](include/levain/render/texture.hpp) | `TextureLevel`, `createTexture` — une texture sRGB et tous ses niveaux de mip |
+| [`include/levain/render/texture.hpp`](include/levain/render/texture.hpp) | `TextureLevel`, `createTexture` — une texture sRGB et tous ses niveaux de mip ; `SamplerSettings`, `createSampler`, `clampAnisotropy` |
 | [`include/levain/render/gpu_timer.hpp`](include/levain/render/gpu_timer.hpp) | `GpuTimer`, `beginGpuTimer`, `endGpuTimer` — temps GPU par timer queries |
 
 ## Ce qu'il faut pour dessiner un triangle avec NVRHI
@@ -72,9 +72,22 @@ frame**, 0,15 ms pour la frame entière hors attente de l'écran
 - **Un binding set de matériau dans `space2`** (ADR-0013) : la texture et un sampler. `space1`, réservé aux
   ressources de passe, reste vide : NVRHI comble le trou par un descriptor set vide. Le binding set se crée une
   fois par matériau, pas à chaque dessin.
-- **Un sampler trilinéaire** : filtrage entre texels et entre niveaux de mip, texture répétée au-delà de
-  [0, 1]. Le filtrage anisotrope vient avec #44.
+- **Un sampler par matériau** (`SamplerSettings`) : trilinéaire toujours, anisotrope en option, texture répétée
+  ou étirée au-delà de [0, 1].
 - `render` ne connaît pas `assets::Image` : l'appelant la décrit par des `TextureLevel` (SPECS §7).
+
+## Le filtrage anisotrope
+
+Sur un sol vu de biais, un pixel de l'écran couvre une bande de texture longue et étroite. Le trilinéaire choisit
+le niveau de mip d'après la **plus grande** dimension de cette bande : l'image est nette en travers, floue en
+long, et le sol tourne au gris bien avant l'horizon. Le filtrage anisotrope prend un niveau plus fin et fait
+jusqu'à N lectures le long de la bande (`maxAnisotropy`, 16 au plus).
+
+Mesuré sur le sol du sandbox (`tools/renderdoc-anisotropy.py`, `docs/images/m2.2-anisotropy.png`) : près de
+l'horizon, le contraste du damier passe de 0,088 à 0,160 ; le temps GPU de la frame, de 0,047 à 0,072 ms.
+
+Côté Vulkan, il faut la fonctionnalité `samplerAnisotropy` du device (`engine/gpu/src/device_vk.cpp`) : sans
+elle, la validation refuse le sampler.
 
 ## Mesurer le temps GPU
 
@@ -92,4 +105,6 @@ que quand le GPU a fini la frame, d'où l'anneau de trois requêtes de `GpuTimer
 | **Unity** | SRP (URP, HDRP) | Les pipelines de rendu, écrits en C# au-dessus de la couche graphique interne (**documenté** : packages publics). |
 | **Unreal** | `FRHIRenderQuery`, `stat gpu` | Timer queries au-dessus de la RHI, affichées par passe (**documenté** : sources publiques). |
 | **Unity** | GPU Instancing, Frame Timing Manager | Instancing activé par matériau ; temps GPU par frame (**documenté** : manuel). |
+| **Unreal** | `TextureGroup`, `r.MaxAnisotropy` | L'anisotropie se règle par groupe de textures, plafonnée par un réglage global (**documenté** : sources publiques). |
+| **Unity** | Texture Importer, *Aniso Level* ; `QualitySettings.anisotropicFiltering` | Un niveau par texture, que les réglages de qualité peuvent forcer (**documenté** : manuel). |
 | **Godot** | `MultiMeshInstance3D` | Un mesh dessiné en N exemplaires par un seul draw (**documenté** : docs officielles). |

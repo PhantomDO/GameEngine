@@ -50,4 +50,9 @@ struct Instances
 /// face.
 [[nodiscard]] Mesh createCube(nvrhi::IDevice& device, nvrhi::ICommandList& commandList);
 
+/// Un sol carré de côté `size`, horizontal, centré sur l'origine et tourné vers le haut, sur lequel
+/// la texture se répète `textureRepeat` fois dans chaque direction.
+[[nodiscard]] Mesh createPlane(nvrhi::IDevice& device, nvrhi::ICommandList& commandList, float size,
+                               float textureRepeat);
+
 } // namespace levain::render
