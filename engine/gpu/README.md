@@ -32,7 +32,11 @@ reconstruite au redimensionnement, frames cadencées par l'écran (#13).
 - **Il ne crée ni l'instance ni le device** : on les lui fournit, avec vk-bootstrap
   ([ADR-0012](../../docs/adr/0012-vk-bootstrap.md)). Il exige Vulkan 1.3 avec `dynamicRendering`,
   `synchronization2` et les timeline semaphores, et on ne lui annonce que les extensions réellement activées.
-  S'y ajoute `shaderDrawParameters`, pour `SV_VertexID` dans les shaders Slang (ADR-0005, amendement).
+  S'y ajoutent `shaderDrawParameters`, pour `SV_VertexID` dans les shaders Slang (ADR-0005, amendement), et
+  `samplerAnisotropy`, pour le filtrage anisotrope (M2.2).
+- **Il ne nomme les objets Vulkan que si on le lui permet** : les `debugName` n'arrivent jusqu'au pilote, donc
+  jusqu'à RenderDoc et aux messages de validation, que si `VK_EXT_debug_utils` figure dans ses extensions
+  d'instance. On la lui annonce quand vk-bootstrap l'a activée, avec la validation.
 - **Une fois créé, il prend en charge le plus fastidieux** : allocation de la mémoire, barrières de
   synchronisation (il suit l'état de chaque ressource), destruction différée des ressources encore utilisées par
   le GPU, envois de données. On le verra à l'œuvre avec le premier triangle (M1.3).

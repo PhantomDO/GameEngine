@@ -25,6 +25,43 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-21 — M2.2 — Clôture
+
+- **Temps Donnovan pour M2.2 : 0,42 h déclarées, provisoire** : 15 min pour #78 et 10 min pour #79 ; le temps
+  de #80 et le total de la soirée restent à déclarer. À réconcilier avec le total de la journée (skill
+  `session`), avant d'en tirer un ratio.
+- Définition de « terminé » (SPECS §9) : démo lançable sous Linux (Windows hors périmètre, ADR-0011) ; critères
+  mesurés et consignés ; CI verte, zéro erreur de validation ; README de `assets`, `render` et `gpu` à jour ;
+  board renseigné ; tag `m2.2` et release. Pas d'étude : E2 vient à la fin de la phase 2.
+
+### Critères du milestone
+
+| Critère (ROADMAP et issues) | Mesuré | Commande |
+|---|---|---|
+| Niveaux de mip vérifiés dans une capture RenderDoc | 9 niveaux, de 256 × 256 à 1 × 1 ; le niveau 1 × 1 à 192, la moyenne en lumière linéaire (160 sur les octets) | `QT_QPA_PLATFORM=offscreen qrenderdoc --python tools/renderdoc-mips.py` |
+| Une texture s'affiche sur le cube | sandbox et test de fumée, référence regardée, identique sous lavapipe | `ctest -R smoke.cube` |
+| Différence visible entre trilinéaire et anisotrope | contraste du damier près de l'horizon 0,088 → 0,160 | `tools/renderdoc-anisotropy.py` |
+| Le niveau d'anisotropie est un paramètre | `SamplerSettings::maxAnisotropy`, `--anisotropy N` | `ctest -R clampAnisotropy` |
+
+### Temps (provisoire)
+
+| Issue | Estimé | Déclaré |
+|---|---:|---:|
+| #43 Textures et mipmaps (#78, #79) | 0,65 h | 0,42 h |
+| #44 Samplers et anisotrope (#80) | 0,35 h | à déclarer |
+| **M2.2** (ROADMAP) | **1,0 h** | 0,42 h et plus, à réconcilier |
+
+### Ce que M2.2 a appris
+
+- Un test d'image doit éviter ce que Vulkan laisse approcher à chaque pilote : un damier réduit dépend du niveau
+  de mip choisi (152 pixels d'écart entre lavapipe et RADV) ; une texture agrandie, non.
+- Une bibliothèque tierce peut déclencher un sanitizer : stb_image_resize2 remplacé par vingt lignes plutôt que
+  d'éteindre UBSan.
+- RenderDoc s'automatise entièrement (capture, extraction de textures, images finales), sans fenêtre et sans
+  capture d'écran : les preuves visuelles deviennent des commandes versionnées.
+
+**Prochaine étape** : M2.3 — hot-reload des shaders.
+
 ## 2026-09-21 — M2.2 — Samplers et filtrage anisotrope (#44)
 
 - Temps Donnovan : à renseigner
