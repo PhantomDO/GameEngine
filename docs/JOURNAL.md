@@ -27,9 +27,10 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ## 2026-09-21 — M2.2 — Clôture
 
-- **Temps Donnovan pour M2.2 : 0,42 h déclarées, provisoire** : 15 min pour #78 et 10 min pour #79 ; le temps
-  de #80 et le total de la soirée restent à déclarer. À réconcilier avec le total de la journée (skill
-  `session`), avant d'en tirer un ratio.
+- **Temps Donnovan pour M2.2 : 1,0 h**, réconciliée sur le total de la journée : 6 h déclarées, dont 5 h déjà
+  affectées à la phase 1 (3,0 h) et à M2.1 (2,0 h). Les réponses après chaque PR donnaient 0,67 h (15, 10 et
+  15 min) ; l'écart de 0,33 h, qui comprend l'installation de RenderDoc et sa question du premier lancement,
+  est réparti au prorata des issues.
 - Définition de « terminé » (SPECS §9) : démo lançable sous Linux (Windows hors périmètre, ADR-0011) ; critères
   mesurés et consignés ; CI verte, zéro erreur de validation ; README de `assets`, `render` et `gpu` à jour ;
   board renseigné ; tag `m2.2` et release. Pas d'étude : E2 vient à la fin de la phase 2.
@@ -43,13 +44,17 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 | Différence visible entre trilinéaire et anisotrope | contraste du damier près de l'horizon 0,088 → 0,160 | `tools/renderdoc-anisotropy.py` |
 | Le niveau d'anisotropie est un paramètre | `SamplerSettings::maxAnisotropy`, `--anisotropy N` | `ctest -R clampAnisotropy` |
 
-### Temps (provisoire)
+### Temps
 
-| Issue | Estimé | Déclaré |
-|---|---:|---:|
-| #43 Textures et mipmaps (#78, #79) | 0,65 h | 0,42 h |
-| #44 Samplers et anisotrope (#80) | 0,35 h | à déclarer |
-| **M2.2** (ROADMAP) | **1,0 h** | 0,42 h et plus, à réconcilier |
+| Issue | Estimé | Déclaré | Réconcilié |
+|---|---:|---:|---:|
+| #43 Textures et mipmaps (#78, #79) | 0,65 h | 0,42 h | 0,63 h |
+| #44 Samplers et anisotrope (#80) | 0,35 h | 0,25 h | 0,37 h |
+| **M2.2** (ROADMAP) | **1,0 h** | 0,67 h | **1,0 h — ratio 1,00** |
+
+Phase 2 à ce jour : 3,0 h passées pour 2,75 h estimées sur M2.1 et M2.2, **ratio 1,09**, dans la fourchette
+0,8–1,25. Le recalibrage de la phase 1 (×0,67) tient pour l'instant ; le point de contrôle reste la clôture de
+la phase 2.
 
 ### Ce que M2.2 a appris
 
