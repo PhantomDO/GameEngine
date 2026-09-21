@@ -80,7 +80,9 @@ void runMainLoop(levain::platform::Window& window)
 {
     LoopState state;
     levain::core::FrameTimeAccumulator frameTimes;
-    Clock::time_point previousFrameEnd = Clock::now();
+    const Clock::time_point loopStart = Clock::now();
+    Clock::time_point previousFrameEnd = loopStart;
+    int frameCount = 0;
 
     while (state.isRunning)
     {
@@ -122,8 +124,15 @@ void runMainLoop(levain::platform::Window& window)
             levain::platform::setWindowTitle(window, describeFrameTimes(*summary));
         }
 
+        ++frameCount;
         LEVAIN_PROFILE_FRAME();
     }
+
+    // Lu par la CI, qui échoue si la boucle a tourné moins d'une seconde : un démarrage lent
+    // (lavapipe, validation, sanitizers) peut sinon manger tout le délai sans que rien ne rougisse.
+    levain::core::log("sandbox", levain::core::LogLevel::Info,
+                      "boucle arrêtée après {:.1f} s et {} frames",
+                      secondsBetween(loopStart, Clock::now()), frameCount);
 }
 
 } // namespace

@@ -20,6 +20,15 @@ dans `engine/platform/README.md`, section « Pièges connus ».
 - **Sous KWin, `Scripting.start()` exécute le script plus tard** : le décharger tout de suite l'annule sans
   message. `tools/kwin-window-smoke.sh` attend 0,5 s entre les deux.
 
+## CI
+
+- **Le démarrage peut manger tout le délai du sandbox** (2026-09-21). Sur le runner, lavapipe, les couches de
+  validation et les sanitizers prennent jusqu'à ~3 s ; avec un délai de 3 s, la boucle ne tournait plus du tout
+  et l'étape restait verte. Le sandbox journalise « boucle arrêtée après X s », la CI exige X ≥ 1. Un démarrage
+  qui s'allonge (shaders en M1.3) se verra là.
+- **`timeout … | tee`** : sans `set -o pipefail`, le code de sortie est celui de `tee`, et une fuite signalée
+  par LeakSanitizer passerait inaperçue.
+
 ## Sanitizers
 
 - **LeakSanitizer et RADV : 128 octets** (2026-09-21). Le loader Vulkan décharge le pilote à la destruction de

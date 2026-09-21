@@ -141,9 +141,14 @@ jobs:
 
       # Le runner n'a pas d'écran : SDL passe par son pilote « offscreen ».
       #
-      # Une fenêtre ne se ferme pas toute seule. `timeout` envoie SIGTERM au bout de 3 s, que
+      # Une fenêtre ne se ferme pas toute seule. `timeout` envoie SIGTERM au bout de 8 s, que
       # SDL traduit en demande de fermeture ; le programme sort normalement, et c'est à cette
       # sortie que LeakSanitizer fait son compte.
+      #
+      # 8 s et une vérification : sur le runner, le démarrage (lavapipe, couches de validation,
+      # sanitizers) prend jusqu'à ~3 s. Avec 3 s de délai, la boucle ne tournait plus du tout et
+      # l'étape restait verte. Le sandbox journalise la durée de sa boucle ; moins d'une seconde
+      # fait échouer l'étape.
       #   --preserve-status : le code de sortie est celui du sandbox, pas celui de timeout.
       #   -k 10 : SIGKILL 10 s plus tard si le programme ignore SIGTERM ; code 137, job rouge.
       #   --foreground : un seul SIGTERM. Sans cette option, timeout en envoie un second au
@@ -153,8 +158,11 @@ jobs:
         env:
           SDL_VIDEO_DRIVER: offscreen
         run: |
-          timeout --foreground --preserve-status -k 10 3 \
-            ./build/${{ matrix.preset }}/sandbox/levain_sandbox
+          set -euo pipefail
+          timeout --foreground --preserve-status -k 10 8 \
+            ./build/${{ matrix.preset }}/sandbox/levain_sandbox | tee sandbox.log
+          grep -Eq "boucle arrêtée après ([1-9]|[0-9]{2,})\.[0-9] s" sandbox.log \
+            || { echo "::error::la boucle du sandbox a tourné moins d'une seconde"; exit 1; }
 
       # Format et analyse statique une seule fois : ce sont des propriétés des sources, pas
       # de la configuration de build.

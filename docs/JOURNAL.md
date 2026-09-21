@@ -56,8 +56,12 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
     sandbox, pas encore commitée. Réécrite ; la parade est dans `build/GOTCHA.md`.
   - Sous X11, précharger RADV et libX11 ensemble bloque `SDL_CreateWindow` (`XIfEvent` attend un `MapNotify`).
     Configuration de diagnostic seulement ; noté.
-  - **La CI n'a pas encore vu ce code** : lavapipe et la surface headless du pilote offscreen de SDL sont
-    installés dans `ci.yml`, mais seule une PR déclenchera la CI.
+  - **CI verte du premier coup sur lavapipe** (llvmpipe, Mesa 25.2.8, Vulkan 1.4.318), sans message de
+    validation ni fuite. Mais **la boucle n'y tournait plus** : le device y met 0,9 à 1,3 s à se créer, et le
+    démarrage complet mangeait les 3 s du délai — la création est journalisée après le SIGTERM. L'étape restait
+    verte sans rien tester de la boucle : une panne silencieuse de plus. Parade : délai porté à 8 s, et le
+    sandbox journalise la durée de sa boucle, que la CI exige d'au moins une seconde (contre-test de
+    l'expression : 0,4 s refusé, 1,2 s accepté).
   - PR découpée : l'ADR-0012 et la correction du temps de M1.1 sont partis d'abord (#54), règle n°3.
 - Prochaine étape : #13 — swapchain, redimensionnement et écran effacé, avec les points reportés de M1.1.
 
