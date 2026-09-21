@@ -41,6 +41,10 @@ dans `engine/platform/README.md`, section « Pièges connus ».
   avant la première frame ; l'étape restait verte la première fois, le contrôle « boucle ≥ 1 s » l'a fait
   rougir la seconde (PR #59). Parade : `--seconds N`, compté depuis le premier tour de boucle ; `timeout`
   n'est plus qu'un filet contre un blocage.
+- **Un cache GitHub n'est visible que de sa branche et de `main`** (2026-09-21). Le cache rempli par une PR ne
+  sert pas à la PR suivante : après un changement du manifeste, les PR n'en profitent qu'une fois qu'une CI a
+  tourné sur `main`. En cas d'erreur réseau (504) sur un job, relancer les jobs en échec après que `main` a
+  enregistré ses caches.
 - **Le bootstrap de vcpkg exige que `VCPKG_DOWNLOADS` soit un dossier existant** (2026-09-21) : « was set to
   …, but that was not a directory ». Restaurer ce cache et créer le dossier **avant** le bootstrap ; le cache
   binaire, lui, peut attendre après.

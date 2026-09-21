@@ -25,9 +25,24 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
-## 2026-09-21 — M2.1 — Le cube : mesh indexé, depth buffer, constantes par frame (#41, 2/3)
+## 2026-09-21 — M2.1 — Test de fumée du cube (#41, 3/3)
 
 - Temps Donnovan : à renseigner (compté avec #41)
+- Sessions Claude Code : 1
+- Fait : le test de fumée dessine le triangle **ou** le cube (`levain_smoke_render triangle|cube`, deux tests
+  ctest) ; référence `tests/data/cube.ppm`, 64 × 64, cube à 35° autour de (1, 1, 0).
+- Mesures (critère de #41 : « un cube tourne avec un depth buffer correct ») :
+  - **référence regardée** : faces du dessus (verte) et avant (bleue) pleines, une tranche de la face gauche,
+    aucune face intérieure visible ;
+  - **élimination des faces** : désactivée, 0 pixel différent de la référence — elle ne retire que des faces
+    cachées ; **sens des faces inversé**, 454 pixels différents — le test l'attrape ;
+  - la réécriture du tableau des sommets (coins nommés, pour la lisibilité) passe contre la référence générée
+    avant elle : géométrie inchangée.
+- Prochaine étape : #42 — instancing et timestamps GPU.
+
+## 2026-09-21 — M2.1 — Le cube : mesh indexé, depth buffer, constantes par frame (#41, 2/3)
+
+- **Temps Donnovan : 0,33 h** (20 min déclarées, relecture de #74 ; le temps de #73 reste à déclarer)
 - Sessions Claude Code : 1
 - Fait : `Mesh`, `createMesh`, `createCube` ; `MeshPass` — input layout, binding layout de frame dans `space0`
   (ADR-0013) avec un volatile constant buffer, depth buffer `D32`, élimination des faces arrière ;

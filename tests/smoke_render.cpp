@@ -1,9 +1,10 @@
-// Test de fumée du rendu (#16) : dessine le triangle hors écran, relit l'image et la compare à la
-// référence tests/data/triangle.ppm. En CI, il tourne sur lavapipe, le Vulkan logiciel de Mesa.
+// Test de fumée du rendu (#16, M2.1) : dessine une scène hors écran — le triangle, ou le cube avec
+// son depth buffer —, relit l'image et la compare à tests/data/<scène>.ppm. En CI, il tourne sur
+// lavapipe.
 //
-// Mettre à jour la référence après un changement voulu du rendu :
-//   LEVAIN_UPDATE_REFERENCE=1 SDL_VIDEO_DRIVER=offscreen
-//   ./build/linux-debug/tests/levain_smoke_triangle
+// Mettre à jour une référence après un changement voulu du rendu :
+//   LEVAIN_UPDATE_REFERENCE=1 SDL_VIDEO_DRIVER=offscreen \
+//     ./build/linux-debug/tests/levain_smoke_render cube
 
 #include <algorithm>
 #include <cstddef>
@@ -16,12 +17,19 @@
 #include <format>
 #include <fstream>
 #include <print>
+#include <span>
 #include <string>
+#include <string_view>
 #include <vector>
+
+#include <glm/gtc/matrix_transform.hpp>
 
 #include "levain/core/file.hpp"
 #include "levain/gpu/device.hpp"
 #include "levain/platform/window.hpp"
+#include "levain/render/camera.hpp"
+#include "levain/render/mesh.hpp"
+#include "levain/render/mesh_pass.hpp"
 #include "levain/render/triangle.hpp"
 
 namespace
@@ -95,9 +103,42 @@ int countDifferentPixels(const Image& actual, const Image& reference)
     return different;
 }
 
-/// Dessine le triangle dans une texture hors écran, puis la recopie dans une texture que le CPU
-/// peut lire.
-levain::core::Result<Image> renderTriangle(nvrhi::IDevice& device)
+/// Enregistre le dessin de la scène `scene` (« triangle » ou « cube ») dans `framebuffer`, déjà
+/// effacé.
+levain::core::Result<void> drawScene(nvrhi::IDevice& device, nvrhi::ICommandList& commandList,
+                                     std::string_view scene, nvrhi::IFramebuffer& framebuffer)
+{
+    if (scene == "triangle")
+    {
+        auto triangle =
+            levain::render::createTrianglePass(device, framebuffer.getFramebufferInfo());
+        if (!triangle)
+        {
+            return std::unexpected(triangle.error());
+        }
+        levain::render::drawTriangle(commandList, *triangle, framebuffer);
+        return {};
+    }
+
+    // Le cube à une rotation fixe, qui montre trois faces : une erreur de profondeur ou de sens des
+    // faces changerait l'image.
+    auto meshPass = levain::render::createMeshPass(device, framebuffer.getFramebufferInfo());
+    if (!meshPass)
+    {
+        return std::unexpected(meshPass.error());
+    }
+    const levain::render::Mesh cube = levain::render::createCube(device, commandList);
+    const levain::render::SceneConstants constants{
+        .viewProjection = levain::render::viewProjectionOf(levain::render::Camera{}, 1.0f),
+        .model = glm::rotate(glm::mat4{1.0f}, glm::radians(35.0f), glm::vec3{1.0f, 1.0f, 0.0f}),
+    };
+    levain::render::drawMesh(commandList, *meshPass, framebuffer, cube, constants);
+    return {};
+}
+
+/// Dessine la scène dans une texture hors écran, puis la recopie dans une texture que le CPU peut
+/// lire.
+levain::core::Result<Image> renderScene(nvrhi::IDevice& device, std::string_view scene)
 {
     nvrhi::TextureDesc targetDesc;
     targetDesc.width = ImageSize;
@@ -108,14 +149,15 @@ levain::core::Result<Image> renderTriangle(nvrhi::IDevice& device)
     targetDesc.keepInitialState = true;
     targetDesc.debugName = "cible du test de fumée";
     const nvrhi::TextureHandle target = device.createTexture(targetDesc);
-    const nvrhi::FramebufferHandle framebuffer =
-        device.createFramebuffer(nvrhi::FramebufferDesc().addColorAttachment(target));
 
-    auto triangle = levain::render::createTrianglePass(device, framebuffer->getFramebufferInfo());
-    if (!triangle)
+    nvrhi::FramebufferDesc framebufferDesc = nvrhi::FramebufferDesc().addColorAttachment(target);
+    nvrhi::TextureHandle depth;
+    if (scene == "cube")
     {
-        return std::unexpected(triangle.error());
+        framebufferDesc.setDepthAttachment(
+            levain::render::ensureDepthTexture(device, depth, ImageSize, ImageSize));
     }
+    const nvrhi::FramebufferHandle framebuffer = device.createFramebuffer(framebufferDesc);
 
     nvrhi::TextureDesc stagingDesc = targetDesc;
     stagingDesc.isRenderTarget = false;
@@ -128,7 +170,14 @@ levain::core::Result<Image> renderTriangle(nvrhi::IDevice& device)
     commandList->open();
     commandList->clearTextureFloat(target, nvrhi::AllSubresources,
                                    nvrhi::Color{0.0f, 0.0f, 0.0f, 1.0f});
-    levain::render::drawTriangle(*commandList, *triangle, *framebuffer);
+    if (depth)
+    {
+        commandList->clearDepthStencilTexture(depth, nvrhi::AllSubresources, true, 1.0f, false, 0);
+    }
+    if (auto drawn = drawScene(device, *commandList, scene, *framebuffer); !drawn)
+    {
+        return std::unexpected(drawn.error());
+    }
     commandList->copyTexture(staging, nvrhi::TextureSlice{}, target, nvrhi::TextureSlice{});
     commandList->close();
     device.executeCommandList(commandList);
@@ -159,7 +208,7 @@ levain::core::Result<Image> renderTriangle(nvrhi::IDevice& device)
     return image;
 }
 
-int runSmokeTest()
+int runSmokeTest(std::string_view scene)
 {
     auto window = levain::platform::createWindow("Levain - test de fumée", ImageSize, ImageSize);
     if (!window)
@@ -174,14 +223,15 @@ int runSmokeTest()
         return 1;
     }
 
-    auto actual = renderTriangle(*gpu->nvrhi);
+    auto actual = renderScene(*gpu->nvrhi, scene);
     if (!actual)
     {
         std::println(stderr, "{}", actual.error().message);
         return 1;
     }
 
-    const std::filesystem::path referencePath = LEVAIN_REFERENCE_IMAGE;
+    const std::filesystem::path referencePath =
+        std::filesystem::path{LEVAIN_REFERENCE_DIR} / std::format("{}.ppm", scene);
     if (std::getenv("LEVAIN_UPDATE_REFERENCE") != nullptr)
     {
         std::println("référence réécrite : {}", referencePath.string());
@@ -204,17 +254,25 @@ int runSmokeTest()
     }
 
     // L'image obtenue reste à côté du binaire, pour la comparer à l'œil à la référence.
-    writePpm("triangle.actual.ppm", *actual);
+    writePpm(std::format("{}.actual.ppm", scene), *actual);
     return 1;
 }
 
 } // namespace
 
-int main()
+int main(int argc, char** argv)
 {
+    // Tout dans le try : std::println peut lever, et une exception ne doit pas sortir de main.
     try
     {
-        return runSmokeTest();
+        const std::span arguments{argv, static_cast<std::size_t>(argc)};
+        if (arguments.size() != 2 || (std::string_view{arguments[1]} != "triangle" &&
+                                      std::string_view{arguments[1]} != "cube"))
+        {
+            std::println(stderr, "usage : levain_smoke_render triangle|cube");
+            return 2;
+        }
+        return runSmokeTest(arguments[1]);
     }
     catch (const std::exception& e)
     {
