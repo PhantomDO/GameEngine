@@ -104,6 +104,22 @@ jobs:
       - name: Cloner vcpkg
         run: git clone --depth 1 --branch "${{ env.VCPKG_TAG }}" https://github.com/microsoft/vcpkg.git vcpkg
 
+      # Les téléchargements de vcpkg : ses outils (dont son propre CMake) et les sources des ports.
+      # Sans ce cache, chaque exécution les reprenait sur GitHub, et une erreur 504 a fait
+      # échouer la CI de #72 sans rien à voir avec le code. restore-keys : un manifeste modifié
+      # repart des téléchargements précédents au lieu de tout reprendre.
+      - name: Cache des téléchargements vcpkg
+        uses: actions/cache@v4
+        with:
+          path: vcpkg-downloads
+          key: vcpkg-downloads-${{ env.VCPKG_TAG }}-${{ hashFiles('vcpkg.json', 'ports/**') }}
+          restore-keys: vcpkg-downloads-${{ env.VCPKG_TAG }}-
+
+      # Avant le bootstrap : son script refuse de démarrer si VCPKG_DOWNLOADS n'est pas un
+      # dossier existant. Et après la restauration, pour la même raison que le cache binaire.
+      - name: Créer le dossier des téléchargements
+        run: mkdir -p vcpkg-downloads
+
       - name: Bootstrap vcpkg
         run: ./vcpkg/bootstrap-vcpkg.sh -disableMetrics
 
@@ -117,22 +133,11 @@ jobs:
           path: vcpkg-cache
           key: vcpkg-${{ env.VCPKG_TAG }}-${{ hashFiles('vcpkg.json', 'ports/**') }}
 
-      # Les téléchargements de vcpkg : ses outils (dont son propre CMake) et les sources des ports.
-      # Sans ce cache, chaque exécution les reprenait sur GitHub, et une erreur 504 a fait
-      # échouer la CI de #72 sans rien à voir avec le code. restore-keys : un manifeste modifié
-      # repart des téléchargements précédents au lieu de tout reprendre.
-      - name: Cache des téléchargements vcpkg
-        uses: actions/cache@v4
-        with:
-          path: vcpkg-downloads
-          key: vcpkg-downloads-${{ env.VCPKG_TAG }}-${{ hashFiles('vcpkg.json', 'ports/**') }}
-          restore-keys: vcpkg-downloads-${{ env.VCPKG_TAG }}-
-
-      # vcpkg refuse de démarrer si ces dossiers n'existent pas. Cette étape doit rester APRÈS
-      # les restaurations : avant, les dossiers existeraient déjà et les caches ne seraient
-      # jamais restaurés, sans le moindre message d'erreur.
-      - name: Créer les dossiers de cache
-        run: mkdir -p vcpkg-cache vcpkg-downloads
+      # vcpkg refuse de démarrer si le dossier de cache binaire n'existe pas. Cette étape
+      # doit rester APRÈS la restauration : avant, le dossier existerait déjà et le cache
+      # ne serait jamais restauré, sans le moindre message d'erreur.
+      - name: Créer le dossier de cache
+        run: mkdir -p vcpkg-cache
 
       - name: Configurer et compiler
         run: |

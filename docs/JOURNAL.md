@@ -41,6 +41,9 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
     indivisible. Suivent le cube (mesh indexé, depth buffer, passe) et son test de fumée, déjà écrits et vérifiés.
   - Un `git stash` a refusé de remiser des fichiers marqués `git add -N` : sauvegarde complète d'abord, index
     vidé, puis remisage. Rien de perdu.
+  - **Premier passage de la CI rouge sur les trois jobs** : le script de bootstrap de vcpkg refuse de démarrer
+    si le dossier `VCPKG_DOWNLOADS` n'existe pas, et je ne le créais qu'après. Second commit : restauration et
+    création du dossier avant le bootstrap.
 - Prochaine étape : le cube (#41, 2/3).
 
 ## 2026-09-21 — M2.1 — ADR-0013 : binding sets (#40)
