@@ -37,6 +37,22 @@ Mesh createMesh(nvrhi::IDevice& device, nvrhi::ICommandList& commandList,
     return mesh;
 }
 
+Instances createInstances(nvrhi::IDevice& device, nvrhi::ICommandList& commandList,
+                          std::span<const glm::vec3> offsets)
+{
+    Instances instances{
+        .offsets = device.createBuffer(nvrhi::BufferDesc()
+                                           .setByteSize(offsets.size_bytes())
+                                           .setIsVertexBuffer(true)
+                                           .setInitialState(nvrhi::ResourceStates::VertexBuffer)
+                                           .setKeepInitialState(true)
+                                           .setDebugName("instances : positions")),
+        .count = static_cast<std::uint32_t>(offsets.size()),
+    };
+    commandList.writeBuffer(instances.offsets, offsets.data(), offsets.size_bytes());
+    return instances;
+}
+
 Mesh createCube(nvrhi::IDevice& device, nvrhi::ICommandList& commandList)
 {
     // Les huit coins, nommés par le signe de x, y et z (n : −0,5 ; p : +0,5).

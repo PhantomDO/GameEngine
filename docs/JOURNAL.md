@@ -25,6 +25,27 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-21 — M2.1 — Instancing et temps GPU (#42)
+
+- Temps Donnovan : à renseigner
+- Sessions Claude Code : 1
+- Fait : `Instances` et `createInstances` — un vertex buffer de décalages, lu une fois par instance
+  (`setIsInstanced`, slot 1) ; `drawMesh` dessine toutes les instances en un seul `drawIndexed` ; `GpuTimer` —
+  un anneau de trois timer queries NVRHI, relues deux frames plus tard. Le sandbox dessine une grille de
+  100 × 100 cubes dans une fenêtre 1920 × 1080 et affiche le temps GPU dans son titre ; le test de fumée du cube
+  passe par le même chemin avec une seule instance, contre la même référence.
+- Mesures (Release, machine de référence, `--seconds 10`, 10 000 cubes, 1920 × 1080 px) :
+  - **Wayland** : 1204 frames en 10 s, soit **120 images/s**, la fréquence de l'écran (FIFO) ; **0,043 ms de
+    GPU** par frame (`./build/linux-release/sandbox/levain_sandbox --seconds 10`) ;
+  - **hors écran**, sans attente de l'écran : 241 542 frames en 10 s ; 0,022 ms de GPU
+    (`SDL_VIDEO_DRIVER=offscreen ./build/linux-release/sandbox/levain_sandbox --seconds 10`) ;
+  - **le chronomètre mesure bien le dessin** : 0,011 ms pour 1 cube, 1,089 ms pour 1 000 000 de cubes
+    (`GridSide` passé à 1 puis 1000, `--seconds 3`, hors écran ; valeur d'origine restaurée) ;
+  - **zéro erreur de validation** en Debug, sous Wayland et hors écran.
+- Écarts et problèmes : en ASan local, les tests de fumée signalent la fuite de 128 octets de RADV déjà connue
+  (`.agents/skills/build/GOTCHA.md`) ; ils passent avec `LD_PRELOAD=/usr/lib/libvulkan_radeon.so`.
+- Prochaine étape : clôture de M2.1.
+
 ## 2026-09-21 — M2.1 — Test de fumée du cube (#41, 3/3)
 
 - Temps Donnovan : à renseigner (compté avec #41)
@@ -42,7 +63,7 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ## 2026-09-21 — M2.1 — Le cube : mesh indexé, depth buffer, constantes par frame (#41, 2/3)
 
-- **Temps Donnovan : 0,33 h** (20 min déclarées, relecture de #74 ; le temps de #73 reste à déclarer)
+- **Temps Donnovan : 0,33 h** (20 min déclarées, relecture de #74)
 - Sessions Claude Code : 1
 - Fait : `Mesh`, `createMesh`, `createCube` ; `MeshPass` — input layout, binding layout de frame dans `space0`
   (ADR-0013) avec un volatile constant buffer, depth buffer `D32`, élimination des faces arrière ;
@@ -59,7 +80,7 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ## 2026-09-21 — M2.1 — Caméra, chargement des shaders et cache CI (#41, 1/3)
 
-- Temps Donnovan : à renseigner (estimé 0,65 h pour #41, après recalibrage)
+- **Temps Donnovan : 0,17 h** (10 min déclarées, relecture de #73 ; estimé 0,65 h pour tout #41)
 - Sessions Claude Code : 1
 - Fait : première des trois PR de #41. GLM (port vcpkg 1.0.3) ; `Camera` et `viewProjectionOf` dans `render`,
   avec deux tests ; chargement des shaders sorti de `triangle.cpp` dans `src/shader.cpp`, pour servir aussi la

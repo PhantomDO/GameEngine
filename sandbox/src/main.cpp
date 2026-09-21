@@ -13,6 +13,7 @@
 #include <string_view>
 #include <system_error>
 #include <utility>
+#include <vector>
 
 #include <glm/gtc/constants.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -25,6 +26,7 @@
 #include "levain/gpu/device.hpp"
 #include "levain/platform/window.hpp"
 #include "levain/render/camera.hpp"
+#include "levain/render/gpu_timer.hpp"
 #include "levain/render/mesh.hpp"
 #include "levain/render/mesh_pass.hpp"
 
@@ -83,24 +85,60 @@ double secondsBetween(Clock::time_point start, Clock::time_point end)
     return std::chrono::duration<double>(end - start).count();
 }
 
-std::string describeFrameTimes(const levain::core::FrameTimeSummary& summary)
+/// Temps GPU moyen sur une période : somme et nombre des mesures reçues.
+struct GpuTimeAverage
+{
+    double totalMs = 0.0;
+    int samples = 0;
+};
+
+double averageOf(const GpuTimeAverage& average)
+{
+    return average.samples > 0 ? average.totalMs / average.samples : 0.0;
+}
+
+std::string describeFrameTimes(const levain::core::FrameTimeSummary& summary, double gpuMs)
 {
     // Tirets ASCII : setWindowTitle refuse le reste (voir window.hpp). averageMs n'est jamais
     // nul, un résumé couvre au moins FrameTimePeriodSeconds.
-    return std::format("Levain - {:.3f} ms (min {:.3f}, max {:.3f}) - {:.0f} images/s",
-                       summary.averageMs, summary.minMs, summary.maxMs, 1000.0 / summary.averageMs);
+    return std::format(
+        "Levain - {:.3f} ms (min {:.3f}, max {:.3f}) - {:.0f} images/s - GPU {:.3f} ms",
+        summary.averageMs, summary.minMs, summary.maxMs, 1000.0 / summary.averageMs, gpuMs);
 }
 
-/// Ce que dessine le sandbox en M2.1 : un cube qui tourne, vu par une caméra fixe.
+/// Le critère de M2.1 : 10 000 cubes instanciés, en une grille de 100 × 100.
+constexpr int GridSide = 100;
+constexpr float GridSpacing = 1.5f;
+
+/// Ce que dessine le sandbox en M2.1 : une grille de cubes qui tournent, vue d'en haut.
 struct DemoScene
 {
     levain::render::MeshPass meshPass;
     levain::render::Mesh cube;
+    levain::render::Instances grid;
     levain::render::Camera camera;
+    levain::render::GpuTimer gpuTimer;
     nvrhi::TextureHandle depth; ///< Créé à la première frame, à la taille de l'image.
 };
 
-/// Crée la passe des meshes et envoie le cube au GPU.
+/// Les positions de la grille, centrée sur l'origine.
+std::vector<glm::vec3> gridOffsets()
+{
+    std::vector<glm::vec3> offsets;
+    offsets.reserve(static_cast<std::size_t>(GridSide) * GridSide);
+    const float half = static_cast<float>(GridSide - 1) * GridSpacing / 2.0f;
+    for (int z = 0; z < GridSide; ++z)
+    {
+        for (int x = 0; x < GridSide; ++x)
+        {
+            offsets.emplace_back(static_cast<float>(x) * GridSpacing - half, 0.0f,
+                                 static_cast<float>(z) * GridSpacing - half);
+        }
+    }
+    return offsets;
+}
+
+/// Crée la passe des meshes et envoie le cube et la grille au GPU.
 levain::core::Result<DemoScene> createDemoScene(levain::gpu::GpuDevice& gpu)
 {
     auto meshPass = levain::render::createMeshPass(
@@ -115,11 +153,23 @@ levain::core::Result<DemoScene> createDemoScene(levain::gpu::GpuDevice& gpu)
     const nvrhi::CommandListHandle upload = gpu.nvrhi->createCommandList();
     upload->open();
     levain::render::Mesh cube = levain::render::createCube(*gpu.nvrhi, *upload);
+    levain::render::Instances grid =
+        levain::render::createInstances(*gpu.nvrhi, *upload, gridOffsets());
     upload->close();
     gpu.nvrhi->executeCommandList(upload);
 
-    return DemoScene{
-        .meshPass = std::move(*meshPass), .cube = std::move(cube), .camera = {}, .depth = {}};
+    // Assez haut et assez loin pour voir toute la grille, 150 unités de côté.
+    const levain::render::Camera camera{.position = {0.0f, 80.0f, 110.0f},
+                                        .target = {0.0f, 0.0f, 0.0f},
+                                        .verticalFovRadians = glm::radians(60.0f),
+                                        .nearPlane = 0.5f,
+                                        .farPlane = 400.0f};
+    return DemoScene{.meshPass = std::move(*meshPass),
+                     .cube = std::move(cube),
+                     .grid = std::move(grid),
+                     .camera = camera,
+                     .gpuTimer = levain::render::createGpuTimer(*gpu.nvrhi),
+                     .depth = {}};
 }
 
 /// Un tour toutes les 6 secondes, autour d'un axe incliné pour montrer trois faces à la fois.
@@ -129,15 +179,19 @@ glm::mat4 cubeRotation(double seconds)
     return glm::rotate(glm::mat4{1.0f}, angle, glm::vec3{1.0f, 1.0f, 0.0f});
 }
 
-/// Efface l'image de la swapchain et son depth buffer, y dessine le cube, et la présente.
-void renderFrame(levain::gpu::GpuDevice& gpu, const levain::platform::Window& window,
-                 DemoScene& scene, nvrhi::ICommandList& commandList, double seconds)
+/// Efface l'image de la swapchain et son depth buffer, y dessine la grille, et la présente. Rend le
+/// temps GPU d'une frame précédente, dès qu'il est lisible.
+std::optional<double> renderFrame(levain::gpu::GpuDevice& gpu,
+                                  const levain::platform::Window& window, DemoScene& scene,
+                                  nvrhi::ICommandList& commandList, double seconds)
 {
     nvrhi::ITexture* backBuffer = levain::gpu::beginFrame(gpu, window);
     if (backBuffer == nullptr)
     {
-        return;
+        return std::nullopt;
     }
+
+    std::optional<double> gpuMs;
 
     {
         // Le travail CPU d'une frame, hors attente de l'écran (critère de M1.3,
@@ -166,16 +220,20 @@ void renderFrame(levain::gpu::GpuDevice& gpu, const levain::platform::Window& wi
         const nvrhi::Color clearColor{0.55f, 0.32f, 0.14f, 1.0f};
 
         commandList.open();
+        gpuMs = levain::render::beginGpuTimer(*gpu.nvrhi, commandList, scene.gpuTimer);
         commandList.clearTextureFloat(backBuffer, nvrhi::AllSubresources, clearColor);
         // 1 : la profondeur la plus lointaine, que tout ce qu'on dessine vient remplacer.
         commandList.clearDepthStencilTexture(depth, nvrhi::AllSubresources, true, 1.0f, false, 0);
-        levain::render::drawMesh(commandList, scene.meshPass, *framebuffer, scene.cube, constants);
+        levain::render::drawMesh(commandList, scene.meshPass, *framebuffer, scene.cube, scene.grid,
+                                 constants);
+        levain::render::endGpuTimer(commandList, scene.gpuTimer);
         commandList.close();
         gpu.nvrhi->executeCommandList(&commandList);
     }
 
     LEVAIN_PROFILE_SCOPE_NAMED("présentation");
     levain::gpu::presentFrame(gpu);
+    return gpuMs;
 }
 
 /// La durée de la boucle : `--seconds N`, ou sans limite. Vide si les arguments sont invalides.
@@ -210,6 +268,8 @@ void runMainLoop(levain::platform::Window& window, levain::gpu::GpuDevice& gpu, 
     const nvrhi::CommandListHandle commandList = gpu.nvrhi->createCommandList();
     LoopState state;
     levain::core::FrameTimeAccumulator frameTimes;
+    GpuTimeAverage periodGpu; ///< Depuis la dernière mise à jour du titre.
+    GpuTimeAverage totalGpu;  ///< Depuis le début de la boucle, journalisé à la fin.
     const Clock::time_point loopStart = Clock::now();
     Clock::time_point previousFrameEnd = loopStart;
     int frameCount = 0;
@@ -241,7 +301,14 @@ void runMainLoop(levain::platform::Window& window, levain::gpu::GpuDevice& gpu, 
 
         {
             LEVAIN_PROFILE_SCOPE_NAMED("rendu");
-            renderFrame(gpu, window, scene, *commandList, secondsBetween(loopStart, Clock::now()));
+            if (const auto gpuMs = renderFrame(gpu, window, scene, *commandList,
+                                               secondsBetween(loopStart, Clock::now())))
+            {
+                periodGpu.totalMs += *gpuMs;
+                ++periodGpu.samples;
+                totalGpu.totalMs += *gpuMs;
+                ++totalGpu.samples;
+            }
         }
 
         const Clock::time_point frameEnd = Clock::now();
@@ -252,7 +319,9 @@ void runMainLoop(levain::platform::Window& window, levain::gpu::GpuDevice& gpu, 
                 levain::core::recordFrame(frameTimes, frameSeconds, FrameTimePeriodSeconds))
         {
             LEVAIN_PROFILE_SCOPE_NAMED("titre");
-            levain::platform::setWindowTitle(window, describeFrameTimes(*summary));
+            levain::platform::setWindowTitle(window,
+                                             describeFrameTimes(*summary, averageOf(periodGpu)));
+            periodGpu = {};
         }
 
         ++frameCount;
@@ -261,9 +330,10 @@ void runMainLoop(levain::platform::Window& window, levain::gpu::GpuDevice& gpu, 
 
     // Lu par la CI, qui échoue si la boucle a tourné moins d'une seconde : un démarrage lent
     // (lavapipe, validation, sanitizers) peut sinon manger tout le délai sans que rien ne rougisse.
-    levain::core::log("sandbox", levain::core::LogLevel::Info,
-                      "boucle arrêtée après {:.1f} s et {} frames",
-                      secondsBetween(loopStart, Clock::now()), frameCount);
+    levain::core::log(
+        "sandbox", levain::core::LogLevel::Info,
+        "boucle arrêtée après {:.1f} s et {} frames ; GPU : {:.3f} ms en moyenne sur {} mesures",
+        secondsBetween(loopStart, Clock::now()), frameCount, averageOf(totalGpu), totalGpu.samples);
 }
 
 } // namespace
@@ -285,7 +355,9 @@ int main(int argc, char** argv)
         std::print("Levain {} — {} — __cplusplus {}\n", levain::core::version(),
                    levain::core::toolchain(), __cplusplus);
 
-        auto window = levain::platform::createWindow("Levain", 1280, 720);
+        // 1920 × 1080 : la résolution du critère de M2.1. En points ; un point vaut un pixel sur la
+        // machine de référence, et le log « redimensionnée » donne les pixels réels.
+        auto window = levain::platform::createWindow("Levain", 1920, 1080);
         if (!window)
         {
             levain::core::log("sandbox", levain::core::LogLevel::Critical, "{}",

@@ -25,6 +25,19 @@ struct Mesh
     std::uint32_t indexCount = 0;
 };
 
+/// Les copies d'un mesh dessinées en un seul appel (instancing) : une position par instance, lue
+/// une fois par instance et non une fois par sommet. Doit correspondre à `instanceOffset` dans
+/// `shaders/mesh.slang`.
+struct Instances
+{
+    nvrhi::BufferHandle offsets;
+    std::uint32_t count = 0;
+};
+
+/// Crée le buffer des positions et enregistre son envoi dans `commandList`.
+[[nodiscard]] Instances createInstances(nvrhi::IDevice& device, nvrhi::ICommandList& commandList,
+                                        std::span<const glm::vec3> offsets);
+
 /// Crée les buffers et enregistre l'envoi des données dans `commandList`, que l'appelant a ouverte
 /// et exécutera avant le premier dessin.
 [[nodiscard]] Mesh createMesh(nvrhi::IDevice& device, nvrhi::ICommandList& commandList,
