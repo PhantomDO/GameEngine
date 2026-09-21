@@ -33,7 +33,7 @@ enum class WindowEventType : std::uint8_t
 struct WindowEvent
 {
     WindowEventType type;
-    PixelSize pixelSize; ///< Renseignée pour `Resized` uniquement.
+    PixelSize pixelSize{}; ///< Renseignée pour `Resized` uniquement, zéro sinon.
 };
 
 /// Détruit la fenêtre puis arrête SDL, dans cet ordre. Défini dans `window.cpp`, le seul

@@ -16,8 +16,8 @@ jobs:
     # machine Windows et le projet ne le cible pas pour l'instant. Les deux bugs de M0.2 —
     # /Zc:__cplusplus et la divergence <ostream> — étaient tous deux propres à MSVC.
     #
-    # Les noms `linux-debug` et `linux-release` sont les checks requis par la protection de
-    # `main` : ne pas les renommer sans mettre la protection à jour d'abord.
+    # Les noms `linux-debug`, `linux-release` et `linux-asan` sont les checks requis par la
+    # protection de `main` : ne pas les renommer sans mettre la protection à jour d'abord.
     #
     # `linux-asan` compile en Debug avec AddressSanitizer (dont LeakSanitizer) et
     # UndefinedBehaviorSanitizer, puis lance tests et sandbox : une fuite ou un comportement

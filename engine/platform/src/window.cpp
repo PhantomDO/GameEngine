@@ -17,7 +17,8 @@ namespace levain::platform
 namespace
 {
 
-// Seule une assertion s'en sert, et les assertions disparaissent en Release.
+// Seule une assertion s'en sert : en Release, elle n'apparaît plus que dans un sizeof, et clang
+// la déclare inutile (-Wunneeded-internal-declaration).
 [[maybe_unused]] bool isAscii(const std::string& text)
 {
     return std::ranges::all_of(text, [](char c) { return static_cast<unsigned char>(c) < 0x80; });

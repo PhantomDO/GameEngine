@@ -176,4 +176,7 @@ ait vu quoi que ce soit — et il n'affiche aucun avertissement.
 **Ne jamais retirer `-pedantic-errors`** du `CMakeLists.txt` racine : c'est le garde-fou qui maintient le code en
 C++23 strict, puisque MSVC compile en `/std:c++latest` (ADR-0001). Une extension C++26 doit casser la CI Linux.
 
+**Ni `-Wall -Wextra -Werror`** : c'est ce qui donne un sens à la règle n°4. Un avertissement casse le build, en
+local comme en CI, au lieu de défiler sans que personne ne le lise.
+
 *Tests, format et lint : à compléter en M0.2, issue #5.*
