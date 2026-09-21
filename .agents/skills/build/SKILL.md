@@ -67,14 +67,19 @@ gdbus call --session --dest org.kde.KWin --object-path /WindowsRunner --method o
 
 ## Profilage Tracy
 
-Désactivé par défaut.
+Désactivé par défaut. Le client est Tracy **0.14.1**, par le port overlay `ports/tracy` (ADR-0007, amendement).
+Les outils de la même version (profileur, `tracy-capture`, `tracy-csvexport`) viennent de la release officielle,
+décompressée dans `~/.local/opt/tracy-0.14.1/` (`TRACY_DIR` pour un autre dossier).
 
 ```bash
 cmake -S . -B build/prof -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=clang++ \
   -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake -DLEVAIN_PROFILING=ON
 cmake --build build/prof
-TRACY_NO_EXIT=1 ./build/prof/sandbox/levain_sandbox
+./tools/tracy-capture.sh 3 captures/sandbox.tracy        # capture scriptée + statistiques des zones
+~/.local/opt/tracy-0.14.1/tracy-profiler-x86_64.AppImage captures/sandbox.tracy   # ouvrir la capture
 ```
+
+Pour profiler en direct : lancer le profileur, puis `TRACY_NO_EXIT=1 ./build/prof/sandbox/levain_sandbox`.
 
 ## CI
 

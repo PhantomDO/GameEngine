@@ -19,5 +19,10 @@
     },
     "spdlog",
     "tracy"
-  ]
+  ],
+  "vcpkg-configuration": {
+    "overlay-ports": [
+      "./ports"
+    ]
+  }
 }

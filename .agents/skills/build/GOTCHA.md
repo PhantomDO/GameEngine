@@ -45,6 +45,14 @@ dans `engine/platform/README.md`, section « Pièges connus ».
 - **`main` et les exceptions** : `std::print` peut lever, et une exception qui sort de `main` est signalée par
   clang-tidy. Un `try`/`catch` au sommet de `main` (ADR-0008).
 
+## Bureau de Donnovan
+
+- **Ne pas faire de capture d'écran de son bureau** (2026-09-21). `spectacle -a` capture la fenêtre active, pas
+  celle qu'on vise : KWin a refusé de donner le focus au profileur, et l'image montrait son navigateur sur une
+  page de connexion. Supprimée aussitôt. Une capture d'écran se demande à Donnovan.
+- **`pkill -f <motif>` tue aussi le shell qui l'exécute** si sa ligne de commande contient le motif. Cibler par
+  nom de processus (`pgrep -x`, `ps -eo pid,comm`).
+
 ## Chaîne d'outils
 
 - **`VCPKG_ROOT` non exportée** : CMake prenait les paquets du système (le `spdlog` d'Arch) sans rien dire. Le
@@ -61,10 +69,14 @@ dans `engine/platform/README.md`, section « Pièges connus ».
 
 ## Tracy
 
+- **`TRACY_ENABLE` est OFF par défaut depuis Tracy 0.14** (2026-09-21). Sans lui, les macros se compilent en
+  rien : le build réussit, le binaire ne profile rien. Le port overlay le force, et `engine/core/CMakeLists.txt`
+  refuse de configurer un build profilé sans lui. Preuve qu'un client est actif : il écoute sur le port 8086
+  (`ss -ltnp | grep 8086`), et `TRACY_NO_EXIT=1` l'empêche de sortir.
 - **`TRACY_NO_EXIT=1` n'est pas optionnel** pour un programme court : sans lui, le programme se termine avant
   qu'un profileur ait pu se connecter, et n'affiche aucun avertissement.
-- **Client et profileur doivent avoir la même version de protocole.** vcpkg fournit le client 0.13.1 ; les
-  binaires Linux du profileur commencent à 0.14.0. Voie décidée : porter Tracy 0.14.1 (issue #38).
+- **Client et profileur doivent avoir la même version de protocole** : 0.14.1 des deux côtés (port overlay pour
+  le client, release officielle pour les outils, empreinte SHA-256 vérifiée contre celle publiée par GitHub).
 
 ## Quand Windows reviendra
 

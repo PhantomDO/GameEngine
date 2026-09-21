@@ -31,6 +31,15 @@ target_compile_definitions(levain_core PUBLIC
 option(LEVAIN_PROFILING "Activer l'instrumentation Tracy" OFF)
 
 if(LEVAIN_PROFILING)
+    # Garde-fou : sans TRACY_ENABLE, les macros de Tracy se compilent en rien. Le build réussit,
+    # le binaire ne profile rien, et TRACY_NO_EXIT n'attend personne. C'est arrivé au passage à
+    # Tracy 0.14, qui a changé la valeur par défaut (ports/tracy/portfile.cmake).
+    get_target_property(tracyDefinitions Tracy::TracyClient INTERFACE_COMPILE_DEFINITIONS)
+    if(NOT "TRACY_ENABLE" IN_LIST tracyDefinitions)
+        message(FATAL_ERROR
+            "Tracy::TracyClient ne définit pas TRACY_ENABLE : le profilage serait compilé en rien.")
+    endif()
+
     # PUBLIC des deux côtés : les macros sont compilées chez l'appelant, donc sandbox et
     # tests doivent voir la définition et les en-têtes de Tracy.
     target_compile_definitions(levain_core PUBLIC LEVAIN_PROFILING_ENABLED=1)

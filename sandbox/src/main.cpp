@@ -113,6 +113,7 @@ void runMainLoop(levain::platform::Window& window)
         if (const auto summary =
                 levain::core::recordFrame(frameTimes, frameSeconds, FrameTimePeriodSeconds))
         {
+            LEVAIN_PROFILE_SCOPE_NAMED("titre");
             levain::platform::setWindowTitle(window, describeFrameTimes(*summary));
         }
 
