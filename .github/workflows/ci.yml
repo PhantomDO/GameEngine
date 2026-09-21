@@ -102,11 +102,13 @@ jobs:
 
       # On cache les archives binaires de vcpkg, pas ses sources : 19 Mo mesurés pour
       # nvrhi + flecs + doctest, contre 23 s de compilation à froid (journal, M0.2).
+      # ports/ fait partie de la clé : un port overlay modifié change l'ABI du paquet, et un
+      # cache figé sous l'ancienne clé le ferait recompiler à chaque exécution.
       - name: Cache vcpkg
         uses: actions/cache@v4
         with:
           path: vcpkg-cache
-          key: vcpkg-${{ env.VCPKG_TAG }}-${{ hashFiles('vcpkg.json') }}
+          key: vcpkg-${{ env.VCPKG_TAG }}-${{ hashFiles('vcpkg.json', 'ports/**') }}
 
       # vcpkg refuse de démarrer si le dossier de cache binaire n'existe pas. Cette étape
       # doit rester APRÈS la restauration : avant, le dossier existerait déjà et le cache

@@ -25,9 +25,38 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
-## 2026-09-21 — M1.1 — AGENTS.md et skills
+## 2026-09-21 — M1.1 — Capture Tracy de la vraie boucle (#38)
 
 - Temps Donnovan : à renseigner
+- Sessions Claude Code : 1 (la même que #10, #11 et #51)
+- Fait : port overlay `ports/tracy`, Tracy **0.14.1 client seul** (51 lignes, contre 759 pour le
+  port officiel et ses quatre patches, qui ne concernent que les outils) ; garde-fou CMake sur `TRACY_ENABLE` ;
+  outils 0.14.1 officiels dans `~/.local/opt/tracy-0.14.1/`, avec l'accord de Donnovan ; script
+  `tools/tracy-capture.sh` ; zone `titre` dans la boucle ; amendement de l'ADR-0007 (ports overlay) ; `ports/`
+  dans la clé du cache CI.
+- Mesures (`SDL_VIDEO_DRIVER=x11 ./tools/tracy-capture.sh 3 captures/m1.1.tracy`) :
+  - **1 807 095 frames en 3,3 s** : ~1,8 µs par frame, ~550 000 images/s avec Tracy (~820 000 sans) ;
+  - **`événements` : 85,2 % du temps**, 1 555 ns en moyenne (de 1 190 ns à 254 709 ns). La frame est donc
+    presque entièrement le pompage des événements de SDL, la seule chose que fait la boucle avant M1.2 ;
+  - `titre` : 3 appels, 41,5 µs en moyenne, une fois par seconde ;
+  - client actif : il écoute sur `*:8086` (`ss -ltnp`), `TRACY_NO_EXIT=1` l'empêche de sortir (code 137 au
+    délai), 1 046 symboles `tracy::` dans le binaire (`nm -C | grep -c`) ;
+  - release officielle : SHA-256 identique à celle publiée par GitHub (`gh api …/releases/tags/v0.14.1`) ;
+  - vcpkg `master` toujours en 0.13.1 au 21/09 (troisième critère de l'issue).
+- Écarts et problèmes :
+  - **Tracy 0.14 a fait passer `TRACY_ENABLE` de ON à OFF par défaut.** Le premier build profilé compilait,
+    mais sans aucun symbole `tracy::` : un profilage vide, sans un mot. Le port force l'option, et
+    `engine/core/CMakeLists.txt` refuse de configurer sans elle. Contre-test : l'option retirée, CMake échoue.
+  - **Capture d'écran ratée, et un incident.** Pour photographier le profileur, j'ai demandé le focus à KWin puis
+    lancé `spectacle -a` (fenêtre active). KWin n'a pas donné le focus : l'image montrait le navigateur de
+    Donnovan, sur une page de connexion. Supprimée aussitôt, jamais commitée ni envoyée. Règle inscrite dans le
+    skill `build` : pas de capture d'écran du bureau, on la demande à Donnovan.
+  - `pkill -f <motif>` a tué le shell qui l'exécutait, sa ligne de commande contenant le motif.
+- Prochaine étape : capture d'écran de la timeline par Donnovan, puis clôture de M1.1.
+
+## 2026-09-21 — M1.1 — AGENTS.md et skills
+
+- Temps Donnovan : compté avec #11 (10 min pour les relectures de #50 et #51)
 - Sessions Claude Code : 1 (la même que #10 et #11)
 - Fait : à la demande de Donnovan, `CLAUDE.md` (182 lignes) devient `AGENTS.md`, source unique des
   instructions quel que soit l'outil, et `CLAUDE.md` ne fait plus que l'importer. Les procédures passent dans
@@ -44,7 +73,7 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ## 2026-09-21 — M1.1 — Frame time, sanitizers et avertissements (#11)
 
-- Temps Donnovan : à renseigner (estimé 0,75 h pour #11)
+- **Temps Donnovan : 0,17 h** (10 min en tout, relectures de #50 et de #51 ; estimé 0,75 h)
 - Sessions Claude Code : 1 (la même que #10, PR découpée)
 - Fait : `recordFrame` dans `core` (moyenne, minimum et maximum par période d'une seconde) et trois tests ;
   frame time dans le titre de la fenêtre ; `setWindowTitle` et son assertion ASCII ; preset `linux-asan`
