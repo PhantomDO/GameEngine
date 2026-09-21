@@ -5,9 +5,9 @@
 Le socle : types de base, logs, assertions, allocateurs, temps, fichiers. Tout le moteur en dépend, et lui ne
 dépend de rien — ni SDL3, ni NVRHI, ni flecs.
 
-**État en M0.3** : logs par catégorie, assertions, politique d'erreurs de
-l'[ADR-0008](../../docs/adr/0008-gestion-erreurs.md), allocateurs linéaire et pool, macros de profilage Tracy.
-L'horloge et les fichiers suivront quand un besoin concret apparaîtra.
+**État en M1.1** : logs par catégorie, assertions, politique d'erreurs de
+l'[ADR-0008](../../docs/adr/0008-gestion-erreurs.md), allocateurs linéaire et pool, macros de profilage Tracy,
+statistiques de frame time. Les fichiers suivront quand un besoin concret apparaîtra.
 
 ## Invariants
 
@@ -27,6 +27,7 @@ L'horloge et les fichiers suivront quand un besoin concret apparaîtra.
 | [`include/levain/core/error.hpp`](include/levain/core/error.hpp) | `Result<T>` = `std::expected<T, Error>`, pour les échecs qui ne sont pas des bugs |
 | [`include/levain/core/linear_allocator.hpp`](include/levain/core/linear_allocator.hpp) | `LinearAllocator` — arène vidée d'un coup, **9,4× plus rapide que `malloc`** |
 | [`include/levain/core/pool_allocator.hpp`](include/levain/core/pool_allocator.hpp) | `PoolAllocator` — blocs de taille fixe rendus dans n'importe quel ordre, **5,9×** |
+| [`include/levain/core/frame_time.hpp`](include/levain/core/frame_time.hpp) | `recordFrame` — moyenne, minimum et **maximum** par période : c'est le maximum qui montre une saccade |
 | [`include/levain/core/profile.hpp`](include/levain/core/profile.hpp) | `LEVAIN_PROFILE_SCOPE`, `LEVAIN_PROFILE_FRAME` — compilées hors du binaire par défaut |
 | [`include/levain/core/version.hpp`](include/levain/core/version.hpp) | `version()` et `toolchain()` — la bannière de démarrage |
 

@@ -54,7 +54,10 @@ void reportFailedAssert(std::string_view expression, std::string_view message,
 
 #else
 
-#define LEVAIN_ASSERT(expression, message) ((void)0)
+// sizeof compile l'expression sans l'évaluer : aucun effet en Release, mais une variable qui
+// ne sert qu'à une assertion n'y devient pas « inutilisée » pour -Wall, et une assertion qui ne
+// compile plus casse aussi le build Release. static_cast<bool> reprend la conversion du Debug.
+#define LEVAIN_ASSERT(expression, message) ((void)sizeof(static_cast<bool>(expression)))
 #define LEVAIN_VERIFY(expression, message) ((void)(expression))
 
 #endif

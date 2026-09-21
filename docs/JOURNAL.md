@@ -25,9 +25,52 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-21 — M1.1 — Frame time, sanitizers et avertissements (#11)
+
+- Temps Donnovan : à renseigner (estimé 0,75 h pour #11)
+- Sessions Claude Code : 1 (la même que #10, PR découpée)
+- Fait : `recordFrame` dans `core` (moyenne, minimum et maximum par période d'une seconde) et trois tests ;
+  frame time dans le titre de la fenêtre ; `setWindowTitle` et son assertion ASCII ; preset `linux-asan`
+  (AddressSanitizer, LeakSanitizer, UBSan, `-fno-sanitize-recover=all`) et son job CI, avec un garde-fou qui
+  vérifie que le binaire est bien instrumenté ; `-Wall -Wextra -Werror` sur tout le code du moteur.
+- Mesures :
+  - titre lu par KWin, build ASan : `Levain - 0.002 ms (min 0.002, max 0.083) - 605107 images/s`
+    (`gdbus call --session --dest org.kde.KWin --object-path /WindowsRunner --method org.kde.krunner1.Match Levain`) ;
+  - temps passé masquée exclu du frame time : max **0,036 ms** 0,3 s après une minimisation de 2 s ;
+    **contre-test**, la remise à l'heure retirée : max **2 314,870 ms** (même commande, pilotage par KWin) ;
+  - sanitizers : 21 tests et 3 s de sandbox, zéro fuite et zéro comportement indéfini, en offscreen (comme la
+    CI) et sous Wayland (`SDL_VIDEO_DRIVER=offscreen timeout --foreground --preserve-status -k 10 3 ./build/linux-asan/sandbox/levain_sandbox`) ;
+  - garde-fou d'instrumentation : 49 symboles `__ubsan_handle` dans le binaire ASan, aucun `__asan_init` dans
+    le binaire Debug (`nm … | grep`) ;
+  - avertissements à l'activation : **5**, pas 4 comme annoncé — ma première mesure ne portait que sur le
+    Debug. 4 `-Wmissing-designated-field-initializers` (un `WindowEvent` sans `pixelSize`), et en Release une
+    variable qui ne servait qu'à une assertion (build des trois presets avec `-Wall -Wextra -Werror`).
+- Écarts et problèmes :
+  - **Première vraie trouvaille du sanitizer, et elle est chez SDL.** Sous X11, LeakSanitizer signalait une
+    fuite dans `SDL_X11_SetWindowTitle` (`SDL_x11window.c:2300`). En remontant : en locale C, la conversion
+    du titre pour l'ancienne propriété `WM_NAME` échoue sur « — », et SDL abandonne **sans rien dire** —
+    sans libérer la conversion, et sans envoyer le titre UTF-8. KWin affichait toujours « Levain » : le frame
+    time n'avait jamais atteint l'écran. Confirmé par l'expérience (titre ASCII : ni fuite, titre affiché) ;
+    même code sur la branche `main` de SDL. Parade : titres ASCII, vérifiés par assertion.
+  - **Faux positifs LeakSanitizer sous X11** : 50 052 octets en 913 allocations, la mémoire permanente de
+    libX11 que SDL décharge par `dlclose` à la sortie. Précharger libX11 les fait disparaître sans masquer les
+    vraies fuites : la fuite du titre restait signalée. Zéro sous Wayland et en offscreen.
+  - clang-tidy 22 compte `optional::value()` comme un accès non vérifié, et ne voit pas le `REQUIRE` de
+    doctest comme une garde : les tests passent par `value_or(FrameTimeSummary{})`, dont les zéros font
+    échouer les `CHECK` si aucun résumé n'est rendu.
+  - **`LEVAIN_ASSERT` en Release** passait de `((void)0)` à `((void)sizeof(static_cast<bool>(expression)))` :
+    l'expression est compilée sans être évaluée. Une variable qui ne sert qu'à une assertion n'est plus
+    « inutilisée », et une assertion qui ne compile plus casse aussi le Release. Reste un cas : une fonction
+    interne qui n'apparaît que dans une assertion, que clang déclare inutile (`isAscii`, `[[maybe_unused]]`).
+- Décisions (Donnovan, 21/09) : `linux-asan` devient un **check requis** pour fusionner sur `main` ;
+  avertissements activés ; **rien n'est signalé en amont à SDL**, dont les mainteneurs n'acceptent pas les
+  contributions d'IA. Les deux bugs restent documentés dans `engine/platform/README.md`.
+- Prochaine étape : #38, capture Tracy. vcpkg n'ayant toujours pas Tracy 0.14, la voie suivante décidée en
+  M0.3 est un port overlay en 0.14.1.
+
 ## 2026-09-21 — M1.1 — Fenêtre SDL3, boucle et événements (#10)
 
-- Temps Donnovan : à renseigner (estimé 0,75 h pour #10)
+- **Temps Donnovan : 0,33 h** (20 min en tout, relecture de #49 comprise ; estimé 0,75 h)
 - Sessions Claude Code : 1
 - Fait : module `engine/platform` sur SDL3 3.4.12 (vcpkg, fonctionnalités `x11` et `wayland` seulement, sans
   ibus ni dbus) ; événements traduits vers nos types (`CloseRequested`, `Resized` en pixels, `Hidden`,

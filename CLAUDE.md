@@ -138,6 +138,17 @@ image, et le moteur n'en présente pas encore. En attendant, passer par XWayland
 Pour tester redimensionnement et minimisation comme un utilisateur, sandbox lancé sous X11 :
 `./tools/kwin-window-smoke.sh` (Plasma uniquement).
 
+**Sanitizers** (ASan, LeakSanitizer, UBSan) : preset `linux-asan`, lancé par la CI à chaque PR.
+
+```bash
+cmake --preset linux-asan && cmake --build --preset linux-asan
+ctest --test-dir build/linux-asan
+SDL_VIDEO_DRIVER=offscreen timeout --foreground --preserve-status -k 10 3 \
+  ./build/linux-asan/sandbox/levain_sandbox   # comme la CI ; code 0 = ni fuite ni UB
+```
+
+Sous X11, LeakSanitizer signale ~50 Ko de faux positifs dus à libX11 : voir `engine/platform/README.md`.
+
 `compile_commands.json` est généré dans `build/<preset>/`. Pour clangd à la racine :
 
 ```bash
@@ -164,5 +175,8 @@ ait vu quoi que ce soit — et il n'affiche aucun avertissement.
 
 **Ne jamais retirer `-pedantic-errors`** du `CMakeLists.txt` racine : c'est le garde-fou qui maintient le code en
 C++23 strict, puisque MSVC compile en `/std:c++latest` (ADR-0001). Une extension C++26 doit casser la CI Linux.
+
+**Ni `-Wall -Wextra -Werror`** : c'est ce qui donne un sens à la règle n°4. Un avertissement casse le build, en
+local comme en CI, au lieu de défiler sans que personne ne le lise.
 
 *Tests, format et lint : à compléter en M0.2, issue #5.*

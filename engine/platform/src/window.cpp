@@ -1,5 +1,6 @@
 #include "levain/platform/window.hpp"
 
+#include <algorithm>
 #include <format>
 #include <optional>
 #include <string>
@@ -15,6 +16,13 @@ namespace levain::platform
 
 namespace
 {
+
+// Seule une assertion s'en sert : en Release, elle n'apparaît plus que dans un sizeof, et clang
+// la déclare inutile (-Wunneeded-internal-declaration).
+[[maybe_unused]] bool isAscii(const std::string& text)
+{
+    return std::ranges::all_of(text, [](char c) { return static_cast<unsigned char>(c) < 0x80; });
+}
 
 bool isWindowEvent(const SDL_Event& event)
 {
@@ -137,6 +145,12 @@ std::vector<WindowEvent> waitEvents(const Window& window)
 
     appendPendingEvents(events, windowId);
     return events;
+}
+
+void setWindowTitle(Window& window, const std::string& title)
+{
+    LEVAIN_ASSERT(isAscii(title), "titre non ASCII : perdu sous X11 (voir window.hpp)");
+    SDL_SetWindowTitle(window.handle.get(), title.c_str());
 }
 
 } // namespace levain::platform

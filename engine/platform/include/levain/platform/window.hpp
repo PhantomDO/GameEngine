@@ -33,7 +33,7 @@ enum class WindowEventType : std::uint8_t
 struct WindowEvent
 {
     WindowEventType type;
-    PixelSize pixelSize; ///< Renseignée pour `Resized` uniquement.
+    PixelSize pixelSize{}; ///< Renseignée pour `Resized` uniquement, zéro sinon.
 };
 
 /// Détruit la fenêtre puis arrête SDL, dans cet ordre. Défini dans `window.cpp`, le seul
@@ -63,5 +63,11 @@ struct Window
 /// Comme `pollEvents`, mais dort jusqu'au premier événement. Pour une fenêtre masquée : sans
 /// rien à dessiner, la boucle tournerait à vide à 100 % d'un cœur.
 [[nodiscard]] std::vector<WindowEvent> waitEvents(const Window& window);
+
+/// Le titre doit être en **ASCII**, et une assertion le vérifie. Sous X11, SDL 3.4.12 abandonne
+/// sans rien dire tout titre qu'il ne sait pas convertir dans la locale C, et fuit au passage
+/// (`SDL_x11window.c:2300`). « — » et « × » y échouent, « é » passe : trop imprévisible pour
+/// autoriser quoi que ce soit hors ASCII tant que ce n'est pas corrigé en amont.
+void setWindowTitle(Window& window, const std::string& title);
 
 } // namespace levain::platform

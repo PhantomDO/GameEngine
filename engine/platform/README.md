@@ -6,7 +6,7 @@ La frontière avec le système d'exploitation : fenêtre, événements, et plus 
 manettes). C'est le **seul module qui inclut SDL3** ([ADR-0003](../../docs/adr/0003-plateforme-sdl3.md)) ; le
 reste du moteur ne voit que nos propres types.
 
-**État en M1.1** : une fenêtre et ses événements (fermeture, redimensionnement, masquée, visible).
+**État en M1.1** : une fenêtre, ses événements (fermeture, redimensionnement, masquée, visible) et son titre.
 
 ## Invariants
 
@@ -15,12 +15,13 @@ reste du moteur ne voit que nos propres types.
    créer la surface Vulkan à partir de `Window::handle`.
 2. **Une seule fenêtre à la fois.** La fenêtre possède SDL : la détruire appelle `SDL_Quit`. Une assertion le
    vérifie dans `createWindow`. À revoir quand l'éditeur ouvrira des fenêtres secondaires (M7.1).
+3. **Titres en ASCII**, vérifié par assertion. Voir « Pièges connus ».
 
 ## Points d'entrée
 
 | Fichier | Contenu |
 |---|---|
-| [`include/levain/platform/window.hpp`](include/levain/platform/window.hpp) | `createWindow`, `pollEvents`, `waitEvents` |
+| [`include/levain/platform/window.hpp`](include/levain/platform/window.hpp) | `createWindow`, `pollEvents`, `waitEvents`, `setWindowTitle` |
 
 ## Trois choses à savoir sur les fenêtres
 
@@ -43,7 +44,9 @@ pixels, parce que c'est ce dont la swapchain aura besoin.
 
 | Piège | Symptôme | Parade |
 |---|---|---|
+| Titre non ASCII sous X11 (`SDL_x11window.c:2300`) | En locale C, SDL renonce **sans rien dire** à tout titre qu'il ne sait pas convertir, et fuit la mémoire de la conversion. « — » et « × » échouent, « é » passe. | Assertion ASCII dans `setWindowTitle`. Aussi présent sur la branche `main` de SDL. |
 | Deux signaux rapprochés (`SDL_quit.c:171`) | Une assertion du SDL compilé en Debug saute, et SDL ouvre une boîte de dialogue qui attend une réponse. | `timeout --foreground`, qui n'envoie qu'un signal. Ctrl+C n'en envoie qu'un par appui. |
+| LeakSanitizer sous X11 | 50 052 octets « perdus » en 913 allocations : la mémoire permanente de libX11, que SDL décharge par `dlclose` à la sortie. Une fois la bibliothèque déchargée, plus rien ne semble la retenir. | Faux positif : précharger libX11 (`LD_PRELOAD=/usr/lib/libX11.so.6:…`) le fait disparaître, **sans masquer les vraies fuites** (celle du titre restait signalée). Zéro fuite sous Wayland et en offscreen, là où tourne la CI. |
 
 ## Équivalents ailleurs
 

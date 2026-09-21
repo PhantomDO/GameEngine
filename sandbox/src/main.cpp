@@ -1,7 +1,11 @@
+#include <chrono>
 #include <cstdio>
 #include <exception>
+#include <format>
 #include <print>
+#include <string>
 
+#include "levain/core/frame_time.hpp"
 #include "levain/core/log.hpp"
 #include "levain/core/profile.hpp"
 #include "levain/core/version.hpp"
@@ -9,6 +13,11 @@
 
 namespace
 {
+
+using Clock = std::chrono::steady_clock;
+
+/// Durée sur laquelle le frame time du titre est résumé.
+constexpr double FrameTimePeriodSeconds = 1.0;
 
 struct LoopState
 {
@@ -49,24 +58,63 @@ void applyWindowEvent(LoopState& state, const levain::platform::WindowEvent& eve
     }
 }
 
+double secondsBetween(Clock::time_point start, Clock::time_point end)
+{
+    return std::chrono::duration<double>(end - start).count();
+}
+
+std::string describeFrameTimes(const levain::core::FrameTimeSummary& summary)
+{
+    // Tirets ASCII : setWindowTitle refuse le reste (voir window.hpp). averageMs n'est jamais
+    // nul, un résumé couvre au moins FrameTimePeriodSeconds.
+    return std::format("Levain - {:.3f} ms (min {:.3f}, max {:.3f}) - {:.0f} images/s",
+                       summary.averageMs, summary.minMs, summary.maxMs, 1000.0 / summary.averageMs);
+}
+
 void runMainLoop(levain::platform::Window& window)
 {
     LoopState state;
+    levain::core::FrameTimeAccumulator frameTimes;
+    Clock::time_point previousFrameEnd = Clock::now();
 
     while (state.isRunning)
     {
-        // Masquée, il n'y a rien à dessiner : on dort jusqu'au prochain événement au lieu de
-        // tourner à vide.
-        const auto events = state.isVisible ? levain::platform::pollEvents(window)
-                                            : levain::platform::waitEvents(window);
-        for (const auto& event : events)
+        if (!state.isVisible)
         {
-            applyWindowEvent(state, event);
+            for (const auto& event : levain::platform::waitEvents(window))
+            {
+                applyWindowEvent(state, event);
+            }
+
+            // Le temps passé masquée n'est pas une frame. Sans cette remise à l'heure, la
+            // première frame après la restauration durerait toute la minimisation, et le
+            // maximum affiché serait de plusieurs secondes.
+            previousFrameEnd = Clock::now();
+            continue;
+        }
+
+        {
+            LEVAIN_PROFILE_SCOPE_NAMED("événements");
+
+            for (const auto& event : levain::platform::pollEvents(window))
+            {
+                applyWindowEvent(state, event);
+            }
         }
 
         // Le rendu viendra ici en M1.2. D'ici là, rien ne cadence la boucle : elle tourne aussi
         // vite que le processeur le permet. C'est le present de la swapchain, calé sur le
         // rafraîchissement de l'écran, qui la ralentira.
+
+        const Clock::time_point frameEnd = Clock::now();
+        const double frameSeconds = secondsBetween(previousFrameEnd, frameEnd);
+        previousFrameEnd = frameEnd;
+
+        if (const auto summary =
+                levain::core::recordFrame(frameTimes, frameSeconds, FrameTimePeriodSeconds))
+        {
+            levain::platform::setWindowTitle(window, describeFrameTimes(*summary));
+        }
 
         LEVAIN_PROFILE_FRAME();
     }
@@ -76,8 +124,8 @@ void runMainLoop(levain::platform::Window& window)
 
 int main()
 {
-    // std::print peut lever : format_error sur une chaîne de format invalide, system_error si
-    // l'écriture échoue. On rattrape au sommet (ADR-0008).
+    // std::print et std::format peuvent lever : format_error sur une chaîne de format
+    // invalide, system_error si l'écriture échoue. On rattrape au sommet (ADR-0008).
     try
     {
         std::print("Levain {} — {} — __cplusplus {}\n", levain::core::version(),
