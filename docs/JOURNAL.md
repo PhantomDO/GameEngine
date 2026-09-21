@@ -53,6 +53,10 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
     attendu jusqu'au SIGKILL. Parade : `timeout --foreground`, un seul signal.
   - Un processus lancé avec `&` depuis un shell non interactif hérite d'un SIGINT **ignoré**, et SDL respecte
     ce choix : c'est pourquoi la CI et le script arrêtent le sandbox par SIGTERM.
+  - **CI rouge deux fois sur SDL3** : la liste de paquets `-dev` suggérée par le port vcpkg ne suffit pas.
+    SDL refuse de se configurer s'il manque une extension X11 demandée, d'abord Xcursor, puis XTest. La liste
+    vient maintenant des contrôles stricts de `cmake/sdlchecks.cmake` (huit extensions) et de la section
+    Ubuntu du `README-linux` de SDL. Bon point : SDL échoue bruyamment au lieu de désactiver la fonction.
   - **PR découpée** : la version complète de M1.1 faisait environ 710 lignes, près du double de la règle
     n°2. Le frame time et les sanitizers (#11) suivent dans une seconde PR, déjà prête.
   - Tracy (#38) : vcpkg `master` est toujours en 0.13.1 au 21/09.
