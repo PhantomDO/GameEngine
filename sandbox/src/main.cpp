@@ -1,9 +1,16 @@
+#include <charconv>
 #include <chrono>
+#include <cstddef>
 #include <cstdio>
 #include <exception>
 #include <format>
+#include <limits>
+#include <optional>
 #include <print>
+#include <span>
 #include <string>
+#include <string_view>
+#include <system_error>
 
 #include "levain/core/assert.hpp"
 #include "levain/core/frame_time.hpp"
@@ -114,8 +121,34 @@ void renderFrame(levain::gpu::GpuDevice& gpu, const levain::platform::Window& wi
     levain::gpu::presentFrame(gpu);
 }
 
+/// La durée de la boucle : `--seconds N`, ou sans limite. Vide si les arguments sont invalides.
+///
+/// Comptée depuis le premier tour de boucle, pas depuis le lancement : en CI, le démarrage varie de
+/// 1 à plus de 10 s selon la charge du runner (lavapipe), et un délai extérieur tombait parfois
+/// avant la première frame.
+std::optional<double> parseLoopSeconds(std::span<char* const> arguments)
+{
+    if (arguments.size() == 1)
+    {
+        return std::numeric_limits<double>::infinity();
+    }
+    if (arguments.size() != 3 || std::string_view{arguments[1]} != "--seconds")
+    {
+        return std::nullopt;
+    }
+
+    const std::string_view value{arguments[2]};
+    double seconds = 0.0;
+    const auto [end, error] = std::from_chars(value.data(), value.data() + value.size(), seconds);
+    if (error != std::errc{} || end != value.data() + value.size() || seconds <= 0.0)
+    {
+        return std::nullopt;
+    }
+    return seconds;
+}
+
 void runMainLoop(levain::platform::Window& window, levain::gpu::GpuDevice& gpu,
-                 const levain::render::TrianglePass& triangle)
+                 const levain::render::TrianglePass& triangle, double loopSeconds)
 {
     const nvrhi::CommandListHandle commandList = gpu.nvrhi->createCommandList();
     LoopState state;
@@ -124,7 +157,7 @@ void runMainLoop(levain::platform::Window& window, levain::gpu::GpuDevice& gpu,
     Clock::time_point previousFrameEnd = loopStart;
     int frameCount = 0;
 
-    while (state.isRunning)
+    while (state.isRunning && secondsBetween(loopStart, Clock::now()) < loopSeconds)
     {
         if (!state.isVisible)
         {
@@ -178,12 +211,20 @@ void runMainLoop(levain::platform::Window& window, levain::gpu::GpuDevice& gpu,
 
 } // namespace
 
-int main()
+int main(int argc, char** argv)
 {
     // std::print et std::format peuvent lever : format_error sur une chaîne de format
     // invalide, system_error si l'écriture échoue. On rattrape au sommet (ADR-0008).
     try
     {
+        const std::optional<double> loopSeconds =
+            parseLoopSeconds(std::span{argv, static_cast<std::size_t>(argc)});
+        if (!loopSeconds)
+        {
+            std::println(stderr, "usage : levain_sandbox [--seconds N]");
+            return 2;
+        }
+
         std::print("Levain {} — {} — __cplusplus {}\n", levain::core::version(),
                    levain::core::toolchain(), __cplusplus);
 
@@ -218,7 +259,7 @@ int main()
             return 1;
         }
 
-        runMainLoop(*window, *gpu, *triangle);
+        runMainLoop(*window, *gpu, *triangle, *loopSeconds);
         levain::core::log("sandbox", levain::core::LogLevel::Info, "fenêtre fermée");
     }
     catch (const std::exception& e)

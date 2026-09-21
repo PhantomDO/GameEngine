@@ -59,8 +59,7 @@ SDL_VIDEO_DRIVER=x11 ./build/linux-debug/sandbox/levain_sandbox   # x11 : voir G
 Comme la CI, avec les sanitizers (code 0 = ni fuite ni comportement indéfini) :
 
 ```bash
-SDL_VIDEO_DRIVER=offscreen timeout --foreground --preserve-status -k 10 3 \
-  ./build/linux-asan/sandbox/levain_sandbox
+SDL_VIDEO_DRIVER=offscreen ./build/linux-asan/sandbox/levain_sandbox --seconds 3
 ```
 
 ## Tester la fenêtre comme un utilisateur

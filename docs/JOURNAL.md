@@ -49,6 +49,12 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
   - **Bridage passager de l'environnement** : pendant quelques minutes, 20 images/s très régulières sous Wayland
     et une fenêtre X11 qui ne s'ouvrait plus, puis tout est revenu sans changement de code. Noté dans
     `build/GOTCHA.md`, avec la parade : mesurer en offscreen.
+  - **CI rouge en Release, et c'est le garde-fou de M1.2 qui a sonné** : le démarrage du runner a pris ~10 s
+    (2,3 s rien que pour le device, contre 0,9 s d'habitude), et le SIGTERM des 8 s est tombé avant la première
+    frame — boucle de 0,5 s, contrôle « ≥ 1 s » en échec. En M1.1, j'avais préféré `timeout` à une option du
+    sandbox, pour écrire moins de code ; les faits me donnent tort. Parade : `--seconds N`, compté depuis le
+    premier tour de boucle, et `timeout` à 60 s comme simple filet (arguments testés : 2 et 0,5 acceptés,
+    `abc` et `-1` refusés avec le code 2).
 - Prochaine étape : #16, le test de fumée sous lavapipe qui compare l'image rendue à une référence.
 
 ## 2026-09-21 — M1.3 — Compilation des shaders Slang (#14)
