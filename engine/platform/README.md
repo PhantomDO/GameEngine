@@ -11,8 +11,9 @@ reste du moteur ne voit que nos propres types.
 ## Invariants
 
 1. **Aucun en-tête SDL dans l'API.** `window.hpp` ne connaît SDL que par la déclaration anticipée
-   `struct SDL_Window;`, et SDL3 est lié en `PRIVATE`. Seule exception prévue : `gpu/` inclura SDL en M1.2 pour
-   créer la surface Vulkan à partir de `Window::handle`.
+   `struct SDL_Window;`, et SDL3 est lié en `PRIVATE`. Seule exception : `engine/gpu` inclut `SDL_vulkan.h` pour
+   créer la surface Vulkan à partir de `Window::handle`. C'est pour elle que la fenêtre est créée avec
+   `SDL_WINDOW_VULKAN`.
 2. **Une seule fenêtre à la fois.** La fenêtre possède SDL : la détruire appelle `SDL_Quit`. Une assertion le
    vérifie dans `createWindow`. À revoir quand l'éditeur ouvrira des fenêtres secondaires (M7.1).
 3. **Titres en ASCII**, vérifié par assertion. Voir « Pièges connus ».

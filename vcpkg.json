@@ -13,12 +13,14 @@
       "name": "sdl3",
       "default-features": false,
       "features": [
+        "vulkan",
         "wayland",
         "x11"
       ]
     },
     "spdlog",
-    "tracy"
+    "tracy",
+    "vk-bootstrap"
   ],
   "vcpkg-configuration": {
     "overlay-ports": [

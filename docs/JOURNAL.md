@@ -25,6 +25,46 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-21 — M1.2 — Device Vulkan et NVRHI (#12)
+
+- Temps Donnovan : 0,17 h jusqu'ici (10 min, relecture de #54 ; estimé 1,0 h pour #12) — 1 h 25 sur la journée
+- Sessions Claude Code : 1
+- Fait : module `engine/gpu` — instance, surface et device Vulkan créés avec vk-bootstrap (ADR-0012), puis device
+  NVRHI par-dessus ; couches de validation Vulkan et couche de validation NVRHI en Debug, messages redirigés vers
+  nos logs, et arrêt sur assertion à la première erreur ; nom du GPU et version du pilote journalisés ; temps de
+  création mesuré dans le sandbox ; lavapipe et couches de validation installés en CI.
+- Mesures :
+  - GPU choisi : **AMD Radeon RX 9070 XT (RADV GFX1201), pilote radv Mesa 26.2.3, Vulkan 1.4.354** — le
+    discret, pas l'iGPU (`SDL_VIDEO_DRIVER=x11 ./build/linux-debug/sandbox/levain_sandbox`) ;
+  - **device créé en 30 à 40 ms**, validation comprise (même commande, sous Wayland et X11) ;
+  - **zéro message des couches de validation** au lancement. Les deux seules erreurs journalisées viennent du
+    loader, qui signale la couche Lossless Scaling cassée (SPECS §10) ;
+  - validation réellement active : couche `VK_LAYER_KHRONOS_validation` insérée en Debug, absente en Release
+    (`VK_LOADER_DEBUG=layer`) ;
+  - **contre-tests** : un buffer Vulkan de taille 0 (`VUID-VkBufferCreateInfo-size-00912`) et une texture NVRHI
+    de largeur 0 arrêtent chacun le programme sur l'assertion (code 133, SIGTRAP) ;
+  - sanitizers sur le vrai GPU : 21 tests verts ; le sandbox signale 128 octets alloués par RADV, un faux
+    positif (voir ci-dessous) ; **code 0 sous Wayland avec RADV préchargé**.
+- Écarts et problèmes :
+  - **Fuite de 128 octets signalée dans RADV**, même famille que libX11 en M1.1 : le loader décharge le pilote
+    à la destruction de l'instance. Isolé par élimination : elle disparaît quand RADV reste chargé, persiste
+    sans couche de validation (build Release instrumenté) et sans `device_select`.
+  - **Le piège `[[maybe_unused]]` inscrit le matin même dans `build/GOTCHA.md`** a resservi dès l'après-midi :
+    le build Release a échoué sur `isValidationError`, qui ne sert qu'à une assertion. Il aurait fallu relire le
+    fichier avant d'écrire, comme le demande `AGENTS.md`.
+  - Pour retirer une faute injectée, un `git checkout` du fichier a effacé l'intégration du device dans le
+    sandbox, pas encore commitée. Réécrite ; la parade est dans `build/GOTCHA.md`.
+  - Sous X11, précharger RADV et libX11 ensemble bloque `SDL_CreateWindow` (`XIfEvent` attend un `MapNotify`).
+    Configuration de diagnostic seulement ; noté.
+  - **CI verte du premier coup sur lavapipe** (llvmpipe, Mesa 25.2.8, Vulkan 1.4.318), sans message de
+    validation ni fuite. Mais **la boucle n'y tournait plus** : le device y met 0,9 à 1,3 s à se créer, et le
+    démarrage complet mangeait les 3 s du délai — la création est journalisée après le SIGTERM. L'étape restait
+    verte sans rien tester de la boucle : une panne silencieuse de plus. Parade : délai porté à 8 s, et le
+    sandbox journalise la durée de sa boucle, que la CI exige d'au moins une seconde (contre-test de
+    l'expression : 0,4 s refusé, 1,2 s accepté).
+  - PR découpée : l'ADR-0012 et la correction du temps de M1.1 sont partis d'abord (#54), règle n°3.
+- Prochaine étape : #13 — swapchain, redimensionnement et écran effacé, avec les points reportés de M1.1.
+
 ## 2026-09-21 — M1.1 — Clôture
 
 - **Temps Donnovan pour M1.1 : 1,25 h** — total de la journée déclaré par Donnovan (« environ 1 h 15 depuis ce
