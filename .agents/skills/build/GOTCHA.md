@@ -60,6 +60,9 @@ dans `engine/platform/README.md`, section « Pièges connus ».
 - **Une variable qui ne sert qu'à une assertion** : `LEVAIN_ASSERT` compile son expression en Release sans
   l'évaluer (`sizeof`), donc pas d'avertissement. Une **fonction interne** dans le même cas reste signalée par
   clang (`-Wunneeded-internal-declaration`) : `[[maybe_unused]]`.
+- **Constante globale d'un type non `constexpr`** (`const nvrhi::Color c{…}`) : clang-tidy la refuse
+  (`bugprone-throwing-static-initialization`), une exception levée avant `main` ne se rattrape pas. La rendre
+  locale à la fonction qui s'en sert.
 - **Initialisation désignée incomplète** (`-Wmissing-designated-field-initializers`) : donner un initialiseur
   par défaut au champ (`PixelSize pixelSize{};`) plutôt que d'écrire `.champ = {}` partout.
 - **clang-tidy 22 et `std::optional`** : `.value()` compte comme un accès non vérifié, et `REQUIRE` de doctest

@@ -20,6 +20,16 @@ struct VulkanContextDeleter
     void operator()(VulkanContext* context) const noexcept;
 };
 
+/// La swapchain, ses images enveloppées en textures NVRHI, et la cadence des frames. Définie dans
+/// `swapchain_vk.cpp`.
+struct Swapchain;
+
+/// Attend que le GPU ait fini, puis détruit images, sémaphores et swapchain.
+struct SwapchainDeleter
+{
+    void operator()(Swapchain* swapchain) const noexcept;
+};
+
 struct DeviceOptions
 {
     /// Couches de validation Vulkan et couche de validation NVRHI, exigées en Debug (règle n°4).
@@ -27,16 +37,18 @@ struct DeviceOptions
     bool enableValidation = false;
 };
 
-/// Le GPU vu par le moteur : un `nvrhi::IDevice`, et les objets Vulkan qui le portent.
+/// Le GPU vu par le moteur : un `nvrhi::IDevice`, les objets Vulkan qui le portent, et la
+/// swapchain où il dessine.
 ///
-/// **L'ordre des membres est l'ordre de destruction inverse.** `nvrhi` est déclaré après `vulkan`
-/// pour disparaître avant lui : détruit après, il libérerait ses ressources sur un VkDevice déjà
-/// détruit. Pour la même raison, ne gardez pas de `nvrhi::DeviceHandle` plus longtemps que le
-/// `GpuDevice` d'où il vient.
+/// **L'ordre des membres est l'ordre de destruction inverse** : `swapchain`, puis `nvrhi`, puis
+/// `vulkan`. Les images de la swapchain sont des textures NVRHI, qui doivent disparaître avant le
+/// device NVRHI ; lui-même doit disparaître avant le VkDevice sur lequel il libère ses ressources.
+/// Pour la même raison, ne gardez pas de `nvrhi::DeviceHandle` plus longtemps que le `GpuDevice`.
 struct GpuDevice
 {
     std::unique_ptr<VulkanContext, VulkanContextDeleter> vulkan;
     nvrhi::DeviceHandle nvrhi;
+    std::unique_ptr<Swapchain, SwapchainDeleter> swapchain;
 };
 
 /// Crée le device Vulkan sur le GPU le plus adapté (discret de préférence), puis le device NVRHI
@@ -46,5 +58,14 @@ struct GpuDevice
 /// semaphores), ou si la validation est demandée sans que ses couches soient installées.
 [[nodiscard]] core::Result<GpuDevice> createGpuDevice(const platform::Window& window,
                                                       const DeviceOptions& options);
+
+/// Commence une frame : l'image de la swapchain où dessiner, ou `nullptr` si cette frame est à
+/// sauter (fenêtre de taille nulle, swapchain en cours de reconstruction). La swapchain est
+/// reconstruite ici dès que la taille de la fenêtre change.
+[[nodiscard]] nvrhi::ITexture* beginFrame(GpuDevice& gpu, const platform::Window& window);
+
+/// Présente l'image rendue par la frame commencée avec `beginFrame`. Avec la présentation calée sur
+/// l'écran (FIFO), c'est ici que la boucle attend : elle tourne au rythme du rafraîchissement.
+void presentFrame(GpuDevice& gpu);
 
 } // namespace levain::gpu

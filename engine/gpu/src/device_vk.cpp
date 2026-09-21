@@ -12,6 +12,8 @@
 #include <nvrhi/vulkan.h>
 #include <vulkan/vulkan.hpp>
 
+#include "vulkan_context.hpp"
+
 #include "levain/core/assert.hpp"
 #include "levain/core/log.hpp"
 #include "levain/gpu/device.hpp"
@@ -23,15 +25,6 @@ VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 
 namespace levain::gpu
 {
-
-struct VulkanContext
-{
-    vkb::Instance instance;
-    VkSurfaceKHR surface = VK_NULL_HANDLE;
-    vkb::Device device;
-    VkQueue graphicsQueue = VK_NULL_HANDLE;
-    std::uint32_t graphicsQueueFamily = 0;
-};
 
 void VulkanContextDeleter::operator()(VulkanContext* context) const noexcept
 {
@@ -276,8 +269,8 @@ core::Result<GpuDevice> createGpuDevice(const platform::Window& window,
     desc.deviceExtensions = extensions.data();
     desc.numDeviceExtensions = extensions.size();
 
-    nvrhi::DeviceHandle nvrhiDevice = nvrhi::vulkan::createDevice(desc);
-    if (!nvrhiDevice)
+    const nvrhi::vulkan::DeviceHandle vulkanDevice = nvrhi::vulkan::createDevice(desc);
+    if (!vulkanDevice)
     {
         return core::makeError(core::ErrorCode::Unsupported,
                                "nvrhi::vulkan::createDevice a échoué");
@@ -285,12 +278,21 @@ core::Result<GpuDevice> createGpuDevice(const platform::Window& window,
 
     // La couche de validation de NVRHI enveloppe le device : elle vérifie l'usage de NVRHI
     // lui-même, là où les couches Vulkan vérifient ce que NVRHI envoie au pilote.
+    nvrhi::DeviceHandle nvrhiDevice = vulkanDevice;
     if (options.enableValidation)
     {
-        nvrhiDevice = nvrhi::validation::createValidationLayer(nvrhiDevice);
+        nvrhiDevice = nvrhi::validation::createValidationLayer(vulkanDevice);
     }
 
-    return GpuDevice{.vulkan = std::move(vulkan), .nvrhi = std::move(nvrhiDevice)};
+    auto swapchain = createSwapchain(*vulkan, *vulkanDevice, platform::windowPixelSize(window));
+    if (!swapchain)
+    {
+        return std::unexpected(std::move(swapchain.error()));
+    }
+
+    return GpuDevice{.vulkan = std::move(vulkan),
+                     .nvrhi = std::move(nvrhiDevice),
+                     .swapchain = std::move(*swapchain)};
 }
 
 } // namespace levain::gpu

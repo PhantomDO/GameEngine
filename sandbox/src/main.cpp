@@ -76,8 +76,33 @@ std::string describeFrameTimes(const levain::core::FrameTimeSummary& summary)
                        summary.averageMs, summary.minMs, summary.maxMs, 1000.0 / summary.averageMs);
 }
 
-void runMainLoop(levain::platform::Window& window)
+/// Efface l'image de la swapchain et la présente. Le rendu viendra dans engine/render ; en
+/// attendant, c'est tout ce que dessine une frame.
+void renderFrame(levain::gpu::GpuDevice& gpu, const levain::platform::Window& window,
+                 nvrhi::ICommandList& commandList)
 {
+    nvrhi::ITexture* backBuffer = levain::gpu::beginFrame(gpu, window);
+    if (backBuffer == nullptr)
+    {
+        return;
+    }
+
+    // La couleur de fond, en attendant le premier triangle (M1.3) : une croûte de levain. Locale et
+    // non globale : le constructeur de nvrhi::Color n'est pas noexcept, et une exception levée à
+    // l'initialisation d'une globale ne se rattrape pas.
+    const nvrhi::Color clearColor{0.55f, 0.32f, 0.14f, 1.0f};
+
+    commandList.open();
+    commandList.clearTextureFloat(backBuffer, nvrhi::AllSubresources, clearColor);
+    commandList.close();
+    gpu.nvrhi->executeCommandList(&commandList);
+
+    levain::gpu::presentFrame(gpu);
+}
+
+void runMainLoop(levain::platform::Window& window, levain::gpu::GpuDevice& gpu)
+{
+    const nvrhi::CommandListHandle commandList = gpu.nvrhi->createCommandList();
     LoopState state;
     levain::core::FrameTimeAccumulator frameTimes;
     const Clock::time_point loopStart = Clock::now();
@@ -109,9 +134,10 @@ void runMainLoop(levain::platform::Window& window)
             }
         }
 
-        // Le rendu viendra ici en M1.2. D'ici là, rien ne cadence la boucle : elle tourne aussi
-        // vite que le processeur le permet. C'est le present de la swapchain, calé sur le
-        // rafraîchissement de l'écran, qui la ralentira.
+        {
+            LEVAIN_PROFILE_SCOPE_NAMED("rendu");
+            renderFrame(gpu, window, *commandList);
+        }
 
         const Clock::time_point frameEnd = Clock::now();
         const double frameSeconds = secondsBetween(previousFrameEnd, frameEnd);
@@ -167,7 +193,7 @@ int main()
         levain::core::log("sandbox", levain::core::LogLevel::Info, "device créé en {:.1f} ms",
                           secondsBetween(deviceStart, Clock::now()) * 1000.0);
 
-        runMainLoop(*window);
+        runMainLoop(*window, *gpu);
         levain::core::log("sandbox", levain::core::LogLevel::Info, "fenêtre fermée");
     }
     catch (const std::exception& e)

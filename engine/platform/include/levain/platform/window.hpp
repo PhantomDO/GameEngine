@@ -57,6 +57,10 @@ struct Window
 /// extérieure, pas un bug (ADR-0008).
 [[nodiscard]] core::Result<Window> createWindow(const std::string& title, int width, int height);
 
+/// Taille actuelle de la zone de dessin, en pixels. Sous Wayland, c'est la seule source fiable : la
+/// surface Vulkan n'y connaît pas sa propre taille, et c'est à l'application de la donner.
+[[nodiscard]] PixelSize windowPixelSize(const Window& window);
+
 /// Les événements arrivés depuis le dernier appel, sans attendre.
 [[nodiscard]] std::vector<WindowEvent> pollEvents(const Window& window);
 
