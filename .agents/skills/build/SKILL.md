@@ -43,6 +43,13 @@ find engine sandbox tests -name '*.cpp' | xargs clang-tidy -p build/linux-debug 
 `-pedantic-errors` (C++23 strict) et `-Wall -Wextra -Werror` sont dans le `CMakeLists.txt` racine : **ne jamais
 les retirer**. Un avertissement ou une extension C++26 doit casser le build.
 
+## Shaders
+
+Les shaders Slang de `shaders/` sont compilés au build par `slangc` (port vcpkg `shader-slang`) en SPIR-V et en
+DXIL, une commande par point d'entrée (`levain_add_shader` dans `shaders/CMakeLists.txt`, ADR-0005). Sorties
+dans `build/<preset>/shaders/`. Chaque DXIL est désassemblé par un test
+ctest (`dxil.*`), faute de backend Direct3D 12 pour l'exécuter.
+
 ## Lancer le sandbox
 
 ```bash
