@@ -18,10 +18,10 @@ core::Result<MeshPass> createMeshPass(nvrhi::IDevice& device, const nvrhi::Frame
         return std::unexpected(vertexShader ? pixelShader.error() : vertexShader.error());
     }
 
-    // Les noms sont les sémantiques de VertexInput dans shaders/mesh.slang. Les deux premiers
-    // viennent du buffer des sommets (slot 0), le troisième du buffer des instances (slot 1), lu
-    // une fois par instance.
-    const std::array<nvrhi::VertexAttributeDesc, 3> attributes{
+    // Les noms sont les sémantiques de VertexInput dans shaders/mesh.slang. Les trois premiers
+    // viennent du buffer des sommets (slot 0), le dernier du buffer des instances (slot 1), lu une
+    // fois par instance.
+    const std::array<nvrhi::VertexAttributeDesc, 4> attributes{
         nvrhi::VertexAttributeDesc()
             .setName("POSITION")
             .setFormat(nvrhi::Format::RGB32_FLOAT)
@@ -31,6 +31,11 @@ core::Result<MeshPass> createMeshPass(nvrhi::IDevice& device, const nvrhi::Frame
             .setName("COLOR")
             .setFormat(nvrhi::Format::RGB32_FLOAT)
             .setOffset(offsetof(MeshVertex, color))
+            .setElementStride(sizeof(MeshVertex)),
+        nvrhi::VertexAttributeDesc()
+            .setName("TEXCOORD")
+            .setFormat(nvrhi::Format::RG32_FLOAT)
+            .setOffset(offsetof(MeshVertex, uv))
             .setElementStride(sizeof(MeshVertex)),
         nvrhi::VertexAttributeDesc()
             .setName("INSTANCE_OFFSET")
@@ -49,6 +54,22 @@ core::Result<MeshPass> createMeshPass(nvrhi::IDevice& device, const nvrhi::Frame
     frameLayoutDesc.setRegisterSpaceAndDescriptorSet(0);
     frameLayoutDesc.bindings = {nvrhi::BindingLayoutItem::VolatileConstantBuffer(0)};
     nvrhi::BindingLayoutHandle frameLayout = device.createBindingLayout(frameLayoutDesc);
+
+    // Celui du matériau occupe space2, descriptor set 2 ; space1, réservé aux ressources de passe,
+    // reste vide pour l'instant. NVRHI comble le trou d'un descriptor set vide
+    // (createPipelineLayout, src/vulkan/vulkan-resource-bindings.cpp).
+    nvrhi::BindingLayoutDesc materialLayoutDesc;
+    materialLayoutDesc.visibility = nvrhi::ShaderType::Pixel;
+    materialLayoutDesc.setRegisterSpaceAndDescriptorSet(2);
+    materialLayoutDesc.bindings = {nvrhi::BindingLayoutItem::Texture_SRV(0),
+                                   nvrhi::BindingLayoutItem::Sampler(0)};
+    nvrhi::BindingLayoutHandle materialLayout = device.createBindingLayout(materialLayoutDesc);
+
+    // Trilinéaire : filtrage entre texels et entre niveaux de mip. Wrap : la texture se répète
+    // au-delà de [0, 1]. Le filtrage anisotrope vient avec #44.
+    nvrhi::SamplerHandle sampler =
+        device.createSampler(nvrhi::SamplerDesc().setAllFilters(true).setAllAddressModes(
+            nvrhi::SamplerAddressMode::Wrap));
 
     // Volatile : le contenu ne vit que le temps d'une command list, et NVRHI en fournit une
     // nouvelle version à chaque écriture. Pas de buffer par frame en vol à gérer (QA du
@@ -70,6 +91,7 @@ core::Result<MeshPass> createMeshPass(nvrhi::IDevice& device, const nvrhi::Frame
     desc.VS = *vertexShader;
     desc.PS = *pixelShader;
     desc.addBindingLayout(frameLayout);
+    desc.addBindingLayout(materialLayout);
     desc.renderState.depthStencilState.depthTestEnable = true;
     desc.renderState.depthStencilState.depthWriteEnable = true;
     desc.renderState.depthStencilState.depthFunc = nvrhi::ComparisonFunc::Less;
@@ -78,7 +100,8 @@ core::Result<MeshPass> createMeshPass(nvrhi::IDevice& device, const nvrhi::Frame
     desc.renderState.rasterState.cullMode = nvrhi::RasterCullMode::Back;
 
     nvrhi::GraphicsPipelineHandle pipeline = device.createGraphicsPipeline(desc, target);
-    if (!inputLayout || !frameLayout || !sceneConstants || !frameBindings || !pipeline)
+    if (!inputLayout || !frameLayout || !materialLayout || !sceneConstants || !frameBindings ||
+        !sampler || !pipeline)
     {
         return core::makeError(core::ErrorCode::InvalidData, "passe des meshes refusée par NVRHI");
     }
@@ -86,9 +109,20 @@ core::Result<MeshPass> createMeshPass(nvrhi::IDevice& device, const nvrhi::Frame
                     .pixelShader = std::move(*pixelShader),
                     .inputLayout = std::move(inputLayout),
                     .frameLayout = std::move(frameLayout),
+                    .materialLayout = std::move(materialLayout),
                     .sceneConstants = std::move(sceneConstants),
                     .frameBindings = std::move(frameBindings),
+                    .sampler = std::move(sampler),
                     .pipeline = std::move(pipeline)};
+}
+
+nvrhi::BindingSetHandle createMaterialBindings(nvrhi::IDevice& device, const MeshPass& pass,
+                                               nvrhi::ITexture& albedo)
+{
+    return device.createBindingSet(nvrhi::BindingSetDesc()
+                                       .addItem(nvrhi::BindingSetItem::Texture_SRV(0, &albedo))
+                                       .addItem(nvrhi::BindingSetItem::Sampler(0, pass.sampler)),
+                                   pass.materialLayout);
 }
 
 nvrhi::ITexture* ensureDepthTexture(nvrhi::IDevice& device, nvrhi::TextureHandle& depth,
@@ -113,7 +147,7 @@ nvrhi::ITexture* ensureDepthTexture(nvrhi::IDevice& device, nvrhi::TextureHandle
 
 void drawMesh(nvrhi::ICommandList& commandList, const MeshPass& pass,
               nvrhi::IFramebuffer& framebuffer, const Mesh& mesh, const Instances& instances,
-              const SceneConstants& constants)
+              nvrhi::IBindingSet& material, const SceneConstants& constants)
 {
     commandList.writeBuffer(pass.sceneConstants, &constants, sizeof(constants));
 
@@ -121,7 +155,8 @@ void drawMesh(nvrhi::ICommandList& commandList, const MeshPass& pass,
     state.pipeline = pass.pipeline;
     state.framebuffer = &framebuffer;
     state.viewport.addViewportAndScissorRect(framebuffer.getFramebufferInfo().getViewport());
-    state.bindings = {pass.frameBindings};
+    // Dans l'ordre des binding layouts du pipeline : frame, puis matériau.
+    state.addBindingSet(pass.frameBindings).addBindingSet(&material);
     // Slot, format et décalage écrits en entier : VertexBufferBinding et IndexBufferBinding ne leur
     // donnent aucune valeur par défaut.
     state.addVertexBuffer(

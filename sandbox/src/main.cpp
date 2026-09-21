@@ -18,6 +18,7 @@
 #include <glm/gtc/constants.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#include "levain/assets/image.hpp"
 #include "levain/core/assert.hpp"
 #include "levain/core/frame_time.hpp"
 #include "levain/core/log.hpp"
@@ -29,6 +30,7 @@
 #include "levain/render/gpu_timer.hpp"
 #include "levain/render/mesh.hpp"
 #include "levain/render/mesh_pass.hpp"
+#include "levain/render/texture.hpp"
 
 namespace
 {
@@ -110,12 +112,14 @@ std::string describeFrameTimes(const levain::core::FrameTimeSummary& summary, do
 constexpr int GridSide = 100;
 constexpr float GridSpacing = 1.5f;
 
-/// Ce que dessine le sandbox en M2.1 : une grille de cubes qui tournent, vue d'en haut.
+/// Ce que dessine le sandbox en M2.2 : une grille de cubes texturés qui tournent, vue d'en haut.
 struct DemoScene
 {
     levain::render::MeshPass meshPass;
     levain::render::Mesh cube;
     levain::render::Instances grid;
+    nvrhi::TextureHandle checker;
+    nvrhi::BindingSetHandle material;
     levain::render::Camera camera;
     levain::render::GpuTimer gpuTimer;
     nvrhi::TextureHandle depth; ///< Créé à la première frame, à la taille de l'image.
@@ -138,9 +142,31 @@ std::vector<glm::vec3> gridOffsets()
     return offsets;
 }
 
-/// Crée la passe des meshes et envoie le cube et la grille au GPU.
+/// Les niveaux de mip dans le format qu'attend render. Ils pointent dans `mips`, qui doit leur
+/// survivre jusqu'à l'envoi.
+std::vector<levain::render::TextureLevel>
+textureLevelsOf(const std::vector<levain::assets::Image>& mips)
+{
+    std::vector<levain::render::TextureLevel> levels;
+    levels.reserve(mips.size());
+    for (const levain::assets::Image& mip : mips)
+    {
+        levels.push_back({.width = mip.width, .height = mip.height, .rgba = mip.rgba});
+    }
+    return levels;
+}
+
+/// Crée la passe des meshes et envoie au GPU le cube, la grille et la texture du damier.
 levain::core::Result<DemoScene> createDemoScene(levain::gpu::GpuDevice& gpu)
 {
+    auto image = levain::assets::loadImage(LEVAIN_DATA_DIR "/textures/checker.png");
+    if (!image)
+    {
+        return std::unexpected(image.error());
+    }
+    const std::vector<levain::assets::Image> mips =
+        levain::assets::buildMipChain(std::move(*image));
+
     auto meshPass = levain::render::createMeshPass(
         *gpu.nvrhi, nvrhi::FramebufferInfo()
                         .addColorFormat(levain::gpu::swapchainFormat(gpu))
@@ -155,8 +181,12 @@ levain::core::Result<DemoScene> createDemoScene(levain::gpu::GpuDevice& gpu)
     levain::render::Mesh cube = levain::render::createCube(*gpu.nvrhi, *upload);
     levain::render::Instances grid =
         levain::render::createInstances(*gpu.nvrhi, *upload, gridOffsets());
+    nvrhi::TextureHandle checker =
+        levain::render::createTexture(*gpu.nvrhi, *upload, textureLevelsOf(mips), "checker");
     upload->close();
     gpu.nvrhi->executeCommandList(upload);
+    nvrhi::BindingSetHandle material =
+        levain::render::createMaterialBindings(*gpu.nvrhi, *meshPass, *checker);
 
     // Assez haut et assez loin pour voir toute la grille, 150 unités de côté.
     const levain::render::Camera camera{.position = {0.0f, 80.0f, 110.0f},
@@ -167,6 +197,8 @@ levain::core::Result<DemoScene> createDemoScene(levain::gpu::GpuDevice& gpu)
     return DemoScene{.meshPass = std::move(*meshPass),
                      .cube = std::move(cube),
                      .grid = std::move(grid),
+                     .checker = std::move(checker),
+                     .material = std::move(material),
                      .camera = camera,
                      .gpuTimer = levain::render::createGpuTimer(*gpu.nvrhi),
                      .depth = {}};
@@ -225,7 +257,7 @@ std::optional<double> renderFrame(levain::gpu::GpuDevice& gpu,
         // 1 : la profondeur la plus lointaine, que tout ce qu'on dessine vient remplacer.
         commandList.clearDepthStencilTexture(depth, nvrhi::AllSubresources, true, 1.0f, false, 0);
         levain::render::drawMesh(commandList, scene.meshPass, *framebuffer, scene.cube, scene.grid,
-                                 constants);
+                                 *scene.material, constants);
         levain::render::endGpuTimer(commandList, scene.gpuTimer);
         commandList.close();
         gpu.nvrhi->executeCommandList(&commandList);

@@ -21,16 +21,19 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include <glm/gtc/matrix_transform.hpp>
 
+#include "levain/assets/image.hpp"
 #include "levain/core/file.hpp"
 #include "levain/gpu/device.hpp"
 #include "levain/platform/window.hpp"
 #include "levain/render/camera.hpp"
 #include "levain/render/mesh.hpp"
 #include "levain/render/mesh_pass.hpp"
+#include "levain/render/texture.hpp"
 #include "levain/render/triangle.hpp"
 
 namespace
@@ -121,13 +124,31 @@ levain::core::Result<void> drawScene(nvrhi::IDevice& device, nvrhi::ICommandList
         return {};
     }
 
-    // Le cube à une rotation fixe, qui montre trois faces : une erreur de profondeur ou de sens des
-    // faces changerait l'image.
+    // Le cube texturé à une rotation fixe, qui montre trois faces : une erreur de profondeur, de
+    // sens des faces ou de coordonnées de texture changerait l'image.
     auto meshPass = levain::render::createMeshPass(device, framebuffer.getFramebufferInfo());
     if (!meshPass)
     {
         return std::unexpected(meshPass.error());
     }
+    auto image = levain::assets::loadImage(LEVAIN_DATA_DIR "/textures/checker.png");
+    if (!image)
+    {
+        return std::unexpected(image.error());
+    }
+    const std::vector<levain::assets::Image> mips =
+        levain::assets::buildMipChain(std::move(*image));
+    std::vector<levain::render::TextureLevel> levels;
+    levels.reserve(mips.size());
+    for (const levain::assets::Image& mip : mips)
+    {
+        levels.push_back({.width = mip.width, .height = mip.height, .rgba = mip.rgba});
+    }
+    const nvrhi::TextureHandle checker =
+        levain::render::createTexture(device, commandList, levels, "checker");
+    const nvrhi::BindingSetHandle material =
+        levain::render::createMaterialBindings(device, *meshPass, *checker);
+
     const levain::render::Mesh cube = levain::render::createCube(device, commandList);
     const std::array<glm::vec3, 1> origin{glm::vec3{0.0f}};
     const levain::render::Instances instances =
@@ -136,7 +157,8 @@ levain::core::Result<void> drawScene(nvrhi::IDevice& device, nvrhi::ICommandList
         .viewProjection = levain::render::viewProjectionOf(levain::render::Camera{}, 1.0f),
         .model = glm::rotate(glm::mat4{1.0f}, glm::radians(35.0f), glm::vec3{1.0f, 1.0f, 0.0f}),
     };
-    levain::render::drawMesh(commandList, *meshPass, framebuffer, cube, instances, constants);
+    levain::render::drawMesh(commandList, *meshPass, framebuffer, cube, instances, *material,
+                             constants);
     return {};
 }
 

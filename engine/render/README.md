@@ -6,9 +6,10 @@ Dessiner, avec NVRHI : pipelines, passes de rendu, et plus tard caméras, matér
 (SPECS §7). **Le module ne connaît que `nvrhi::IDevice`**, jamais Vulkan ni `engine/gpu` : il dessinera tel
 quel sous Direct3D 12 le jour où ce backend existera (`docs/QA.md`, question du 2026-09-21).
 
-**État en M2.1** : le premier triangle (`TrianglePass`), une caméra perspective (`Camera`), des meshes indexés
-dessinés avec un depth buffer (`MeshPass`), en plusieurs exemplaires par un seul draw (`Instances`), et le temps
-GPU d'une frame (`GpuTimer`).
+**État en M2.2** : le premier triangle (`TrianglePass`), une caméra perspective (`Camera`), des meshes indexés
+dessinés avec un depth buffer (`MeshPass`), en plusieurs exemplaires par un seul draw (`Instances`), texturés
+avec tous leurs niveaux de mip (`createTexture`, `createMaterialBindings`), et le temps GPU d'une frame
+(`GpuTimer`).
 
 ## Invariants
 
@@ -25,7 +26,8 @@ GPU d'une frame (`GpuTimer`).
 | [`include/levain/render/triangle.hpp`](include/levain/render/triangle.hpp) | `createTrianglePass`, `drawTriangle` |
 | [`include/levain/render/camera.hpp`](include/levain/render/camera.hpp) | `Camera`, `viewProjectionOf` — profondeur de 0 à 1, comme Vulkan et Direct3D 12 |
 | [`include/levain/render/mesh.hpp`](include/levain/render/mesh.hpp) | `Mesh`, `createMesh`, `createCube` — buffers de sommets et d'indices ; `Instances`, `createInstances` — un décalage par exemplaire |
-| [`include/levain/render/mesh_pass.hpp`](include/levain/render/mesh_pass.hpp) | `createMeshPass`, `ensureDepthTexture`, `drawMesh` — la première passe avec constantes et profondeur |
+| [`include/levain/render/mesh_pass.hpp`](include/levain/render/mesh_pass.hpp) | `createMeshPass`, `ensureDepthTexture`, `createMaterialBindings`, `drawMesh` — la première passe avec constantes, profondeur et texture |
+| [`include/levain/render/texture.hpp`](include/levain/render/texture.hpp) | `TextureLevel`, `createTexture` — une texture sRGB et tous ses niveaux de mip |
 | [`include/levain/render/gpu_timer.hpp`](include/levain/render/gpu_timer.hpp) | `GpuTimer`, `beginGpuTimer`, `endGpuTimer` — temps GPU par timer queries |
 
 ## Ce qu'il faut pour dessiner un triangle avec NVRHI
@@ -61,6 +63,18 @@ frame**, 0,15 ms pour la frame entière hors attente de l'écran
   de cubes. Mesuré : 0,022 ms de GPU pour 10 000 cubes en 1080p (journal, #42).
 - Le décalage est une simple position, pas une matrice : c'est tout ce dont la grille a besoin. Une matrice par
   exemplaire viendra avec des objets qui tournent chacun de leur côté.
+
+## Ce qu'ajoute une texture
+
+- **Une texture sRGB avec tous ses niveaux** : les mips sont calculées sur le CPU par `engine/assets`, puis
+  `writeTexture` envoie chaque niveau par le buffer d'envoi interne de NVRHI. Le format `SRGBA8_UNORM` fait
+  reconvertir chaque lecture en lumière linéaire par le GPU, avant le filtrage.
+- **Un binding set de matériau dans `space2`** (ADR-0013) : la texture et un sampler. `space1`, réservé aux
+  ressources de passe, reste vide : NVRHI comble le trou par un descriptor set vide. Le binding set se crée une
+  fois par matériau, pas à chaque dessin.
+- **Un sampler trilinéaire** : filtrage entre texels et entre niveaux de mip, texture répétée au-delà de
+  [0, 1]. Le filtrage anisotrope vient avec #44.
+- `render` ne connaît pas `assets::Image` : l'appelant la décrit par des `TextureLevel` (SPECS §7).
 
 ## Mesurer le temps GPU
 

@@ -74,14 +74,23 @@ Mesh createCube(nvrhi::IDevice& device, nvrhi::ICommandList& commandList)
 
     // Une face par ligne, ses quatre coins dans le sens trigonométrique vu de l'extérieur : c'est
     // ce sens qui fait d'une face une face avant (MeshPass élimine les faces arrière).
-    const std::array<MeshVertex, 24> vertices{{
-        {pnp, red},     {pnn, red},     {ppn, red},     {ppp, red},     // +x
-        {nnn, cyan},    {nnp, cyan},    {npp, cyan},    {npn, cyan},    // −x
-        {npp, green},   {ppp, green},   {ppn, green},   {npn, green},   // +y
-        {nnn, magenta}, {pnn, magenta}, {pnp, magenta}, {nnp, magenta}, // −y
-        {nnp, blue},    {pnp, blue},    {ppp, blue},    {npp, blue},    // +z
-        {pnn, yellow},  {nnn, yellow},  {npn, yellow},  {ppn, yellow},  // −z
+    std::array<MeshVertex, 24> vertices{{
+        {pnp, red, {}},     {pnn, red, {}},     {ppn, red, {}},     {ppp, red, {}},     // +x
+        {nnn, cyan, {}},    {nnp, cyan, {}},    {npp, cyan, {}},    {npn, cyan, {}},    // −x
+        {npp, green, {}},   {ppp, green, {}},   {ppn, green, {}},   {npn, green, {}},   // +y
+        {nnn, magenta, {}}, {pnn, magenta, {}}, {pnp, magenta, {}}, {nnp, magenta, {}}, // −y
+        {nnp, blue, {}},    {pnp, blue, {}},    {ppp, blue, {}},    {npp, blue, {}},    // +z
+        {pnn, yellow, {}},  {nnn, yellow, {}},  {npn, yellow, {}},  {ppn, yellow, {}},  // −z
     }};
+
+    // Chaque face commence par ses deux coins du bas (ou, pour ±y, par un bord), dans le même
+    // sens : les quatre coins de chaque face reçoivent les mêmes coordonnées de texture.
+    const std::array<glm::vec2, 4> faceUvs{
+        {{0.0f, 1.0f}, {1.0f, 1.0f}, {1.0f, 0.0f}, {0.0f, 0.0f}}};
+    for (std::size_t i = 0; i < vertices.size(); ++i)
+    {
+        vertices[i].uv = faceUvs[i % faceUvs.size()];
+    }
 
     // Deux triangles par face : (0, 1, 2) et (0, 2, 3) sur ses quatre coins.
     std::array<std::uint32_t, 36> indices{};
