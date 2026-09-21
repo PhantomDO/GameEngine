@@ -9,6 +9,14 @@
     "doctest",
     "flecs",
     "nvrhi",
+    {
+      "name": "sdl3",
+      "default-features": false,
+      "features": [
+        "wayland",
+        "x11"
+      ]
+    },
     "spdlog",
     "tracy"
   ]

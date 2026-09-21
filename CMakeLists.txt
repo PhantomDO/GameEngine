@@ -39,5 +39,6 @@ set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 enable_testing()
 
 add_subdirectory(engine/core)
+add_subdirectory(engine/platform)
 add_subdirectory(sandbox)
 add_subdirectory(tests)

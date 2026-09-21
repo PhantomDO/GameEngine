@@ -41,10 +41,19 @@ jobs:
       - uses: actions/checkout@v4
 
       # zip est indispensable au bootstrap de vcpkg et manque sur l'image.
+      #
+      # Les paquets -dev sont la partie vidéo de la liste officielle de SDL (README-linux,
+      # « Build dependencies », Ubuntu). SDL refuse de se configurer s'il manque une extension
+      # X11 demandée — contrôles stricts de cmake/sdlchecks.cmake : Xcursor, Xdbe, XInput2,
+      # Xfixes, Xsync, Xrandr, Xshape, XTest. La liste réduite que suggère le port vcpkg ne
+      # suffit pas. L'audio est absent exprès, SDL s'en passe sans erreur.
       - name: Outils
         run: |
           set -euo pipefail
-          sudo apt-get update && sudo apt-get install -y ninja-build zip unzip
+          sudo apt-get update && sudo apt-get install -y ninja-build zip unzip \
+            libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxtst-dev \
+            libxkbcommon-dev libwayland-dev libdecor-0-dev libegl1-mesa-dev \
+            libgl1-mesa-dev libgles2-mesa-dev libdrm-dev libgbm-dev libudev-dev
 
           # Le script est téléchargé puis exécuté, et non passé en pipe à bash : un `wget`
           # qui échoue donnerait sinon une entrée vide à bash, qui rendrait 0 et laisserait
@@ -105,8 +114,22 @@ jobs:
       - name: Tests
         run: ctest --test-dir build/${{ matrix.preset }} --output-on-failure
 
+      # Le runner n'a pas d'écran : SDL passe par son pilote « offscreen ».
+      #
+      # Une fenêtre ne se ferme pas toute seule. `timeout` envoie SIGTERM au bout de 3 s, que
+      # SDL traduit en demande de fermeture, et le programme sort normalement : ce chemin de
+      # sortie est testé, et c'est à lui que LeakSanitizer fera son compte (issue #11).
+      #   --preserve-status : le code de sortie est celui du sandbox, pas celui de timeout.
+      #   -k 10 : SIGKILL 10 s plus tard si le programme ignore SIGTERM ; code 137, job rouge.
+      #   --foreground : un seul SIGTERM. Sans cette option, timeout en envoie un second au
+      #     groupe de processus, et ce second signal fait sauter une assertion du SDL de Debug
+      #     (SDL_quit.c:171), qui attend alors une réponse jusqu'au SIGKILL.
       - name: Lancer le sandbox
-        run: ./build/${{ matrix.preset }}/sandbox/levain_sandbox
+        env:
+          SDL_VIDEO_DRIVER: offscreen
+        run: |
+          timeout --foreground --preserve-status -k 10 3 \
+            ./build/${{ matrix.preset }}/sandbox/levain_sandbox
 
       # Format et analyse statique une seule fois : ce sont des propriétés des sources, pas
       # de la configuration de build.
