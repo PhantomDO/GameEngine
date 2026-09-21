@@ -47,7 +47,7 @@ les retirer**. Un avertissement ou une extension C++26 doit casser le build.
 
 Les shaders Slang de `shaders/` sont compilés au build par `slangc` (port vcpkg `shader-slang`) en SPIR-V et en
 DXIL, une commande par point d'entrée (`levain_add_shader` dans `shaders/CMakeLists.txt`, ADR-0005). Sorties
-dans `build/<preset>/shaders/`. Chaque DXIL est désassemblé par un test
+dans `build/<preset>/shaders/`, lues à l'exécution par `engine/render`. Chaque DXIL est désassemblé par un test
 ctest (`dxil.*`), faute de backend Direct3D 12 pour l'exécuter.
 
 ## Lancer le sandbox

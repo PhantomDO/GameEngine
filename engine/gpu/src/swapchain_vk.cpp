@@ -224,6 +224,11 @@ createSwapchain(const VulkanContext& vulkan, nvrhi::vulkan::IDevice& nvrhi,
     return swapchain;
 }
 
+nvrhi::Format swapchainFormat(const GpuDevice& gpu)
+{
+    return toNvrhiFormat(gpu.swapchain->swapchain.image_format);
+}
+
 nvrhi::ITexture* beginFrame(GpuDevice& gpu, const platform::Window& window)
 {
     Swapchain& swapchain = *gpu.swapchain;

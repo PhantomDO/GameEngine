@@ -4,6 +4,7 @@ find_package(Tracy CONFIG REQUIRED)
 add_library(levain_core STATIC
     src/assert.cpp
     src/error.cpp
+    src/file.cpp
     src/frame_time.cpp
     src/linear_allocator.cpp
     src/log.cpp

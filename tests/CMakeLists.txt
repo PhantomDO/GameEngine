@@ -5,6 +5,7 @@ add_executable(levain_tests
     assert_test.cpp
     doctest_main.cpp
     error_test.cpp
+    file_test.cpp
     frame_time_test.cpp
     log_test.cpp
     version_test.cpp)

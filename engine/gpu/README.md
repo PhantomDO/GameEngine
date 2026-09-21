@@ -25,13 +25,14 @@ reconstruite au redimensionnement, frames cadencées par l'écran (#13).
 
 | Fichier | Contenu |
 |---|---|
-| [`include/levain/gpu/device.hpp`](include/levain/gpu/device.hpp) | `createGpuDevice`, `GpuDevice`, `DeviceOptions`, `beginFrame`, `presentFrame` |
+| [`include/levain/gpu/device.hpp`](include/levain/gpu/device.hpp) | `createGpuDevice`, `GpuDevice`, `DeviceOptions`, `swapchainFormat`, `beginFrame`, `presentFrame` |
 
 ## Ce que NVRHI fait pour nous, et ce qu'il ne fait pas
 
 - **Il ne crée ni l'instance ni le device** : on les lui fournit, avec vk-bootstrap
   ([ADR-0012](../../docs/adr/0012-vk-bootstrap.md)). Il exige Vulkan 1.3 avec `dynamicRendering`,
   `synchronization2` et les timeline semaphores, et on ne lui annonce que les extensions réellement activées.
+  S'y ajoute `shaderDrawParameters`, pour `SV_VertexID` dans les shaders Slang (ADR-0005, amendement).
 - **Une fois créé, il prend en charge le plus fastidieux** : allocation de la mémoire, barrières de
   synchronisation (il suit l'état de chaque ressource), destruction différée des ressources encore utilisées par
   le GPU, envois de données. On le verra à l'œuvre avec le premier triangle (M1.3).

@@ -13,6 +13,11 @@ dans `engine/platform/README.md`, section « Pièges connus ».
 
 ## Fenêtre et SDL
 
+- **Environ 20 images/s très régulières sous Wayland, et une fenêtre X11 qui ne s'ouvre plus** (2026-09-21,
+  soirée) : `SDL_CreateWindow` bloque dans `X11_ShowWindow`. Le même binaire donnait 120 images/s quelques
+  heures plus tôt, et les deux symptômes ont disparu ensemble quelques minutes après, sans changement de code :
+  c'est l'environnement, pas le moteur. Cause supposée, non vérifiée : l'écran HDMI éteint côté TV. En cas de
+  doute, mesurer en offscreen, où rien ne bride, et relancer plus tard.
 
 - **Fenêtre invisible sous Wayland** (2026-09-21). Une surface Wayland n'apparaît qu'après sa première image ;
   tant que le moteur ne présente rien (avant M1.2), KWin ne la connaît pas. Parade : `SDL_VIDEO_DRIVER=x11`.

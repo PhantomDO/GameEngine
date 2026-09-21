@@ -25,9 +25,35 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-21 — M1.3 — Premier triangle (#15)
+
+- Temps Donnovan : à renseigner (estimé 0,5 h pour #15)
+- Sessions Claude Code : 1
+- Fait : module `engine/render` et `TrianglePass`, qui ne connaît que `nvrhi::IDevice` (SPIR-V ou DXIL choisi
+  d'après l'API du device) ; `readFile` dans `core` ; `swapchainFormat` dans `gpu` ; le triangle dessiné par le
+  sandbox, avec des zones Tracy pour mesurer le travail CPU d'une frame.
+- Mesures :
+  - **frame time CPU** (critère de M1.3, < 1 ms) : **0,090 ms** pour enregistrer et soumettre une frame, **0,149 ms**
+    pour la frame entière hors attente de l'écran, en Debug avec validation ; un pic isolé à 1,33 ms sur 19 945
+    frames (`SDL_VIDEO_DRIVER=offscreen ./tools/tracy-capture.sh 3 captures/m1.3.tracy`, zones `commandes` et
+    `rendu`) ;
+  - **zéro message de validation** : Debug sous Wayland, X11 et offscreen, Release, ASan avec RADV préchargé ;
+  - 25 tests (23 + 2 pour `readFile`).
+- Écarts et problèmes :
+  - **Première vraie erreur de validation attrapée par l'assertion** : le SPIR-V de Slang déclare
+    `DrawParameters` pour traduire `SV_VertexID`, et le device n'activait pas `shaderDrawParameters`. Corrigé
+    dans `device_vk.cpp` ; la raison est dans l'ADR-0005.
+  - **Je n'ai pas vu le triangle** : pas de capture d'écran (règle du skill `build`). Ce qui est vérifié :
+    pipeline créé, draw enregistré, zéro erreur de validation. La preuve à l'image près viendra du test de fumée
+    (#16), qui relit les pixels ; en attendant, c'est à Donnovan de le regarder.
+  - **Bridage passager de l'environnement** : pendant quelques minutes, 20 images/s très régulières sous Wayland
+    et une fenêtre X11 qui ne s'ouvrait plus, puis tout est revenu sans changement de code. Noté dans
+    `build/GOTCHA.md`, avec la parade : mesurer en offscreen.
+- Prochaine étape : #16, le test de fumée sous lavapipe qui compare l'image rendue à une référence.
+
 ## 2026-09-21 — M1.3 — Compilation des shaders Slang (#14)
 
-- Temps Donnovan : à renseigner (estimé 0,5 h pour #14)
+- **Temps Donnovan : 0,33 h** (20 min déclarées, relecture de #58 comprise ; estimé 0,5 h)
 - Sessions Claude Code : 1
 - Fait : compilation des shaders Slang au build par des commandes CMake et `slangc` (ports vcpkg `shader-slang`
   et `directx-dxc`), en SPIR-V et en DXIL, choix de Donnovan inscrits dans l'ADR-0005 ; `shaders/triangle.slang`,
