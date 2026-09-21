@@ -53,6 +53,10 @@ dans `engine/platform/README.md`, section « Pièges connus ».
 
 ## Sanitizers
 
+- **UBSan dans stb_image_resize2 v2.10** (port vcpkg `stb` 2024-07-29, 2026-09-21) : « load of misaligned
+  address … for type 'stbir_uint64' », ligne 3653. `STBIR_MOVE_2` copie deux `float` par une lecture 64 bits
+  non alignée, un comportement indéfini. Parade : ne pas l'utiliser ; les mipmaps passent par un filtre boîte
+  écrit à la main (`engine/assets/src/image.cpp`). stb_image, le décodeur, passe sous ASan et UBSan.
 - **LeakSanitizer et RADV : 128 octets** (2026-09-21). Le loader Vulkan décharge le pilote à la destruction de
   l'instance ; la mémoire que RADV gardait dans une globale paraît alors perdue. Diagnostic : la fuite
   disparaît avec `LD_PRELOAD=/usr/lib/libvulkan_radeon.so`, persiste sans couche de validation et sans

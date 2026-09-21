@@ -8,9 +8,11 @@ add_executable(levain_tests
     error_test.cpp
     file_test.cpp
     frame_time_test.cpp
+    image_test.cpp
     log_test.cpp
     version_test.cpp)
-target_link_libraries(levain_tests PRIVATE levain::core levain::render doctest::doctest)
+target_link_libraries(levain_tests PRIVATE
+    levain::assets levain::core levain::render doctest::doctest)
 
 # La macro qui génère le main de doctest ne doit s'appliquer qu'à une seule unité de
 # compilation, sinon chaque fichier de test en produirait un. On la pose donc sur ce fichier
@@ -20,7 +22,9 @@ set_source_files_properties(doctest_main.cpp
 
 # La version attendue vient du project() racine, pas d'une constante recopiée : le test
 # échoue si le CMakeLists et le binaire divergent.
-target_compile_definitions(levain_tests PRIVATE LEVAIN_EXPECTED_VERSION="${PROJECT_VERSION}")
+target_compile_definitions(levain_tests PRIVATE
+    LEVAIN_EXPECTED_VERSION="${PROJECT_VERSION}"
+    LEVAIN_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data")
 
 # doctest_discover_tests lance le binaire à la compilation pour lister ses cas, et en
 # déclare un par TEST_CASE à ctest. Une régression pointe donc le cas précis plutôt qu'un

@@ -28,6 +28,7 @@
       ]
     },
     "spdlog",
+    "stb",
     "tracy",
     "vk-bootstrap"
   ],
