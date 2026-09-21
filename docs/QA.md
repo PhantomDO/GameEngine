@@ -12,6 +12,29 @@ Réponse courte, puis détails. Références : fichier:ligne, ADR, source extern
 
 ---
 
+### Quiz sur l'étude E1 : les trois réponses à retenir (2026-09-21, M1.3)
+
+Issue #17 faite par sondages : 5 bonnes réponses sur 8. Les trois erreurs portent sur la liaison des ressources,
+le sujet de M2.1 — les voici corrigées.
+
+**Pourquoi des décalages de binding (`-fvk-b-shift 256`…) pour Vulkan ?** HLSL sépare les registres par type :
+`t0` (texture) et `b0` (constantes) ne se gênent pas. Vulkan n'a qu'une numérotation par descriptor set : le
+binding 0 ne peut désigner qu'une ressource. NVRHI découpe donc l'espace en plages — textures à 0, samplers à
+128, constantes à 256, UAV à 384 (`nvrhi::VulkanBindingOffsets`) —, et `slangc` doit appliquer les mêmes
+(`shaders/CMakeLists.txt`). Sinon NVRHI lie les constantes au binding 256 et le shader lit le 0. Le DXIL, lui,
+garde ses registres séparés et n'a besoin d'aucun décalage.
+
+**Binding set ou descriptor table ?** Les deux existent sur les deux backends. Le *binding set* est immuable :
+ses descripteurs sont écrits à la création, et NVRHI garde vivantes ses ressources et place leurs barrières. La
+*descriptor table* (bindless) est un grand tableau modifiable que le shader indexe, par exemple par numéro de
+matériau : NVRHI n'y suit **rien**. C'est la voie des gros moteurs et du ray tracing, et le choix de l'ADR de M2.1
+(#40). Source : NVRHI Programming Guide (E1, §4).
+
+**Qu'est-ce qu'un volatile constant buffer ?** Un buffer de constantes bien suivi par NVRHI, dont le **contenu**
+est éphémère : il n'existe qu'entre le premier `writeBuffer` et la fermeture de la command list. NVRHI puise dans
+un anneau de buffers d'upload à notre place ; sans lui, il faudrait un buffer par frame en vol, géré à la main.
+C'est ce qui portera les matrices de la caméra en M2.1.
+
 ### Si on remet Windows, le moteur est-il prêt pour Direct3D 12, ou y aura-t-il beaucoup de travail ? (2026-09-21, M1.2)
 
 Réponse courte : **c'est pensé pour, et le gros du travail n'est pas graphique.**

@@ -21,13 +21,76 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 | Phase | Estimé (h) | Passé (h) | Ratio |
 |---|---:|---:|---:|
 | 0 | 6,0 | **5,0** | **0,83** |
-| 1 | 4,5 | — | — |
+| 1 | 4,5 | **3,0** | **0,67** |
 
 ---
 
+## 2026-09-21 — Phase 1 — Clôture (M1.3 compris)
+
+- **Temps Donnovan pour la journée : 3,0 h** (« 3 h grand max », relecture de #60 et sondages sur E1 compris), le
+  seul chiffre déclaré comme total. Réparti :
+  - M1.1 : 1,25 h, déjà réconcilié sur le total du matin ;
+  - l'après-midi, 1,75 h : les morceaux déclarés (#12 : 20 min, #13 : 15, #14 : 20, #15 : 15) sont augmentés au
+    prorata ; **#16 et #17 n'ont jamais été chiffrés à part, et leurs 0,15 h chacun sont une répartition de ma
+    part**. Le total de la phase ne dépend pas de cette répartition.
+- Définition de « terminé » pour M1.3 (SPECS §9) : démo lançable sous Linux ; critères mesurés et consignés ; CI
+  verte, zéro erreur de validation ; README de `render`, `core` et `gpu` à jour ; board renseigné ; tag `m1.3`.
+  Étude de la phase : E1, écrite avant la phase, relue et corrigée (voir plus bas).
+
+### Critères de M1.3
+
+| Critère (ROADMAP) | Mesuré | Commande |
+|---|---|---|
+| Triangle affiché sous Linux | oui, relu à l'image près par le test de fumée, dans le bon sens | `ctest -R smoke` |
+| Zéro erreur de validation | 0, dans toutes les configurations | sandbox, CI |
+| Frame time CPU < 1 ms | **0,090 ms** d'enregistrement et de soumission, 0,149 ms pour la frame hors attente de l'écran (Debug, validation) | `tools/tracy-capture.sh` |
+| Image du test de fumée identique à la référence | oui sous lavapipe en CI, à ±2 près par canal, avec une référence générée sur RADV | CI |
+
+### Phase 1 — le ratio
+
+| Milestone | Estimé | Passé |
+|---|---:|---:|
+| M1.1 Fenêtre et boucle | 1,5 h | 1,25 h |
+| M1.2 Device NVRHI et swapchain | 1,5 h | 0,72 h |
+| M1.3 Premier triangle | 1,5 h | 1,03 h |
+| **Phase 1** | **4,5 h** | **3,0 h** — ratio **0,67** |
+
+**Hors de la fourchette 0,8–1,25, et cette fois ce n'est pas une erreur de mesure** : le total vient de Donnovan,
+qui relit les diffs par petits morceaux entre deux tâches, et plus vite que prévu. La règle de la ROADMAP s'applique :
+les estimations des phases 2 à 8 sont multipliées par 0,67 et les échéances avancées. **Proposé dans une PR à part,
+`docs(roadmap): recalibrage phase 1`, que Donnovan valide ou amende.** Deux réserves à y peser : l'échantillon tient
+en une journée intense, et la phase 0 donnait 0,83.
+
+### #17 — lecture de l'étude E1, par sondages
+
+Donnovan a demandé à être interrogé plutôt que de relire. Huit questions, **5 bonnes réponses** : durée de vie,
+suivi d'états, niveaux d'abstraction, threads d'Unreal, frontière de NVRHI sont acquis. Les trois erreurs portent
+sur la liaison des ressources (décalages de binding, binding sets contre bindless, volatile constant buffers), qui
+arrive en phase 2 ; réponses archivées dans `docs/QA.md`. En relisant E1, j'y ai trouvé deux erreurs, corrigées :
+`nvrhi::validation::createDevice` n'existe pas (c'est `createValidationLayer`), et la compilation des shaders ne
+passe plus par ShaderMake (ADR-0005, amendement).
+
+### Phase 3 détaillée
+
+Neuf issues créées, #61 à #69, sur les milestones M3.1 à M3.5, avec estimation et phase sur le board (les
+estimations suivent la ROADMAP actuelle ; le recalibrage les mettra à jour s'il est validé).
+
+### Ce que la phase 1 a appris
+
+- **Les garde-fous ont payé** : la boucle de CI trop courte (deux fois), la validation qui a arrêté le premier
+  triangle sur `shaderDrawParameters`, `TRACY_ENABLE` désactivé par Tracy 0.14 — chaque fois, un contrôle a
+  échoué bruyamment au lieu de rester vert.
+- **La mesure du temps a encore dérivé**, sous une troisième forme : des morceaux « depuis ta dernière réponse »
+  qui oubliaient le temps entre deux. Seul le total de la journée l'a rattrapée.
+- **Le code Vulkan de base ne se découpe pas en PR de 400 lignes** ; le reste, si. Deux exceptions admises,
+  une découpe faite (#58, #59).
+
+- Prochaine étape : la PR de recalibrage, puis M2.1 — caméra, meshes et binding sets, en commençant par l'ADR de
+  liaison (#40), là même où le quiz a montré les lacunes.
+
 ## 2026-09-21 — M1.3 — Test de fumée du rendu (#16)
 
-- Temps Donnovan : à renseigner (estimé 0,25 h pour #16)
+- **Temps Donnovan : 0,15 h** (non chiffré à part : répartition de ma part dans le total de la journée, voir la clôture de la phase 1 ; estimé 0,25 h)
 - Sessions Claude Code : 1
 - Fait : `tests/smoke_triangle.cpp`, enregistré dans ctest (`smoke.triangle`) : fenêtre offscreen, triangle dessiné
   dans une texture de 64 × 64, recopié dans une texture lisible par le CPU, comparé à `tests/data/triangle.ppm`
@@ -48,7 +111,7 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ## 2026-09-21 — M1.3 — Premier triangle (#15)
 
-- **Temps Donnovan : 0,25 h** (15 min déclarées, relecture de #59 comprise ; estimé 0,5 h)
+- **Temps Donnovan : 0,31 h** (15 min déclarées, relecture de #59 comprise ; réconcilié, voir la clôture de la phase 1 ; estimé 0,5 h)
 - Sessions Claude Code : 1
 - Fait : module `engine/render` et `TrianglePass`, qui ne connaît que `nvrhi::IDevice` (SPIR-V ou DXIL choisi
   d'après l'API du device) ; `readFile` dans `core` ; `swapchainFormat` dans `gpu` ; le triangle dessiné par le
@@ -80,7 +143,7 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ## 2026-09-21 — M1.3 — Compilation des shaders Slang (#14)
 
-- **Temps Donnovan : 0,33 h** (20 min déclarées, relecture de #58 comprise ; estimé 0,5 h)
+- **Temps Donnovan : 0,42 h** (20 min déclarées, relecture de #58 comprise ; réconcilié, voir la clôture de la phase 1 ; estimé 0,5 h)
 - Sessions Claude Code : 1
 - Fait : compilation des shaders Slang au build par des commandes CMake et `slangc` (ports vcpkg `shader-slang`
   et `directx-dxc`), en SPIR-V et en DXIL, choix de Donnovan inscrits dans l'ADR-0005 ; `shaders/triangle.slang`,
@@ -101,7 +164,8 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ## 2026-09-21 — M1.2 — Clôture
 
-- **Temps Donnovan pour M1.2 : 0,58 h déclarées** (10 + 10 + 15 min), **provisoire** : ce sont des réponses
+- **Temps Donnovan pour M1.2 : 0,72 h**, réconcilié à la clôture de la phase 1 (0,58 h déclarées d'abord, puis 0,88 h,
+  puis la répartition finale) ; ce qui suit décrit la version provisoire. 0,58 h déclarées (10 + 10 + 15 min) : ce sont des réponses
   « depuis la dernière fois », que la clôture de M1.1 a montrées incomplètes. À réconcilier avec le total de la
   journée en fin de session (skill `session`).
 - Définition de « terminé » (SPECS §9) : démo lançable sous Linux (Windows hors périmètre, ADR-0011) ; critères
@@ -143,7 +207,7 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ## 2026-09-21 — M1.2 — Swapchain, redimensionnement et écran effacé (#13)
 
-- **Temps Donnovan : 0,25 h** (15 min déclarées, relecture de #56 comprise ; estimé 0,5 h)
+- **Temps Donnovan : 0,31 h** (15 min déclarées, relecture de #56 comprise ; réconcilié, voir la clôture de la phase 1 ; estimé 0,5 h)
 - Sessions Claude Code : 1
 - Fait : swapchain Vulkan (vk-bootstrap) dont les images sont enveloppées en textures NVRHI ; reconstruction dès
   que la taille de la fenêtre change ; sémaphores d'acquisition et de présentation ; deux frames en vol au plus
@@ -175,7 +239,7 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ## 2026-09-21 — M1.2 — Device Vulkan et NVRHI (#12)
 
-- Temps Donnovan : 0,17 h jusqu'ici (10 min, relecture de #54 ; estimé 1,0 h pour #12) — 1 h 25 sur la journée
+- **Temps Donnovan : 0,41 h** (10 + 10 min déclarées, relectures de #54 et #55 ; réconcilié, voir la clôture de la phase 1 ; estimé 1,0 h)
 - Sessions Claude Code : 1
 - Fait : module `engine/gpu` — instance, surface et device Vulkan créés avec vk-bootstrap (ADR-0012), puis device
   NVRHI par-dessus ; couches de validation Vulkan et couche de validation NVRHI en Debug, messages redirigés vers

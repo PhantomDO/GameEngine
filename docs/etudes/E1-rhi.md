@@ -93,8 +93,8 @@ NVIDIA décrit son modèle comme « un mélange de D3D11 et de D3D12, avec une t
 | Synchronisation | Suivi automatique des états et placement des barrières, désactivable ; trois façons de déclarer les états (explicite, `keepInitialState`, états permanents pour les ressources statiques) | L'essentiel du travail de barrières |
 | Durée de vie | Comptage de références (`RefCountPtr`, comme `ComPtr`) ; destruction différée tant que le GPU utilise la ressource ; **`runGarbageCollection()` à appeler une fois par frame** | Les files de destruction différée |
 | Upload | `writeBuffer`, `writeTexture` via un gestionnaire interne à la command list (qui ne rétrécit jamais) | Les buffers de staging |
-| Validation | `nvrhi::validation::createDevice` enveloppe le device et détecte des erreurs que les couches Vulkan ou D3D12 ne voient pas | — |
-| Shaders | NVRHI **ne compile pas** les shaders ; ShaderMake (FXC, DXC ou Slang → DXBC, DXIL ou SPIR-V) s'en charge [10] | — |
+| Validation | `nvrhi::validation::createValidationLayer` enveloppe le device et détecte des erreurs que les couches Vulkan ou D3D12 ne voient pas | — |
+| Shaders | NVRHI **ne compile pas** les shaders. ShaderMake (FXC, DXC ou Slang → DXBC, DXIL ou SPIR-V) le fait chez Donut [10] ; chez nous, `slangc` appelé par CMake (ADR-0005, amendement) | — |
 
 Sources : [8] pour tout le tableau, sauf la ligne Shaders.
 
@@ -124,6 +124,18 @@ atteignent 100 Go), voir *No Graphics API* de Sebastian Aaltonen [13].
    lists en parallèle (voir l'exemple Threaded Rendering de Donut-Samples) : ce sera un sujet de la v2.
 5. Si la curiosité l'emporte, le code de `RenderingDevice` dans Godot est la RHI de production la plus facile à
    lire.
+
+## 7. Ce que la phase 1 a confirmé (ajouté le 2026-09-21)
+
+- **« NVRHI ne crée pas le device »** a coûté l'essentiel du code de la phase : `device_vk.cpp` et
+  `swapchain_vk.cpp`, ~600 lignes à eux deux, contre ~100 pour le triangle au-dessus de NVRHI.
+- **Le suivi d'états tient ses promesses** : aucune barrière écrite à la main, grâce à `keepInitialState` sur les
+  images de la swapchain.
+- **Deux détails qu'aucune documentation de haut niveau ne disait** : compilé en statique, NVRHI laisse à
+  l'application le dispatcher de Vulkan-Hpp ; et l'enveloppe de validation n'expose pas `nvrhi::vulkan::IDevice`,
+  seule interface à connaître les sémaphores. Voir `engine/gpu/README.md`.
+- **La validation de NVRHI complète celle de Vulkan** : une texture de largeur nulle est arrêtée par NVRHI avant
+  d'atteindre le pilote (contre-test de #12).
 
 ## Sources
 
