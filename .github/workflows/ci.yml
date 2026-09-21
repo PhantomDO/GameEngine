@@ -18,13 +18,17 @@ jobs:
     #
     # Les noms `linux-debug` et `linux-release` sont les checks requis par la protection de
     # `main` : ne pas les renommer sans mettre la protection à jour d'abord.
+    #
+    # `linux-asan` compile en Debug avec AddressSanitizer (dont LeakSanitizer) et
+    # UndefinedBehaviorSanitizer, puis lance tests et sandbox : une fuite ou un comportement
+    # indéfini fait échouer le job.
     name: ${{ matrix.preset }}
     runs-on: ubuntu-latest
 
     strategy:
       fail-fast: false
       matrix:
-        preset: [linux-debug, linux-release]
+        preset: [linux-debug, linux-release, linux-asan]
 
     env:
       # Doit rester égal au "builtin-baseline" de vcpkg.json : vcpkg résout les versions de
@@ -36,6 +40,10 @@ jobs:
       # ne produit pas la même sortie d'une version majeure à l'autre, un écart ferait
       # échouer le contrôle de format sur des fichiers pourtant corrects.
       LLVM_VERSION: "22"
+      # Explicite plutôt que par défaut : si LeakSanitizer ne pouvait pas tourner sur le
+      # runner, le programme s'arrêterait en erreur au lieu de sauter la détection en silence.
+      ASAN_OPTIONS: detect_leaks=1
+      UBSAN_OPTIONS: print_stacktrace=1
 
     steps:
       - uses: actions/checkout@v4
@@ -111,14 +119,24 @@ jobs:
           cmake --preset ${{ matrix.preset }}
           cmake --build --preset ${{ matrix.preset }}
 
+      # Garde-fou : un preset dont les drapeaux se seraient perdus compilerait sans
+      # instrumentation, et le job resterait vert sans avoir rien vérifié.
+      - name: Vérifier l'instrumentation
+        if: matrix.preset == 'linux-asan'
+        run: |
+          for symbol in __asan_init __ubsan_handle; do
+            nm build/linux-asan/sandbox/levain_sandbox | grep -q "$symbol" \
+              || { echo "::error::$symbol absent : le sandbox n'est pas instrumenté"; exit 1; }
+          done
+
       - name: Tests
         run: ctest --test-dir build/${{ matrix.preset }} --output-on-failure
 
       # Le runner n'a pas d'écran : SDL passe par son pilote « offscreen ».
       #
       # Une fenêtre ne se ferme pas toute seule. `timeout` envoie SIGTERM au bout de 3 s, que
-      # SDL traduit en demande de fermeture, et le programme sort normalement : ce chemin de
-      # sortie est testé, et c'est à lui que LeakSanitizer fera son compte (issue #11).
+      # SDL traduit en demande de fermeture ; le programme sort normalement, et c'est à cette
+      # sortie que LeakSanitizer fait son compte.
       #   --preserve-status : le code de sortie est celui du sandbox, pas celui de timeout.
       #   -k 10 : SIGKILL 10 s plus tard si le programme ignore SIGTERM ; code 137, job rouge.
       #   --foreground : un seul SIGTERM. Sans cette option, timeout en envoie un second au
