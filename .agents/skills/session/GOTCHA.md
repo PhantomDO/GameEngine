@@ -2,6 +2,15 @@
 
 Un piège par entrée : symptôme, cause, parade. Le plus récent en haut.
 
+## Heredoc sans guillemets dans une description de PR (2026-09-21)
+
+- **Symptôme** : « permission non accordée : docs/ROADMAP.md » à la création de #71, et les noms de fichiers entre
+  accents graves disparus de la description.
+- **Cause** : `<<EOF` sans guillemets, pour y glisser une variable : le shell a exécuté chaque passage entre accents
+  graves comme une commande.
+- **Parade** : toujours `<<'EOF'`. Pour un texte calculé, l'écrire dans un fichier avec Python, puis
+  `gh pr create --body-file`.
+
 ## Une PR trop grosse se découpe en branches empilées (2026-09-21)
 
 - **Exception** : le code Vulkan de base (#55, 549 lignes ; #56, 545) ne se découpe pas sans étapes qui compilent

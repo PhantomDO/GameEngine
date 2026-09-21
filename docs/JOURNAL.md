@@ -25,6 +25,18 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-21 — M2.1 — ADR-0013 : binding sets (#40)
+
+- Temps Donnovan : à renseigner (estimé 0,35 h pour #40, après recalibrage)
+- Sessions Claude Code : 1
+- Fait : les deux modèles de liaison de NVRHI écrits côte à côte (C++ et Slang), puis un sondage. **Donnovan
+  retient les binding sets** ; passer au bindless demandera un nouvel ADR, justifié par une mesure. ADR-0013 écrit,
+  avec la convention qui en découle : un binding layout par fréquence de changement (`space0` frame, `space1` passe,
+  `space2` matériau), `setRegisterSpaceAndDescriptorSet` pour que l'espace devienne le descriptor set sous Vulkan.
+- Écarts et problèmes : la convention d'espaces est lue dans le code de NVRHI, pas encore vérifiée par la
+  validation ; elle le sera avec les premières constantes de M2.1 (#41).
+- Prochaine étape : #41 — caméra 3D, depth buffer et meshes indexés.
+
 ## 2026-09-21 — Recalibrage après la phase 1
 
 - Temps Donnovan : compté dans les 3,0 h de la journée
