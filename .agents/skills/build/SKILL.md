@@ -81,6 +81,12 @@ cmake --build build/prof
 
 Pour profiler en direct : lancer le profileur, puis `TRACY_NO_EXIT=1 ./build/prof/sandbox/levain_sandbox`.
 
+**Analyser une capture par MCP (à mettre en place en M1.2)**. Tracy 0.14.1 fournit un serveur MCP
+(`extra/mcp/tracy_mcp.py` dans ses sources, manuel § « MCP Server ») : un agent y charge une capture `.tracy`
+et l'interroge par du Python (`eval` sur l'objet `Worker`), ou compare deux captures. C'est la voie à préférer
+aux captures d'écran. Prérequis : les bindings Python de Tracy (`-DTRACY_CLIENT_PYTHON=ON`), `pip install mcp`,
+puis déclarer `http://127.0.0.1:47380/mcp` auprès de l'agent.
+
 ## CI
 
 `.github/workflows/ci.yml` : une matrice `linux-debug`, `linux-release`, `linux-asan`, chacun compilé, testé et
