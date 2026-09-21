@@ -28,6 +28,6 @@ doctest_discover_tests(levain_tests)
 
 # Benchmark : compilé par la CI pour qu'il ne pourrisse pas, mais pas lancé par ctest.
 # Un chiffre de performance dépend de la machine ; il se mesure à la main sur la machine
-# de référence et se consigne dans le journal (CLAUDE.md, règle non négociable n°6).
+# de référence et se consigne dans le journal (AGENTS.md, règle non négociable n°6).
 add_executable(levain_bench allocator_bench.cpp)
 target_link_libraries(levain_bench PRIVATE levain::core)

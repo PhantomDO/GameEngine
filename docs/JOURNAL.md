@@ -25,6 +25,23 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-21 — M1.1 — AGENTS.md et skills
+
+- Temps Donnovan : à renseigner
+- Sessions Claude Code : 1 (la même que #10 et #11)
+- Fait : à la demande de Donnovan, `CLAUDE.md` (182 lignes) devient `AGENTS.md`, source unique des
+  instructions quel que soit l'outil, et `CLAUDE.md` ne fait plus que l'importer. Les procédures passent dans
+  quatre skills sous `.agents/skills/` — `session`, `build`, `cloture`, `questions` —, chacun avec un
+  `GOTCHA.md` qui recense les pièges rencontrés depuis le début du projet. `.claude/skills` est un lien vers ce
+  dossier.
+- Décisions : pas d'ADR, ce n'est pas une décision d'architecture du moteur. La règle « un contrôle échoue
+  bruyamment », adoptée à la clôture de la phase 0, devient la règle non négociable n°7.
+- Écarts et problèmes : la découverte des skills par Claude Code **à travers le lien** n'est pas vérifiable dans
+  cette session, la liste étant chargée au démarrage. Sans conséquence si elle échoue : `AGENTS.md` donne le
+  chemin de chaque skill.
+- Prochaine étape : au début de la prochaine session, vérifier que les quatre skills apparaissent. Puis #38,
+  capture Tracy.
+
 ## 2026-09-21 — M1.1 — Frame time, sanitizers et avertissements (#11)
 
 - Temps Donnovan : à renseigner (estimé 0,75 h pour #11)

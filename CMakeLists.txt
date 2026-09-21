@@ -33,7 +33,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 add_compile_options(-pedantic-errors)
 
 # Avertissements traités comme des erreurs. Sans -Wall ni -Wextra, la règle « zéro warning »
-# (CLAUDE.md, règle n°4) ne couvrait que les avertissements actifs par défaut : presque rien.
+# (AGENTS.md, règle n°4) ne couvrait que les avertissements actifs par défaut : presque rien.
 # Mesuré à l'activation (M1.1) : 4 avertissements, tous du même type, corrigés. Les en-têtes
 # des dépendances vcpkg arrivent en -isystem et ne comptent pas.
 add_compile_options(-Wall -Wextra -Werror)
