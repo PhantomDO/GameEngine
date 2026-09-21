@@ -25,6 +25,27 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-21 — M1.3 — Compilation des shaders Slang (#14)
+
+- Temps Donnovan : à renseigner (estimé 0,5 h pour #14)
+- Sessions Claude Code : 1
+- Fait : compilation des shaders Slang au build par des commandes CMake et `slangc` (ports vcpkg `shader-slang`
+  et `directx-dxc`), en SPIR-V et en DXIL, choix de Donnovan inscrits dans l'ADR-0005 ; `shaders/triangle.slang`,
+  qui servira au premier triangle (#15).
+- Mesures :
+  - **une erreur de shader fait échouer le build** : `error[E30015]: undefined identifier`, code 255 (faute
+    injectée depuis une copie, puis retirée) ;
+  - **seul un shader modifié est recompilé** : après `touch shaders/triangle.slang`, `ninja -n` ne liste que ses
+    deux points d'entrée ; sans modification, `no work to do` ;
+  - **DXIL bien formé** : deux tests `dxil.*` (désassemblage par `dxc -dumpbin`), le fichier porte un hash de
+    shader.
+- Écarts et problèmes :
+  - Mon premier contrôle « seul un shader modifié est recompilé » ne prouvait rien : le reste du projet n'était
+    pas encore recompilé, et `ninja -n` listait aussi du C++. Refait après un build complet.
+  - PR découpée par issue : la version commune avec le triangle faisait 504 lignes, et ce n'était pas un bloc
+    Vulkan indivisible (règle n°2).
+- Prochaine étape : #15, le premier triangle.
+
 ## 2026-09-21 — M1.2 — Clôture
 
 - **Temps Donnovan pour M1.2 : 0,58 h déclarées** (10 + 10 + 15 min), **provisoire** : ce sont des réponses

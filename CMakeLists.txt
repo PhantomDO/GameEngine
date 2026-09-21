@@ -44,6 +44,7 @@ set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 
 enable_testing()
 
+add_subdirectory(shaders)
 add_subdirectory(engine/core)
 add_subdirectory(engine/platform)
 add_subdirectory(engine/gpu)

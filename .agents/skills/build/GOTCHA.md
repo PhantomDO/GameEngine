@@ -3,7 +3,16 @@
 Un piège par entrée : symptôme, cause, parade. Le plus récent en haut. Les pièges propres à SDL sont détaillés
 dans `engine/platform/README.md`, section « Pièges connus ».
 
+## Shaders
+
+- **`SV_VertexID` exige `shaderDrawParameters`** (2026-09-21). En HLSL, il compte depuis 0 sans le sommet de base
+  du draw ; en Vulkan, il l'inclut. Slang compense en lisant ce sommet de base (capacité SPIR-V
+  `DrawParameters`) : sans la fonctionnalité côté device, la validation refuse le shader à sa création.
+- **Aucun `-fvk-invert-y`** : NVRHI inverse déjà le viewport sous Vulkan. L'ajouter mettrait le triangle à
+  l'envers.
+
 ## Fenêtre et SDL
+
 
 - **Fenêtre invisible sous Wayland** (2026-09-21). Une surface Wayland n'apparaît qu'après sa première image ;
   tant que le moteur ne présente rien (avant M1.2), KWin ne la connaît pas. Parade : `SDL_VIDEO_DRIVER=x11`.
