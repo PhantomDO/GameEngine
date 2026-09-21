@@ -43,8 +43,10 @@ struct MeshPass
                                                   nvrhi::TextureHandle& depth, std::uint32_t width,
                                                   std::uint32_t height);
 
-/// Enregistre le dessin de `mesh` dans `framebuffer`, qui doit avoir un depth buffer.
+/// Enregistre le dessin de toutes les `instances` de `mesh`, en un seul appel, dans `framebuffer`,
+/// qui doit avoir un depth buffer.
 void drawMesh(nvrhi::ICommandList& commandList, const MeshPass& pass,
-              nvrhi::IFramebuffer& framebuffer, const Mesh& mesh, const SceneConstants& constants);
+              nvrhi::IFramebuffer& framebuffer, const Mesh& mesh, const Instances& instances,
+              const SceneConstants& constants);
 
 } // namespace levain::render

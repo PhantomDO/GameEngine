@@ -7,7 +7,8 @@ Dessiner, avec NVRHI : pipelines, passes de rendu, et plus tard caméras, matér
 quel sous Direct3D 12 le jour où ce backend existera (`docs/QA.md`, question du 2026-09-21).
 
 **État en M2.1** : le premier triangle (`TrianglePass`), une caméra perspective (`Camera`), des meshes indexés
-dessinés avec un depth buffer (`MeshPass`).
+dessinés avec un depth buffer (`MeshPass`), en plusieurs exemplaires par un seul draw (`Instances`), et le temps
+GPU d'une frame (`GpuTimer`).
 
 ## Invariants
 
@@ -23,8 +24,9 @@ dessinés avec un depth buffer (`MeshPass`).
 |---|---|
 | [`include/levain/render/triangle.hpp`](include/levain/render/triangle.hpp) | `createTrianglePass`, `drawTriangle` |
 | [`include/levain/render/camera.hpp`](include/levain/render/camera.hpp) | `Camera`, `viewProjectionOf` — profondeur de 0 à 1, comme Vulkan et Direct3D 12 |
-| [`include/levain/render/mesh.hpp`](include/levain/render/mesh.hpp) | `Mesh`, `createMesh`, `createCube` — buffers de sommets et d'indices |
+| [`include/levain/render/mesh.hpp`](include/levain/render/mesh.hpp) | `Mesh`, `createMesh`, `createCube` — buffers de sommets et d'indices ; `Instances`, `createInstances` — un décalage par exemplaire |
 | [`include/levain/render/mesh_pass.hpp`](include/levain/render/mesh_pass.hpp) | `createMeshPass`, `ensureDepthTexture`, `drawMesh` — la première passe avec constantes et profondeur |
+| [`include/levain/render/gpu_timer.hpp`](include/levain/render/gpu_timer.hpp) | `GpuTimer`, `beginGpuTimer`, `endGpuTimer` — temps GPU par timer queries |
 
 ## Ce qu'il faut pour dessiner un triangle avec NVRHI
 
@@ -51,6 +53,22 @@ frame**, 0,15 ms pour la frame entière hors attente de l'écran
 - **Un depth buffer**, recréé seulement quand la taille de l'image change, et l'élimination des faces arrière
   (sens trigonométrique, vérifié par le test de fumée du cube).
 
+## Ce qu'ajoute l'instancing
+
+- **Un second vertex buffer, lu par exemplaire et non par sommet** : l'attribut `INSTANCE_OFFSET` est déclaré
+  `setIsInstanced(true)` dans l'input layout et lu dans le slot 1. Le GPU avance d'un élément à chaque exemplaire.
+- **Un seul `drawIndexed`** avec `instanceCount = 10 000` : le CPU enregistre un appel, quel que soit le nombre
+  de cubes. Mesuré : 0,022 ms de GPU pour 10 000 cubes en 1080p (journal, #42).
+- Le décalage est une simple position, pas une matrice : c'est tout ce dont la grille a besoin. Une matrice par
+  exemplaire viendra avec des objets qui tournent chacun de leur côté.
+
+## Mesurer le temps GPU
+
+Le CPU ne voit que le temps qu'il passe à enregistrer : le GPU exécute plus tard, en parallèle. Une **timer
+query** demande au GPU d'horodater le début et la fin d'un bloc de commandes ; NVRHI la crée, l'enregistre
+(`beginTimerQuery`, `endTimerQuery`) et rend la durée en secondes (`getTimerQueryTime`). Le résultat n'arrive
+que quand le GPU a fini la frame, d'où l'anneau de trois requêtes de `GpuTimer`.
+
 ## Équivalents ailleurs
 
 | Moteur | Module | Ce qu'on y trouve |
@@ -58,3 +76,6 @@ frame**, 0,15 ms pour la frame entière hors attente de l'écran
 | **Unreal** | `Renderer` | Les passes (`FDeferredShadingSceneRenderer`) écrites au-dessus de la RHI, via le Render Dependency Graph (**documenté** : sources publiques). |
 | **Godot** | `servers/rendering/renderer_rd` | Les renderers Forward+ et Mobile, écrits au-dessus de `RenderingDevice` (**documenté** : dépôt public). |
 | **Unity** | SRP (URP, HDRP) | Les pipelines de rendu, écrits en C# au-dessus de la couche graphique interne (**documenté** : packages publics). |
+| **Unreal** | `FRHIRenderQuery`, `stat gpu` | Timer queries au-dessus de la RHI, affichées par passe (**documenté** : sources publiques). |
+| **Unity** | GPU Instancing, Frame Timing Manager | Instancing activé par matériau ; temps GPU par frame (**documenté** : manuel). |
+| **Godot** | `MultiMeshInstance3D` | Un mesh dessiné en N exemplaires par un seul draw (**documenté** : docs officielles). |

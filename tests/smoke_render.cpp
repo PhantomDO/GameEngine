@@ -7,6 +7,7 @@
 //     ./build/linux-debug/tests/levain_smoke_render cube
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -128,11 +129,14 @@ levain::core::Result<void> drawScene(nvrhi::IDevice& device, nvrhi::ICommandList
         return std::unexpected(meshPass.error());
     }
     const levain::render::Mesh cube = levain::render::createCube(device, commandList);
+    const std::array<glm::vec3, 1> origin{glm::vec3{0.0f}};
+    const levain::render::Instances instances =
+        levain::render::createInstances(device, commandList, origin);
     const levain::render::SceneConstants constants{
         .viewProjection = levain::render::viewProjectionOf(levain::render::Camera{}, 1.0f),
         .model = glm::rotate(glm::mat4{1.0f}, glm::radians(35.0f), glm::vec3{1.0f, 1.0f, 0.0f}),
     };
-    levain::render::drawMesh(commandList, *meshPass, framebuffer, cube, constants);
+    levain::render::drawMesh(commandList, *meshPass, framebuffer, cube, instances, constants);
     return {};
 }
 

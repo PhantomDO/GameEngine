@@ -18,8 +18,10 @@ core::Result<MeshPass> createMeshPass(nvrhi::IDevice& device, const nvrhi::Frame
         return std::unexpected(vertexShader ? pixelShader.error() : vertexShader.error());
     }
 
-    // Les noms sont les sémantiques de VertexInput dans shaders/mesh.slang.
-    const std::array<nvrhi::VertexAttributeDesc, 2> attributes{
+    // Les noms sont les sémantiques de VertexInput dans shaders/mesh.slang. Les deux premiers
+    // viennent du buffer des sommets (slot 0), le troisième du buffer des instances (slot 1), lu
+    // une fois par instance.
+    const std::array<nvrhi::VertexAttributeDesc, 3> attributes{
         nvrhi::VertexAttributeDesc()
             .setName("POSITION")
             .setFormat(nvrhi::Format::RGB32_FLOAT)
@@ -30,6 +32,12 @@ core::Result<MeshPass> createMeshPass(nvrhi::IDevice& device, const nvrhi::Frame
             .setFormat(nvrhi::Format::RGB32_FLOAT)
             .setOffset(offsetof(MeshVertex, color))
             .setElementStride(sizeof(MeshVertex)),
+        nvrhi::VertexAttributeDesc()
+            .setName("INSTANCE_OFFSET")
+            .setFormat(nvrhi::Format::RGB32_FLOAT)
+            .setBufferIndex(1)
+            .setElementStride(sizeof(glm::vec3))
+            .setIsInstanced(true),
     };
     nvrhi::InputLayoutHandle inputLayout =
         device.createInputLayout(attributes.data(), attributes.size(), *vertexShader);
@@ -104,7 +112,8 @@ nvrhi::ITexture* ensureDepthTexture(nvrhi::IDevice& device, nvrhi::TextureHandle
 }
 
 void drawMesh(nvrhi::ICommandList& commandList, const MeshPass& pass,
-              nvrhi::IFramebuffer& framebuffer, const Mesh& mesh, const SceneConstants& constants)
+              nvrhi::IFramebuffer& framebuffer, const Mesh& mesh, const Instances& instances,
+              const SceneConstants& constants)
 {
     commandList.writeBuffer(pass.sceneConstants, &constants, sizeof(constants));
 
@@ -117,6 +126,8 @@ void drawMesh(nvrhi::ICommandList& commandList, const MeshPass& pass,
     // donnent aucune valeur par défaut.
     state.addVertexBuffer(
         nvrhi::VertexBufferBinding().setBuffer(mesh.vertexBuffer).setSlot(0).setOffset(0));
+    state.addVertexBuffer(
+        nvrhi::VertexBufferBinding().setBuffer(instances.offsets).setSlot(1).setOffset(0));
     state.setIndexBuffer(nvrhi::IndexBufferBinding()
                              .setBuffer(mesh.indexBuffer)
                              .setFormat(nvrhi::Format::R32_UINT)
@@ -125,6 +136,7 @@ void drawMesh(nvrhi::ICommandList& commandList, const MeshPass& pass,
 
     nvrhi::DrawArguments arguments;
     arguments.vertexCount = mesh.indexCount;
+    arguments.instanceCount = instances.count;
     commandList.drawIndexed(arguments);
 }
 

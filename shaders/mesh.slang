@@ -13,6 +13,7 @@ struct VertexInput
 {
     float3 position : POSITION;
     float3 color : COLOR;
+    float3 instanceOffset : INSTANCE_OFFSET; ///< Une valeur par instance, pas par sommet.
 };
 
 struct VertexOutput
@@ -27,7 +28,9 @@ VertexOutput vertexMain(VertexInput input)
     // mul(matrice, vecteur) : les matrices arrivent de GLM rangées par colonnes, et le shader est
     // compilé avec -matrix-layout-column-major (shaders/CMakeLists.txt).
     VertexOutput output;
-    output.position = mul(scene.viewProjection, mul(scene.model, float4(input.position, 1.0)));
+    // Toutes les instances tournent ensemble (scene.model), puis chacune se place à sa position.
+    const float3 world = mul(scene.model, float4(input.position, 1.0)).xyz + input.instanceOffset;
+    output.position = mul(scene.viewProjection, float4(world, 1.0));
     output.color = input.color;
     return output;
 }
