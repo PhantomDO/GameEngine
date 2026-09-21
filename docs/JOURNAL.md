@@ -25,6 +25,22 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-21 — M2.2 — Module assets : images et mipmaps (#43, 1/2)
+
+- Temps Donnovan : à renseigner
+- Sessions Claude Code : 1
+- Fait : module `engine/assets` (dépend de `core` seul) ; `loadImage` (stb_image, toujours en RGBA8),
+  `mipCountFor`, `buildMipChain` : filtre boîte 2 × 2, moyenne en lumière linéaire. Six tests unitaires, dont
+  une image de test de 2 × 2 pixels générée par une commande notée dans le test.
+- Mesures :
+  - **moyenne en lumière linéaire** : un damier noir et blanc réduit à un pixel donne 188 ; contre-test avec une
+    moyenne des octets, **128**, test rouge (`./build/linux-debug/tests/levain_tests -tc="*linéaire*"`) ;
+  - trois presets verts, ASan et UBSan compris, clang-tidy et clang-format propres.
+- Écarts et problèmes : stb_image_resize2 v2.10 déclenche UBSan (lecture 64 bits non alignée) : remplacé par
+  une vingtaine de lignes, sans désactiver le sanitizer (règle n°4). Piège noté dans le skill `build`.
+- Prochaine étape : #43, 2/2 — envoi au GPU avec tous les niveaux, binding set de matériau (`space2`,
+  ADR-0013), cube texturé, vérification des niveaux dans une capture RenderDoc.
+
 ## 2026-09-21 — M2.1 — Clôture
 
 - **Temps Donnovan pour M2.1 : 2,0 h**, réconciliées sur le total de la journée : 5 h déclarées, dont 3,0 h
