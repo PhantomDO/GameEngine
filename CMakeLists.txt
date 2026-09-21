@@ -46,5 +46,6 @@ enable_testing()
 
 add_subdirectory(engine/core)
 add_subdirectory(engine/platform)
+add_subdirectory(engine/gpu)
 add_subdirectory(sandbox)
 add_subdirectory(tests)

@@ -5,10 +5,12 @@
 #include <print>
 #include <string>
 
+#include "levain/core/assert.hpp"
 #include "levain/core/frame_time.hpp"
 #include "levain/core/log.hpp"
 #include "levain/core/profile.hpp"
 #include "levain/core/version.hpp"
+#include "levain/gpu/device.hpp"
 #include "levain/platform/window.hpp"
 
 namespace
@@ -18,6 +20,9 @@ using Clock = std::chrono::steady_clock;
 
 /// Durée sur laquelle le frame time du titre est résumé.
 constexpr double FrameTimePeriodSeconds = 1.0;
+
+/// Validation en Debug seulement (règle n°4) : elle coûte cher, et c'est là qu'on développe.
+constexpr bool EnableValidation = LEVAIN_ASSERTIONS_ENABLED != 0;
 
 struct LoopState
 {
@@ -139,6 +144,19 @@ int main()
                               window.error().message);
             return 1;
         }
+
+        // Déclaré après window, gpu sera détruit avant elle : la surface Vulkan doit disparaître
+        // avant la fenêtre SDL qui la porte.
+        const Clock::time_point deviceStart = Clock::now();
+        auto gpu = levain::gpu::createGpuDevice(*window, {.enableValidation = EnableValidation});
+        if (!gpu)
+        {
+            levain::core::log("sandbox", levain::core::LogLevel::Critical, "{}",
+                              gpu.error().message);
+            return 1;
+        }
+        levain::core::log("sandbox", levain::core::LogLevel::Info, "device créé en {:.1f} ms",
+                          secondsBetween(deviceStart, Clock::now()) * 1000.0);
 
         runMainLoop(*window);
         levain::core::log("sandbox", levain::core::LogLevel::Info, "fenêtre fermée");
