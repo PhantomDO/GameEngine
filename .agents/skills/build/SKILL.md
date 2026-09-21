@@ -50,6 +50,19 @@ DXIL, une commande par point d'entrée (`levain_add_shader` dans `shaders/CMakeL
 dans `build/<preset>/shaders/`, lues à l'exécution par `engine/render`. Chaque DXIL est désassemblé par un test
 ctest (`dxil.*`), faute de backend Direct3D 12 pour l'exécuter.
 
+## Test de fumée du rendu
+
+`smoke.triangle` (ctest, `tests/smoke_triangle.cpp`) dessine le triangle hors écran, relit l'image et la compare
+à `tests/data/triangle.ppm`, à ±2 près par canal. Après un changement voulu du rendu, réécrire la référence,
+puis la regarder avant de la commiter :
+
+```bash
+LEVAIN_UPDATE_REFERENCE=1 SDL_VIDEO_DRIVER=offscreen ./build/linux-debug/tests/levain_smoke_triangle
+magick tests/data/triangle.ppm -filter point -resize 400% /tmp/triangle.png   # pour la voir
+```
+
+En échec, l'image obtenue est écrite dans `build/<preset>/tests/triangle.actual.ppm`.
+
 ## Lancer le sandbox
 
 ```bash

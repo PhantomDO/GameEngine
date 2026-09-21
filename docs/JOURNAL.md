@@ -25,9 +25,30 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-21 — M1.3 — Test de fumée du rendu (#16)
+
+- Temps Donnovan : à renseigner (estimé 0,25 h pour #16)
+- Sessions Claude Code : 1
+- Fait : `tests/smoke_triangle.cpp`, enregistré dans ctest (`smoke.triangle`) : fenêtre offscreen, triangle dessiné
+  dans une texture de 64 × 64, recopié dans une texture lisible par le CPU, comparé à `tests/data/triangle.ppm`
+  à ±2 près par canal ; `LEVAIN_UPDATE_REFERENCE=1` réécrit la référence.
+- Mesures :
+  - **le triangle est dessiné, et dans le bon sens** : référence générée sur RADV, validation active, zéro
+    message ; regardée agrandie (rouge en bas à gauche, vert au sommet, bleu en bas à droite). C'est la première
+    preuve à l'image que le rendu fonctionne, sans capture d'écran du bureau ;
+  - **le test échoue si le triangle ne s'affiche plus** (critère de #16) : dessin retiré, test rouge ; le
+    triangle couvre 512 pixels sur 4 096, soit 12,5 %, tous différents sans lui ;
+  - 26 tests verts en Debug, Release et ASan (avec RADV préchargé).
+- Écarts et problèmes :
+  - **La référence vient de RADV, la CI compare avec lavapipe.** La tolérance de ±2 absorbe les écarts
+    d'interpolation ; un écart de couverture sur les bords du triangle ferait échouer le test. Non vérifiable ici,
+    lavapipe n'étant pas installé sur la machine de référence : la CI de cette PR le dira.
+  - clang-tidy refusait une multiplication en `int` convertie en décalage de pointeur : calculée en `size_t`.
+- Prochaine étape : clôture de M1.3, puis de la phase 1 (ratio, recalibrage, détail de la phase 3).
+
 ## 2026-09-21 — M1.3 — Premier triangle (#15)
 
-- Temps Donnovan : à renseigner (estimé 0,5 h pour #15)
+- **Temps Donnovan : 0,25 h** (15 min déclarées, relecture de #59 comprise ; estimé 0,5 h)
 - Sessions Claude Code : 1
 - Fait : module `engine/render` et `TrianglePass`, qui ne connaît que `nvrhi::IDevice` (SPIR-V ou DXIL choisi
   d'après l'API du device) ; `readFile` dans `core` ; `swapchainFormat` dans `gpu` ; le triangle dessiné par le
