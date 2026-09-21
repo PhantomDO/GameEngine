@@ -27,8 +27,9 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ## 2026-09-21 — M1.1 — Clôture
 
-- **Temps Donnovan pour M1.1 : 0,67 h** (20 + 10 + 10 min : relectures de #49 à #52 et décisions). Le temps
-  de la clôture elle-même sera noté avec la prochaine réponse de Donnovan.
+- **Temps Donnovan pour M1.1 : 1,25 h** — total de la journée déclaré par Donnovan (« environ 1 h 15 depuis ce
+  matin »). Les réponses données après chaque PR ne faisaient que 40 min (20 + 10 + 10) : elles oubliaient le
+  temps passé entre deux, en allers-retours. L'écart est réparti au prorata sur les issues.
 - Définition de « terminé » (SPECS §9) : 6 critères sur 7 remplis. Démo lançable sous Linux (Windows hors
   périmètre, ADR-0011) ; critères chiffrés mesurés et consignés ; CI verte, avec trois checks requis ; README de
   `platform` et de `core` à jour ; board renseigné ; tag `m1.1` et release publiés. Pas d'étude : elle vient à
@@ -47,16 +48,16 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 | Issue | Estimé | Passé |
 |---|---:|---:|
-| #10 Fenêtre, boucle, événements | 0,75 h | 0,33 h |
-| #11 Frame time et sanitizers | 0,75 h | 0,17 h |
-| #38 Capture Tracy (reportée de M0.3) | 0,25 h | 0,17 h |
+| #10 Fenêtre, boucle, événements | 0,75 h | 0,63 h |
+| #11 Frame time et sanitizers | 0,75 h | 0,31 h |
+| #38 Capture Tracy (reportée de M0.3) | 0,25 h | 0,31 h |
 | #32 Issues de phase 1 après l'ADR-0010 | 0,25 h | 0 h — fait en phase 0, déjà compté dans ses 5,0 h |
-| **M1.1** (estimation de la ROADMAP) | **1,5 h** | **0,67 h** — ratio **0,44** |
+| **M1.1** (estimation de la ROADMAP) | **1,5 h** | **1,25 h** — ratio **0,83** |
 
-Le ratio est bas, mais **un milestone seul ne décide pas d'un recalibrage** : la ROADMAP le calcule par phase.
-Deux raisons de ne pas l'extrapoler : c'est un échantillon d'un seul milestone, et M1.2 (device Vulkan,
-swapchain) est le premier où NVRHI entre en jeu, un domaine neuf pour la relecture. À réexaminer à la fin de la
-phase 1.
+Ratio dans la fourchette 0,8–1,25, le même que celui de la phase 0. La première version de cette entrée
+annonçait 0,44, calculé sur les seuls morceaux déclarés : **la même erreur de mesure qu'en phase 0, sous une
+autre forme**. La question « depuis ta dernière réponse » laisse tomber le temps passé entre deux ; seule la
+question sur le total de la journée l'a rattrapé.
 
 ### Ce que M1.1 a appris
 
@@ -74,7 +75,7 @@ phase 1.
 
 ## 2026-09-21 — M1.1 — Capture Tracy de la vraie boucle (#38)
 
-- **Temps Donnovan : 0,17 h** (10 min en tout, relecture de #52 comprise ; estimé 0,25 h)
+- **Temps Donnovan : 0,31 h** (10 min déclarées ; 0,31 h après réconciliation, voir la clôture ; estimé 0,25 h)
 - Sessions Claude Code : 1 (la même que #10, #11 et #51)
 - Fait : port overlay `ports/tracy`, Tracy **0.14.1 client seul** (51 lignes, contre 759 pour le
   port officiel et ses quatre patches, qui ne concernent que les outils) ; garde-fou CMake sur `TRACY_ENABLE` ;
@@ -120,7 +121,8 @@ phase 1.
 
 ## 2026-09-21 — M1.1 — Frame time, sanitizers et avertissements (#11)
 
-- **Temps Donnovan : 0,17 h** (10 min en tout, relectures de #50 et de #51 ; estimé 0,75 h)
+- **Temps Donnovan : 0,31 h** (10 min déclarées, relectures de #50 et de #51 ; 0,31 h après réconciliation,
+  voir la clôture ; estimé 0,75 h)
 - Sessions Claude Code : 1 (la même que #10, PR découpée)
 - Fait : `recordFrame` dans `core` (moyenne, minimum et maximum par période d'une seconde) et trois tests ;
   frame time dans le titre de la fenêtre ; `setWindowTitle` et son assertion ASCII ; preset `linux-asan`
@@ -163,7 +165,8 @@ phase 1.
 
 ## 2026-09-21 — M1.1 — Fenêtre SDL3, boucle et événements (#10)
 
-- **Temps Donnovan : 0,33 h** (20 min en tout, relecture de #49 comprise ; estimé 0,75 h)
+- **Temps Donnovan : 0,63 h** (20 min déclarées, 0,63 h après réconciliation avec le total de la journée, voir
+  la clôture ; estimé 0,75 h)
 - Sessions Claude Code : 1
 - Fait : module `engine/platform` sur SDL3 3.4.12 (vcpkg, fonctionnalités `x11` et `wayland` seulement, sans
   ibus ni dbus) ; événements traduits vers nos types (`CloseRequested`, `Resized` en pixels, `Hidden`,

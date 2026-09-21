@@ -28,7 +28,8 @@ Lire d'abord [`GOTCHA.md`](GOTCHA.md).
 4. Mettre à jour le board : Status, et « Passé (h) » dès que Donnovan donne son temps.
 5. Toujours demander à Donnovan, à la fin de la session : « **Combien de temps as-tu passé sur le projet en
    tout ?** » — et non « combien sur la relecture ». Les « Heures Donnovan » de la ROADMAP comptent *tout* son
-   engagement : pilotage, questions, décisions, relecture.
+   engagement : pilotage, questions, décisions, relecture. En fin de journée, demander aussi **le total depuis
+   le début** et réconcilier le board : les réponses « depuis la dernière fois » oublient le temps entre deux.
 
 ## Board GitHub
 

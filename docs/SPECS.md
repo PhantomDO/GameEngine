@@ -96,7 +96,7 @@ consoles, mobile, macOS (NVRHI n'a pas de backend Metal), VR.
 | Hébergement et suivi | GitHub (dépôt public) | [ADR-0006](adr/0006-hebergement-github.md) |
 | Build et dépendances | CMake (presets) + Ninja + vcpkg (manifeste) | [ADR-0007](adr/0007-build-cmake-vcpkg.md) |
 | Référence d'intégration NVRHI | Donut et Donut-Samples (NVIDIA, MIT) | Lus et adaptés, pas utilisés comme dépendance (ADR-0002) |
-| Initialisation Vulkan | vk-bootstrap (optionnel) | Décidé en M1.2 |
+| Initialisation Vulkan | vk-bootstrap | [ADR-0012](adr/0012-vk-bootstrap.md) |
 | Maths | GLM | Conventions proches de celles des shaders |
 | Import glTF | fastgltf | Rapide, C++ moderne |
 | Images | stb_image, puis libktx (KTX2) | Simple d'abord, format GPU compressé ensuite |
