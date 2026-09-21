@@ -25,6 +25,23 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-21 — M2.1 — Le cube : mesh indexé, depth buffer, constantes par frame (#41, 2/3)
+
+- Temps Donnovan : à renseigner (compté avec #41)
+- Sessions Claude Code : 1
+- Fait : `Mesh`, `createMesh`, `createCube` ; `MeshPass` — input layout, binding layout de frame dans `space0`
+  (ADR-0013) avec un volatile constant buffer, depth buffer `D32`, élimination des faces arrière ;
+  `shaders/mesh.slang`, compilé avec `-matrix-layout-column-major` ; le sandbox dessine un cube qui tourne.
+- Mesures :
+  - **zéro erreur de validation** au lancement, cube compris (Debug, RADV) : la convention d'espaces de
+    l'ADR-0013 tient avec un binding layout (`setRegisterSpaceAndDescriptorSet(0)`) ;
+  - le rendu à l'image près et le sens des faces sont vérifiés par le test de fumée du cube (#41, 3/3).
+- Écarts et problèmes :
+  - Deux pièges nommés dans le code : `VertexBufferBinding` et `IndexBufferBinding` n'ont pas de valeur par
+    défaut pour leur slot, leur format et leur décalage ; la disposition des matrices est imposée à `slangc`
+    plutôt que laissée à son défaut.
+- Prochaine étape : le test de fumée du cube (#41, 3/3).
+
 ## 2026-09-21 — M2.1 — Caméra, chargement des shaders et cache CI (#41, 1/3)
 
 - Temps Donnovan : à renseigner (estimé 0,65 h pour #41, après recalibrage)

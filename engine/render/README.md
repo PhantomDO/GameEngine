@@ -6,7 +6,8 @@ Dessiner, avec NVRHI : pipelines, passes de rendu, et plus tard caméras, matér
 (SPECS §7). **Le module ne connaît que `nvrhi::IDevice`**, jamais Vulkan ni `engine/gpu` : il dessinera tel
 quel sous Direct3D 12 le jour où ce backend existera (`docs/QA.md`, question du 2026-09-21).
 
-**État en M2.1** : le premier triangle (`TrianglePass`), une caméra perspective (`Camera`).
+**État en M2.1** : le premier triangle (`TrianglePass`), une caméra perspective (`Camera`), des meshes indexés
+dessinés avec un depth buffer (`MeshPass`).
 
 ## Invariants
 
@@ -22,6 +23,8 @@ quel sous Direct3D 12 le jour où ce backend existera (`docs/QA.md`, question du
 |---|---|
 | [`include/levain/render/triangle.hpp`](include/levain/render/triangle.hpp) | `createTrianglePass`, `drawTriangle` |
 | [`include/levain/render/camera.hpp`](include/levain/render/camera.hpp) | `Camera`, `viewProjectionOf` — profondeur de 0 à 1, comme Vulkan et Direct3D 12 |
+| [`include/levain/render/mesh.hpp`](include/levain/render/mesh.hpp) | `Mesh`, `createMesh`, `createCube` — buffers de sommets et d'indices |
+| [`include/levain/render/mesh_pass.hpp`](include/levain/render/mesh_pass.hpp) | `createMeshPass`, `ensureDepthTexture`, `drawMesh` — la première passe avec constantes et profondeur |
 
 ## Ce qu'il faut pour dessiner un triangle avec NVRHI
 
@@ -38,6 +41,15 @@ Triangle de Donut-Samples.
 Mesuré sur la machine de référence, en Debug avec validation : **0,09 ms de CPU pour enregistrer et soumettre une
 frame**, 0,15 ms pour la frame entière hors attente de l'écran
 (`SDL_VIDEO_DRIVER=offscreen ./tools/tracy-capture.sh 3`, zones `commandes` et `rendu`).
+
+## Ce qu'ajoute un mesh au triangle
+
+- **Des buffers de sommets et d'indices**, envoyés par `writeBuffer` : NVRHI passe par un buffer d'envoi interne et
+  place les barrières. Un *input layout* dit au pipeline comment lire chaque sommet (position, couleur).
+- **Des constantes par frame** dans un *volatile constant buffer*, lié par un binding set dans `space0`
+  (ADR-0013) : NVRHI fournit une nouvelle version à chaque écriture, sans buffer par frame en vol à gérer.
+- **Un depth buffer**, recréé seulement quand la taille de l'image change, et l'élimination des faces arrière
+  (sens trigonométrique, vérifié par le test de fumée du cube).
 
 ## Équivalents ailleurs
 

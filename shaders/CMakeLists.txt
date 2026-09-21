@@ -17,6 +17,10 @@ set(dxcLibraryDir "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib")
 set(vulkanShifts
     -fvk-t-shift 0 all -fvk-s-shift 128 all -fvk-b-shift 256 all -fvk-u-shift 384 all)
 
+# GLM range ses matrices par colonnes. Imposer la même disposition aux deux formats plutôt que de
+# dépendre du défaut de slangc : une matrice lue transposée déplace tout sans erreur de validation.
+set(commonFlags -matrix-layout-column-major -warnings-as-errors all)
+
 set(LEVAIN_SHADER_DIR "${CMAKE_CURRENT_BINARY_DIR}" CACHE INTERNAL "Shaders compilés")
 set(shaderOutputs)
 
@@ -29,10 +33,10 @@ function(levain_add_shader name entry stage)
     add_custom_command(
         OUTPUT "${spirv}" "${dxil}"
         COMMAND "${LEVAIN_SLANGC}" "${source}" -entry ${entry} -stage ${stage}
-                -target spirv ${vulkanShifts} -warnings-as-errors all
+                -target spirv ${vulkanShifts} ${commonFlags}
                 -o "${spirv}" -depfile "${spirv}.d"
         COMMAND "${LEVAIN_SLANGC}" "${source}" -entry ${entry} -stage ${stage}
-                -target dxil -profile sm_6_0 -dxc-path "${dxcLibraryDir}" -warnings-as-errors all
+                -target dxil -profile sm_6_0 -dxc-path "${dxcLibraryDir}" ${commonFlags}
                 -o "${dxil}"
         DEPENDS "${source}"
         DEPFILE "${spirv}.d"
@@ -48,5 +52,7 @@ endfunction()
 
 levain_add_shader(triangle vertexMain vertex)
 levain_add_shader(triangle fragmentMain fragment)
+levain_add_shader(mesh vertexMain vertex)
+levain_add_shader(mesh fragmentMain fragment)
 
 add_custom_target(levain_shaders ALL DEPENDS ${shaderOutputs})
