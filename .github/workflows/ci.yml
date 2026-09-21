@@ -36,6 +36,8 @@ jobs:
       VCPKG_TAG: "2026.07.29"
       VCPKG_ROOT: ${{ github.workspace }}/vcpkg
       VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/vcpkg-cache
+      # Hors du clone de vcpkg, pour pouvoir le mettre en cache sans dépendre de l'ordre du clone.
+      VCPKG_DOWNLOADS: ${{ github.workspace }}/vcpkg-downloads
       # Doit rester égal à la version de la machine de référence (SPECS §10) : clang-format
       # ne produit pas la même sortie d'une version majeure à l'autre, un écart ferait
       # échouer le contrôle de format sur des fichiers pourtant corrects.
@@ -115,11 +117,22 @@ jobs:
           path: vcpkg-cache
           key: vcpkg-${{ env.VCPKG_TAG }}-${{ hashFiles('vcpkg.json', 'ports/**') }}
 
-      # vcpkg refuse de démarrer si le dossier de cache binaire n'existe pas. Cette étape
-      # doit rester APRÈS la restauration : avant, le dossier existerait déjà et le cache
-      # ne serait jamais restauré, sans le moindre message d'erreur.
-      - name: Créer le dossier de cache
-        run: mkdir -p vcpkg-cache
+      # Les téléchargements de vcpkg : ses outils (dont son propre CMake) et les sources des ports.
+      # Sans ce cache, chaque exécution les reprenait sur GitHub, et une erreur 504 a fait
+      # échouer la CI de #72 sans rien à voir avec le code. restore-keys : un manifeste modifié
+      # repart des téléchargements précédents au lieu de tout reprendre.
+      - name: Cache des téléchargements vcpkg
+        uses: actions/cache@v4
+        with:
+          path: vcpkg-downloads
+          key: vcpkg-downloads-${{ env.VCPKG_TAG }}-${{ hashFiles('vcpkg.json', 'ports/**') }}
+          restore-keys: vcpkg-downloads-${{ env.VCPKG_TAG }}-
+
+      # vcpkg refuse de démarrer si ces dossiers n'existent pas. Cette étape doit rester APRÈS
+      # les restaurations : avant, les dossiers existeraient déjà et les caches ne seraient
+      # jamais restaurés, sans le moindre message d'erreur.
+      - name: Créer les dossiers de cache
+        run: mkdir -p vcpkg-cache vcpkg-downloads
 
       - name: Configurer et compiler
         run: |

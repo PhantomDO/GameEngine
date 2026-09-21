@@ -3,13 +3,14 @@ find_package(doctest CONFIG REQUIRED)
 add_executable(levain_tests
     allocator_test.cpp
     assert_test.cpp
+    camera_test.cpp
     doctest_main.cpp
     error_test.cpp
     file_test.cpp
     frame_time_test.cpp
     log_test.cpp
     version_test.cpp)
-target_link_libraries(levain_tests PRIVATE levain::core doctest::doctest)
+target_link_libraries(levain_tests PRIVATE levain::core levain::render doctest::doctest)
 
 # La macro qui génère le main de doctest ne doit s'appliquer qu'à une seule unité de
 # compilation, sinon chaque fichier de test en produirait un. On la pose donc sur ce fichier

@@ -6,12 +6,12 @@ Dessiner, avec NVRHI : pipelines, passes de rendu, et plus tard caméras, matér
 (SPECS §7). **Le module ne connaît que `nvrhi::IDevice`**, jamais Vulkan ni `engine/gpu` : il dessinera tel
 quel sous Direct3D 12 le jour où ce backend existera (`docs/QA.md`, question du 2026-09-21).
 
-**État en M1.3** : le premier triangle, `TrianglePass`.
+**État en M2.1** : le premier triangle (`TrianglePass`), une caméra perspective (`Camera`).
 
 ## Invariants
 
 1. **Aucune dépendance vers l'API graphique.** Le seul endroit qui distingue Vulkan de Direct3D 12 est
-   `shaderExtensionFor`, qui choisit entre SPIR-V et DXIL d'après `device.getGraphicsAPI()`.
+   `shaderExtensionFor` (`src/shader.cpp`), qui choisit entre SPIR-V et DXIL d'après `device.getGraphicsAPI()`.
 2. **Les shaders sont compilés au build** (`shaders/CMakeLists.txt`, ADR-0005) et lus sur le disque à la création
    des passes. Une passe qui ne trouve pas ses shaders échoue avec un `Result`, pas une assertion : c'est le
    contenu du disque, pas un bug (ADR-0008).
@@ -21,6 +21,7 @@ quel sous Direct3D 12 le jour où ce backend existera (`docs/QA.md`, question du
 | Fichier | Contenu |
 |---|---|
 | [`include/levain/render/triangle.hpp`](include/levain/render/triangle.hpp) | `createTrianglePass`, `drawTriangle` |
+| [`include/levain/render/camera.hpp`](include/levain/render/camera.hpp) | `Camera`, `viewProjectionOf` — profondeur de 0 à 1, comme Vulkan et Direct3D 12 |
 
 ## Ce qu'il faut pour dessiner un triangle avec NVRHI
 
