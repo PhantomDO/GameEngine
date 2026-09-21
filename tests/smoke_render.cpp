@@ -126,12 +126,18 @@ levain::core::Result<void> drawScene(nvrhi::IDevice& device, nvrhi::ICommandList
 
     // Le cube texturé à une rotation fixe, qui montre trois faces : une erreur de profondeur, de
     // sens des faces ou de coordonnées de texture changerait l'image.
+    //
+    // La texture n'est pas le damier du sandbox mais rgbw-2x2.png, agrandie sur chaque face : seul
+    // le niveau 0 est lu, filtré entre quatre couleurs. Un damier réduit sur 20 pixels dépend du
+    // niveau de mip choisi, que Vulkan laisse chaque pilote approcher : 152 pixels différents entre
+    // RADV et lavapipe. Quatre couleurs distinctes montrent en plus une texture retournée, que la
+    // symétrie du damier cachait.
     auto meshPass = levain::render::createMeshPass(device, framebuffer.getFramebufferInfo());
     if (!meshPass)
     {
         return std::unexpected(meshPass.error());
     }
-    auto image = levain::assets::loadImage(LEVAIN_DATA_DIR "/textures/checker.png");
+    auto image = levain::assets::loadImage(LEVAIN_REFERENCE_DIR "/rgbw-2x2.png");
     if (!image)
     {
         return std::unexpected(image.error());
@@ -145,7 +151,7 @@ levain::core::Result<void> drawScene(nvrhi::IDevice& device, nvrhi::ICommandList
         levels.push_back({.width = mip.width, .height = mip.height, .rgba = mip.rgba});
     }
     const nvrhi::TextureHandle checker =
-        levain::render::createTexture(device, commandList, levels, "checker");
+        levain::render::createTexture(device, commandList, levels, "rgbw");
     const nvrhi::BindingSetHandle material =
         levain::render::createMaterialBindings(device, *meshPass, *checker);
 

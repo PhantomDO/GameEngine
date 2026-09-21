@@ -40,7 +40,9 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
     `docs/images/m2.2-mips.png` (commande `magick` dans la PR) ;
   - **le niveau 1 × 1 vaut 192** : la moyenne en lumière linéaire des cases 255 et 64. Une moyenne des octets
     aurait donné 160 (`magick captures/m2.2-mip8.png txt:-`) ;
-  - **texture sur le cube** : référence du test de fumée regardée, même géométrie, damier teinté par face ;
+  - **texture sur le cube** : référence du test de fumée regardée, même géométrie, texture teintée par face. Le
+    test lit `tests/data/rgbw-2x2.png`, agrandie, et non le damier : réduit sur une face de 20 pixels, le damier
+    dépend du niveau de mip que chaque pilote choisit, et la CI (lavapipe) différait de 152 pixels de RADV ;
   - **coût du texturage** : nul à la mesure près. 10 000 cubes, Release : 0,043 ms de GPU sous Wayland, 0,022 ms
     hors écran, comme sans texture (`./build/linux-release/sandbox/levain_sandbox --seconds 10`) ;
   - zéro erreur de validation en Debug, sous RenderDoc compris ; trois presets verts.

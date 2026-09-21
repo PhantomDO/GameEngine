@@ -44,8 +44,7 @@ add_executable(levain_smoke_render smoke_render.cpp)
 target_link_libraries(levain_smoke_render PRIVATE
     levain::assets levain::gpu levain::render levain::platform)
 target_compile_definitions(levain_smoke_render PRIVATE
-    LEVAIN_REFERENCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data"
-    LEVAIN_DATA_DIR="${PROJECT_SOURCE_DIR}/data")
+    LEVAIN_REFERENCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data")
 foreach(scene triangle cube)
     add_test(NAME smoke.${scene} COMMAND levain_smoke_render ${scene})
     set_tests_properties(smoke.${scene} PROPERTIES ENVIRONMENT "SDL_VIDEO_DRIVER=offscreen")
