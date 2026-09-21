@@ -1,3 +1,4 @@
+#include <array>
 #include <cstdint>
 #include <format>
 #include <string>
@@ -275,6 +276,18 @@ core::Result<GpuDevice> createGpuDevice(const platform::Window& window,
     desc.graphicsQueueIndex = static_cast<int>(vulkan->graphicsQueueFamily);
     desc.deviceExtensions = extensions.data();
     desc.numDeviceExtensions = extensions.size();
+
+    // NVRHI donne leur debugName aux objets Vulkan par VK_EXT_debug_utils, s'il sait l'extension
+    // active : les noms apparaissent alors dans RenderDoc et dans les messages de validation.
+    // vk-bootstrap ne l'active qu'avec le messager de validation, et si le pilote la propose : le
+    // messager existe si et seulement si l'extension est active.
+    std::array<const char*, 1> debugUtils{
+        VK_EXT_DEBUG_UTILS_EXTENSION_NAME}; // NVRHI veut un const char**
+    if (vulkan->instance.debug_messenger != VK_NULL_HANDLE)
+    {
+        desc.instanceExtensions = debugUtils.data();
+        desc.numInstanceExtensions = debugUtils.size();
+    }
 
     const nvrhi::vulkan::DeviceHandle vulkanDevice = nvrhi::vulkan::createDevice(desc);
     if (!vulkanDevice)

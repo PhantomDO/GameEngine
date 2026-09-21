@@ -75,6 +75,8 @@ dans `engine/platform/README.md`, section « Pièges connus ».
 
 ## Contre-tests
 
+- **`pkill -f <motif>` tue le shell qui le lance** (2026-09-21) : le motif figure dans sa propre ligne de
+  commande. Chercher par nom exact : `pgrep -a -x levain_sandbox`, `pkill -x levain_sandbox`.
 - **Une faute injectée pour un contre-test se retire depuis une copie** (`cp fichier copie`, puis `cp copie
   fichier`), jamais par `git checkout -- fichier` : il efface aussi tout ce qui n'était pas encore commité. C'est
   arrivé le 2026-09-21 à l'intégration du device dans le sandbox, réécrite ensuite.
@@ -122,6 +124,23 @@ dans `engine/platform/README.md`, section « Pièges connus ».
   (`$args` valant `--seconds 2` arrive en un seul argument). Écrire les arguments en toutes lettres.
 - **Le shell de Donnovan est fish** : `set -Ux` pour une variable d'environnement persistante. Les scripts du
   dépôt commencent par `#!/usr/bin/env bash`.
+
+## RenderDoc
+
+- **`qrenderdoc --python` n'affiche rien** (2026-09-21) : les `print` vont dans la console Python de
+  qrenderdoc, pas sur la sortie standard. Écrire dans un fichier (`tools/renderdoc-mips.py`) et finir par
+  `os._exit`, sinon qrenderdoc ouvre son interface après le script et ne rend jamais la main.
+- **Le module Python `renderdoc` n'existe que dans qrenderdoc** : le paquet Arch ne l'installe pas pour le
+  Python du système. D'où `QT_QPA_PLATFORM=offscreen qrenderdoc --python …`, sans fenêtre.
+- **Au premier lancement, qrenderdoc bloque avant le script** (2026-09-21) : même un script d'une ligne ne
+  s'exécute pas, le journal (`/tmp/RenderDoc/*.log`) s'arrête après `LoadLayout`. Cause : la question sur les
+  statistiques d'usage (`AnalyticsPromptDialog`), invisible en offscreen. Vérifié : le script tourne dès que
+  Donnovan y a répondu, en lançant `qrenderdoc` une fois. C'est son choix, pas celui de l'agent.
+- **RenderDoc 1.45 masque `VK_KHR_wayland_surface`** : sous RenderDoc, `SDL_CreateWindow` échoue sous Wayland.
+  Lancer le programme capturé avec `SDL_VIDEO_DRIVER=x11` (XWayland). `renderdoccmd capture -w …` montre la
+  sortie du programme capturé, que `ExecuteAndInject` cache.
+- **Objets sans nom dans une capture** : NVRHI ne transmet les `debugName` que s'il sait `VK_EXT_debug_utils`
+  active, annoncée dans `DeviceDesc::instanceExtensions` (`engine/gpu/src/device_vk.cpp`).
 
 ## Tracy
 

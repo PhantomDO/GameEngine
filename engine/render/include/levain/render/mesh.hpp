@@ -9,11 +9,13 @@
 namespace levain::render
 {
 
-/// Un sommet : position et couleur. Doit correspondre à `VertexInput` dans `shaders/mesh.slang`.
+/// Un sommet : position, couleur et coordonnées de texture. Doit correspondre à `VertexInput` dans
+/// `shaders/mesh.slang`.
 struct MeshVertex
 {
     glm::vec3 position;
     glm::vec3 color;
+    glm::vec2 uv; ///< (0, 0) en haut à gauche de la texture, comme sous Direct3D et Vulkan.
 };
 
 /// Un mesh indexé en mémoire GPU : chaque sommet n'est stocké qu'une fois, les triangles le
@@ -44,7 +46,8 @@ struct Instances
                               std::span<const MeshVertex> vertices,
                               std::span<const std::uint32_t> indices);
 
-/// Un cube de côté 1, centré sur l'origine, une couleur par face.
+/// Un cube de côté 1, centré sur l'origine, une couleur par face, la texture entière sur chaque
+/// face.
 [[nodiscard]] Mesh createCube(nvrhi::IDevice& device, nvrhi::ICommandList& commandList);
 
 } // namespace levain::render

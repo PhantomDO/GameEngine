@@ -21,16 +21,19 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include <glm/gtc/matrix_transform.hpp>
 
+#include "levain/assets/image.hpp"
 #include "levain/core/file.hpp"
 #include "levain/gpu/device.hpp"
 #include "levain/platform/window.hpp"
 #include "levain/render/camera.hpp"
 #include "levain/render/mesh.hpp"
 #include "levain/render/mesh_pass.hpp"
+#include "levain/render/texture.hpp"
 #include "levain/render/triangle.hpp"
 
 namespace
@@ -121,13 +124,37 @@ levain::core::Result<void> drawScene(nvrhi::IDevice& device, nvrhi::ICommandList
         return {};
     }
 
-    // Le cube à une rotation fixe, qui montre trois faces : une erreur de profondeur ou de sens des
-    // faces changerait l'image.
+    // Le cube texturé à une rotation fixe, qui montre trois faces : une erreur de profondeur, de
+    // sens des faces ou de coordonnées de texture changerait l'image.
+    //
+    // La texture n'est pas le damier du sandbox mais rgbw-2x2.png, agrandie sur chaque face : seul
+    // le niveau 0 est lu, filtré entre quatre couleurs. Un damier réduit sur 20 pixels dépend du
+    // niveau de mip choisi, que Vulkan laisse chaque pilote approcher : 152 pixels différents entre
+    // RADV et lavapipe. Quatre couleurs distinctes montrent en plus une texture retournée, que la
+    // symétrie du damier cachait.
     auto meshPass = levain::render::createMeshPass(device, framebuffer.getFramebufferInfo());
     if (!meshPass)
     {
         return std::unexpected(meshPass.error());
     }
+    auto image = levain::assets::loadImage(LEVAIN_REFERENCE_DIR "/rgbw-2x2.png");
+    if (!image)
+    {
+        return std::unexpected(image.error());
+    }
+    const std::vector<levain::assets::Image> mips =
+        levain::assets::buildMipChain(std::move(*image));
+    std::vector<levain::render::TextureLevel> levels;
+    levels.reserve(mips.size());
+    for (const levain::assets::Image& mip : mips)
+    {
+        levels.push_back({.width = mip.width, .height = mip.height, .rgba = mip.rgba});
+    }
+    const nvrhi::TextureHandle checker =
+        levain::render::createTexture(device, commandList, levels, "rgbw");
+    const nvrhi::BindingSetHandle material =
+        levain::render::createMaterialBindings(device, *meshPass, *checker);
+
     const levain::render::Mesh cube = levain::render::createCube(device, commandList);
     const std::array<glm::vec3, 1> origin{glm::vec3{0.0f}};
     const levain::render::Instances instances =
@@ -136,7 +163,8 @@ levain::core::Result<void> drawScene(nvrhi::IDevice& device, nvrhi::ICommandList
         .viewProjection = levain::render::viewProjectionOf(levain::render::Camera{}, 1.0f),
         .model = glm::rotate(glm::mat4{1.0f}, glm::radians(35.0f), glm::vec3{1.0f, 1.0f, 0.0f}),
     };
-    levain::render::drawMesh(commandList, *meshPass, framebuffer, cube, instances, constants);
+    levain::render::drawMesh(commandList, *meshPass, framebuffer, cube, instances, *material,
+                             constants);
     return {};
 }
 

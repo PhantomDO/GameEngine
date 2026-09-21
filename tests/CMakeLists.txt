@@ -41,7 +41,8 @@ target_link_libraries(levain_bench PRIVATE levain::core)
 # Tests de fumée du rendu (#16, M2.1) : dessinent une scène hors écran et comparent l'image à une
 # référence. SDL_VIDEO_DRIVER=offscreen : pas d'écran en CI, la surface est « headless » (lavapipe).
 add_executable(levain_smoke_render smoke_render.cpp)
-target_link_libraries(levain_smoke_render PRIVATE levain::gpu levain::render levain::platform)
+target_link_libraries(levain_smoke_render PRIVATE
+    levain::assets levain::gpu levain::render levain::platform)
 target_compile_definitions(levain_smoke_render PRIVATE
     LEVAIN_REFERENCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data")
 foreach(scene triangle cube)
