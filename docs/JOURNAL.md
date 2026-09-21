@@ -25,9 +25,54 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-21 — M2.1 — Clôture
+
+- **Temps Donnovan pour M2.1 : 2,0 h**, réconciliées sur le total de la journée : 5 h déclarées, dont 3,0 h
+  déjà affectées à la phase 1. Les réponses après chaque PR ne donnaient que 1,08 h ; l'écart de 0,92 h est
+  réparti au prorata des issues (skill `session`). Il comprend le pilotage du recalibrage de la phase 1, que
+  rien ne permet de séparer.
+- Définition de « terminé » (SPECS §9) : démo lançable sous Linux (Windows hors périmètre, ADR-0011) ; critères
+  mesurés et consignés ; CI verte, zéro erreur de validation ; README de `render` à jour ; board renseigné ; tag
+  `m2.1` et release. Pas d'étude : E2 vient à la fin de la phase 2.
+
+### Critères du milestone
+
+| Critère (ROADMAP) | Mesuré | Commande |
+|---|---|---|
+| 10 000 cubes instanciés à plus de 60 images/s en 1080p | **120 images/s**, la fréquence de l'écran ; 0,043 ms de GPU | `./build/linux-release/sandbox/levain_sandbox --seconds 10` |
+| Temps GPU affiché | dans le titre et le log de fin, par timer queries : 0,011 ms pour 1 cube, 1,089 ms pour 1 000 000 | contre-test sur `GridSide` (#42) |
+| En plus : depth buffer et sens des faces justes | test de fumée du cube ; sens inversé → 454 pixels différents, test rouge | `ctest -R smoke.cube` |
+
+### Temps
+
+| Issue | Estimé | Déclaré | Réconcilié |
+|---|---:|---:|---:|
+| #40 ADR-0013 : binding sets | 0,35 h | 0,33 h | 0,62 h |
+| #41 Caméra, depth buffer et meshes | 0,65 h | 0,50 h | 0,92 h |
+| #42 Instancing et temps GPU | 0,65 h | 0,25 h | 0,46 h |
+| **M2.1** | **1,75 h** (ROADMAP ; 1,65 h sur le board) | 1,08 h | **2,0 h — ratio 1,14** |
+
+Le ratio reste dans la fourchette 0,8–1,25. C'est le premier milestone mesuré après le recalibrage de la phase 1
+(×0,67) : s'il se confirme au-dessus de 1, le recalibrage aura trop coupé, et la clôture de la phase 2 le
+corrigera (ROADMAP, « Recalibrage »).
+
+### Décisions
+
+- **ADR-0013** : binding sets rangés par fréquence de changement (frame, passe, matériau), choisis par Donnovan
+  sur sondage ; passer au bindless demandera un nouvel ADR.
+
+### Ce que M2.1 a appris
+
+- Un test d'image attrape ce qu'aucun test unitaire ne voit : le sens des faces inversé change 454 pixels.
+- Le résultat d'une timer query arrive deux frames après sa mesure : il faut un anneau de requêtes, pas une seule.
+- Les caches GitHub sont propres à une branche et à `main` : une PR ne profite du cache qu'une fois que `main`
+  l'a enregistré. Les erreurs 504 de GitHub se traitent par une relance, pas par le code.
+
+**Prochaine étape** : M2.2 — Textures (#43, #44).
+
 ## 2026-09-21 — M2.1 — Instancing et temps GPU (#42)
 
-- Temps Donnovan : à renseigner
+- **Temps Donnovan : 0,25 h déclarées** (relecture de #76), 0,46 h après réconciliation (clôture ci-dessus)
 - Sessions Claude Code : 1
 - Fait : `Instances` et `createInstances` — un vertex buffer de décalages, lu une fois par instance
   (`setIsInstanced`, slot 1) ; `drawMesh` dessine toutes les instances en un seul `drawIndexed` ; `GpuTimer` —
