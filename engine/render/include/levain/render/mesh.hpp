@@ -32,6 +32,9 @@ struct Mesh
 /// `shaders/mesh.slang`.
 struct Instances
 {
+    // ponytail: une instance n'est qu'un décalage, pas une matrice. Un parent qu'on ferait tourner
+    // déplacerait donc ses enfants sans les tourner (M3.2). Passer aux matrices quand un objet de
+    // la scène devra tourner ou changer d'échelle indépendamment du mesh.
     nvrhi::BufferHandle offsets;
     std::uint32_t count = 0;    ///< Instances dessinées.
     std::uint32_t capacity = 0; ///< Positions que le buffer peut contenir.
