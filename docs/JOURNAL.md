@@ -28,9 +28,10 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ## 2026-09-22 — M3.1 — Clôture
 
-- **Temps Donnovan pour M3.1 : 0,33 h déclarées, provisoire** : 15 min pour #96, 5 min pour #97, essai de
-  l'explorer compris. À réconcilier avec le total de la journée (skill `session`), avant d'en tirer un ratio :
-  les réponses PR par PR ont déjà sous-estimé M1.2, M2.1 et M2.2.
+- **Temps Donnovan pour M3.1 : 0,50 h**, réconcilié en fin de journée. Déclaré PR par PR : 15 min pour #96,
+  5 min pour #97. Total de la journée annoncé le soir : 1 h 45, dont 1 h 15 déjà imputées jusqu'à la clôture de
+  la phase 2 ; les 30 min restantes vont à M3.1, réparties au prorata du déclaré. Troisième fois que les
+  réponses PR par PR sous-estiment (après M1.2, M2.1 et M2.2) : le total du soir reste la seule source.
 - Définition de « terminé » (SPECS §9) : démo lançable sous Linux ; critères mesurés et consignés ; CI verte, zéro
   erreur de validation ; README de `scene` (nouveau) et de `render` à jour ; board renseigné ; tag `m3.1` et
   release. Pas d'étude : E3 vient à la fin de la phase 3.
@@ -44,13 +45,16 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 | En plus : flecs absent de `core`, `platform`, `gpu` et `render` | oui, contrôlé à chaque `ctest` | `ctest -R deps.flecs-visibility` |
 | En plus : l'explorer n'écoute que sur la boucle locale, et pas du tout en Release | oui | `./tools/explorer-check.sh` |
 
-### Temps (provisoire)
+### Temps
 
-| Issue | Estimé | Déclaré |
+| Issue | Estimé | Passé |
 |---|---:|---:|
-| #61 Monde flecs, composants et systèmes (#96) | 0,5 h | 0,25 h |
-| #62 Rendu du monde et explorer (#97) | 0,5 h | 0,08 h |
-| **M3.1** (ROADMAP) | **1,0 h** | 0,33 h, à réconcilier |
+| #61 Monde flecs, composants et systèmes (#96) | 0,5 h | 0,38 h |
+| #62 Rendu du monde et explorer (#97) | 0,5 h | 0,12 h |
+| **M3.1** (ROADMAP) | **1,0 h** | **0,50 h** (ratio 0,50) |
+
+Le ratio de M3.1 ne déclenche rien seul : le recalibrage se calcule à la clôture de la phase 3 (ROADMAP,
+« Recalibrage »).
 
 ### Ce que M3.1 a appris
 
@@ -599,7 +603,7 @@ estimations suivent la ROADMAP actuelle ; le recalibrage les mettra à jour s'il
 | Temps de démarrage mesuré | device créé en **30 à 40 ms** (RADV) ; 0,9 à 1,3 s en CI (lavapipe) | sandbox, « device créé en » |
 | En plus, reporté de M1.1 : minimisation sous Wayland | la boucle s'endort, 0 ms de CPU | même script |
 
-### Temps (provisoire)
+### Temps
 
 | Issue | Estimé | Passé déclaré |
 |---|---:|---:|

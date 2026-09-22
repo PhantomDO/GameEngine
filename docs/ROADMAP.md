@@ -166,7 +166,8 @@ modules flecs ; le renderer dessine ce que contient le monde ; explorer web acti
 *Critères* : les entités de la démo sont visibles et modifiables dans l'explorer (flecs.dev/explorer) ; mise à
 jour de 100 000 entités (Transform + Velocity) en moins d'1 ms.
 
-**M3.2 — Transforms et hiérarchie.** Relations `ChildOf`, matrices monde calculées par une requête en cascade.
+**M3.2 — Transforms et hiérarchie.** Hiérarchie par le composant `flecs::Parent`, matrices monde calculées par
+un système rangé par profondeur ([ADR-0015](adr/0015-stockage-de-la-hierarchie.md)).
 *Critère* : 100 000 entités sur 10 niveaux de profondeur recalculées en moins de 2 ms.
 
 **M3.3 — Boucle à pas fixe.** Pipeline flecs dédié à la simulation, exécuté N fois par frame par un
