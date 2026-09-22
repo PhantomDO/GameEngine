@@ -26,6 +26,50 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-22 — M3.2 — Clôture
+
+- **Temps Donnovan pour M3.2 : 0,42 h déclarées, provisoire** : 10 min pour #99 (l'ADR), 15 min pour #100.
+  À réconcilier avec le total de la journée, comme M3.1 l'a été ce soir.
+- Définition de « terminé » (SPECS §9) : démo lançable sous Linux ; critères mesurés et consignés ; CI verte,
+  zéro erreur de validation ; README de `scene` à jour, limite d'instances nommée dans `render` ; board
+  renseigné ; tag `m3.2` et release. Pas d'étude : E3 vient à la fin de la phase 3.
+
+### Critères du milestone
+
+| Critère (ROADMAP) | Mesuré | Commande |
+|---|---|---|
+| 100 000 entités sur 10 niveaux de profondeur recalculées en moins de 2 ms | **1,45 ms** en chaînes (1 enfant par parent), **1,43 ms** en arbre large (10 enfants par parent) | `./build/linux-release/tests/levain_scene_bench` |
+| Un test vérifie qu'un enfant suit son parent déplacé (issue #63) | 4 tests, dont un petit-enfant dans une hiérarchie bâtie dans le désordre | `./build/linux-debug/tests/levain_tests` |
+| En plus : bout en bout, par l'API de l'explorer | la grille levée de 10 lève la matrice monde du cube de 10, son `Transform` ne bouge pas | `./tools/explorer-check.sh` (Debug et ASan) |
+| En plus : M3.1 tient toujours | `ApplyVelocity` seul, 100 000 entités : 0,065 à 0,098 ms | `levain_scene_bench` |
+| En plus : le stockage écarté, pour mémoire | `ChildOf` + cascade : 15,1 ms en chaînes, 180 264 tables contre 280 | idem |
+
+### Temps
+
+| Issue | Estimé | Déclaré |
+|---|---:|---:|
+| ADR-0015, le stockage de la hiérarchie (#99) | — | 0,17 h |
+| #63 Hiérarchie et matrices monde (#100) | 0,65 h | 0,25 h |
+| **M3.2** (ROADMAP) | **0,75 h** | 0,42 h, à réconcilier |
+
+### Ce que M3.2 a appris
+
+- **Un ADR peut contredire la ROADMAP, chiffres à l'appui.** La ROADMAP prévoyait `ChildOf` et une requête en
+  cascade, la voie que montrent les exemples de flecs. Mesurée, elle ratait le critère d'un facteur 7,5 sur des
+  chaînes, parce que chaque parent crée sa propre table. Une demi-heure de mesures avant d'écrire une ligne.
+- **Le défaut d'une bibliothèque n'est pas toujours celui qu'on croit** : `group_by` range les tables par
+  groupe mais **ne trie pas les groupes**. Le test qui échoue sans le drapeau a été écrit avant le code du
+  système, et c'est lui qui a trouvé le piège.
+- **Une requête juste peut coûter 26 fois trop cher** : demander « les enfants de `grid` » est exact, mais ne
+  se résout pas table par table avec le stockage `Parent` (212 µs par frame contre 8). Le chiffre n'est apparu
+  qu'en comptant les frames du sandbox — le banc, lui, ne mesurait pas cette requête.
+- **Le coût d'un choix se paie ailleurs** : le sandbox passe de 62 à 214 µs par frame, pour 10 000 matrices
+  monde recalculées à chaque tour. C'est assumé (ADR-0015) ; la détection de changement de flecs n'y servirait
+  à rien, puisque `ApplyVelocity` écrit dans tous les `Transform` à chaque frame.
+
+**Prochaine étape** : M3.3 — boucle à pas fixe, pipeline de simulation et interpolation (#64), avec un ADR à
+écrire sur l'accumulateur et le garde-fou contre la « spirale de la mort ».
+
 ## 2026-09-22 — M3.2 — Hiérarchie et matrices monde (#63)
 
 - Temps Donnovan : à renseigner
