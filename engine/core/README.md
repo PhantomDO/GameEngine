@@ -7,7 +7,8 @@ dépend de rien — ni SDL3, ni NVRHI, ni flecs.
 
 **État en M1.1** : logs par catégorie, assertions, politique d'erreurs de
 l'[ADR-0008](../../docs/adr/0008-gestion-erreurs.md), allocateurs linéaire et pool, macros de profilage Tracy,
-statistiques de frame time, lecture de fichiers (les shaders compilés, M1.3).
+statistiques de frame time, lecture de fichiers (les shaders compilés, M1.3), surveillance d'un dossier par les dates
+de modification (le hot-reload des shaders, M2.3).
 
 ## Invariants
 
@@ -28,7 +29,7 @@ statistiques de frame time, lecture de fichiers (les shaders compilés, M1.3).
 | [`include/levain/core/linear_allocator.hpp`](include/levain/core/linear_allocator.hpp) | `LinearAllocator` — arène vidée d'un coup, **9,4× plus rapide que `malloc`** |
 | [`include/levain/core/pool_allocator.hpp`](include/levain/core/pool_allocator.hpp) | `PoolAllocator` — blocs de taille fixe rendus dans n'importe quel ordre, **5,9×** |
 | [`include/levain/core/frame_time.hpp`](include/levain/core/frame_time.hpp) | `recordFrame` — moyenne, minimum et **maximum** par période : c'est le maximum qui montre une saccade |
-| [`include/levain/core/file.hpp`](include/levain/core/file.hpp) | `readFile` — un fichier entier en mémoire, ou un `Result` en échec |
+| [`include/levain/core/file.hpp`](include/levain/core/file.hpp) | `readFile` — un fichier entier en mémoire, ou un `Result` en échec ; `FileWatch`, `watchDirectory`, `takeChangedFiles` — les fichiers d'un dossier créés ou modifiés depuis la dernière fois |
 | [`include/levain/core/profile.hpp`](include/levain/core/profile.hpp) | `LEVAIN_PROFILE_SCOPE`, `LEVAIN_PROFILE_FRAME` — compilées hors du binaire par défaut |
 | [`include/levain/core/version.hpp`](include/levain/core/version.hpp) | `version()` et `toolchain()` — la bannière de démarrage |
 

@@ -1,7 +1,10 @@
+#include <algorithm>
+#include <chrono>
 #include <cstddef>
 #include <filesystem>
 #include <fstream>
 #include <ostream>
+#include <vector>
 
 #include <doctest/doctest.h>
 
@@ -33,4 +36,38 @@ TEST_CASE("readFile signale un fichier absent comme FileNotFound")
 
     REQUIRE_FALSE(bytes.has_value());
     CHECK(bytes.error().code == ErrorCode::FileNotFound);
+}
+
+TEST_CASE("takeChangedFiles rend les fichiers créés ou modifiés, une seule fois")
+{
+    const std::filesystem::path directory =
+        std::filesystem::temp_directory_path() / "levain_file_watch_test";
+    std::filesystem::remove_all(directory);
+    std::filesystem::create_directory(directory);
+    const std::filesystem::path shader = directory / "mesh.slang";
+    std::ofstream{shader} << "// v1";
+
+    levain::core::FileWatch watch = levain::core::watchDirectory(directory, ".slang");
+    CHECK(levain::core::takeChangedFiles(watch).empty()); // rien depuis le départ
+
+    // Une date posée à la main plutôt qu'une réécriture : deux écritures dans la même milliseconde
+    // pourraient garder la même date sur certains systèmes de fichiers.
+    std::filesystem::last_write_time(shader, std::filesystem::last_write_time(shader) +
+                                                 std::chrono::seconds{1});
+    std::ofstream{directory / "triangle.slang"} << "// nouveau";
+    std::ofstream{directory / "mesh.slang~"} << "// copie d'un éditeur, ignorée";
+
+    std::vector<std::filesystem::path> changed = levain::core::takeChangedFiles(watch);
+    std::ranges::sort(changed);
+    CHECK(changed == std::vector<std::filesystem::path>{shader, directory / "triangle.slang"});
+    CHECK(levain::core::takeChangedFiles(watch).empty()); // déjà rendus
+
+    std::filesystem::remove_all(directory);
+}
+
+TEST_CASE("takeChangedFiles ne rend rien pour un dossier absent")
+{
+    levain::core::FileWatch watch =
+        levain::core::watchDirectory("/chemin/qui/n/existe/pas", ".slang");
+    CHECK(levain::core::takeChangedFiles(watch).empty());
 }
