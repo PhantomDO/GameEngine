@@ -2,8 +2,25 @@
 
 #include <flecs.h>
 
+#include "levain/scene/fixed_step.hpp"
+
 namespace levain::scene
 {
+
+/// L'étiquette des systèmes de simulation : ils tournent dans un pipeline à part, exécuté N fois
+/// par image avec un pas fixe (ADR-0016). Un système de gameplay se déclare
+/// `world.system<...>().kind<levain::scene::Simulation>()`, et son `delta_time` vaut alors toujours
+/// un pas — c'est ce qui rend son résultat reproductible.
+struct Simulation
+{
+};
+
+/// Le pipeline des systèmes de simulation, posé en singleton par le module pour qu'`advanceWorld`
+/// le retrouve.
+struct SimulationPipeline
+{
+    flecs::entity_t pipeline = 0;
+};
 
 /// Le module flecs de la scène : ses composants et ses systèmes, rangés par phase du pipeline de
 /// flecs. S'installe par `world.import<levain::scene::SceneModule>()`.
@@ -14,5 +31,12 @@ struct SceneModule
 {
     explicit SceneModule(flecs::world& world);
 };
+
+/// Avance le monde d'une image : les pas de simulation que `frameSeconds` a mérités, puis une passe
+/// de rendu (interpolation et matrices monde). Renvoie le nombre de pas exécutés.
+///
+/// La glu entre l'horloge de l'application et les deux pipelines de flecs ; le calcul, lui, est
+/// dans `planSteps` (`fixed_step.hpp`), qui se teste sans monde.
+int advanceWorld(flecs::world& world, FixedStep& step, float frameSeconds);
 
 } // namespace levain::scene

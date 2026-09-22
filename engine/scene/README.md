@@ -5,10 +5,11 @@
 Le modèle objet du moteur : le monde flecs, ses composants et ses systèmes (ADR-0004). Tout ce qui vit dans une
 partie (objets, caméra, lumières) sera une entité de ce monde.
 
-**État en M3.2** : les composants `Transform`, `Velocity` et `WorldTransform`, décrits pour la réflexion de
-flecs ; deux systèmes, `ApplyVelocity` (phase `OnUpdate`) et `ComputeWorldTransforms` (phase `PostUpdate`), qui
-compose les matrices monde en descendant la hiérarchie. Le sandbox en fait 10 000 cubes, enfants d'une entité
-`grid` : lever la grille dans l'explorer lève les 10 000 cubes.
+**État en M3.3** : les composants `Transform`, `Velocity`, `WorldTransform` et `PreviousTransform`, décrits
+pour la réflexion de flecs. **Deux pipelines** : la simulation (`ApplyVelocity`, `SavePreviousTransform`)
+tourne à pas fixe, 60 Hz, autant de fois par image qu'il le faut ; le rendu (`ComputeWorldTransforms`) tourne
+une fois par image et affiche l'entre-deux. Le sandbox en fait 10 000 cubes, enfants d'une entité `grid` :
+lever la grille dans l'explorer lève les 10 000 cubes.
 
 ## Invariants
 
@@ -25,6 +26,12 @@ compose les matrices monde en descendant la hiérarchie. Le sandbox en fait 10 0
    `world.entity(flecs::Parent{parent}, "nom")`.
 5. **`Transform` s'écrit, `WorldTransform` se lit** : le système réécrit `WorldTransform` à chaque tour, dans
    la phase `PostUpdate`, donc après la simulation et avant que le rendu ne relève les positions.
+6. **Un système de gameplay va dans le pipeline de simulation** ([ADR-0016](../../docs/adr/0016-boucle-a-pas-fixe.md)) :
+   `.kind<levain::scene::Simulation>()`. Son `delta_time` vaut alors toujours un pas — c'est ce qui rend son
+   résultat reproductible. Un système déclaré dans une phase du pipeline par défaut tourne, lui, une fois par
+   **image**, à cadence libre : c'est la place du rendu, pas celle du jeu.
+7. **L'application avance le monde par `advanceWorld`**, jamais par `world.progress` : `progress` seul ne
+   simule rien.
 
 ## Points d'entrée
 
@@ -32,7 +39,8 @@ compose les matrices monde en descendant la hiérarchie. Le sandbox en fait 10 0
 |---|---|
 | [`include/levain/scene/components.hpp`](include/levain/scene/components.hpp) | `Transform` (position, rotation, échelle, **dans le repère du parent**), `Velocity`, `WorldTransform` (la matrice monde, calculée) |
 | [`include/levain/scene/motion.hpp`](include/levain/scene/motion.hpp) | `applyVelocity` — la logique, sans flecs |
-| [`include/levain/scene/transform.hpp`](include/levain/scene/transform.hpp) | `localMatrix`, `worldMatrix` (l'ordre du produit), `worldPosition` — sans flecs non plus |
+| [`include/levain/scene/transform.hpp`](include/levain/scene/transform.hpp) | `localMatrix`, `worldMatrix` (l'ordre du produit), `interpolate`, `nlerpShortestPath`, `worldPosition` — sans flecs non plus |
+| [`include/levain/scene/fixed_step.hpp`](include/levain/scene/fixed_step.hpp) | `FixedStep` et `planSteps` — l'accumulateur et son plafond, testables sans monde |
 | [`include/levain/scene/scene.hpp`](include/levain/scene/scene.hpp) | `SceneModule` — `world.import<levain::scene::SceneModule>()` |
 
 ## Trois notions de flecs
@@ -45,6 +53,9 @@ compose les matrices monde en descendant la hiérarchie. Le sandbox en fait 10 0
 - **Phase** : `world.progress()` exécute les systèmes phase par phase, dans l'ordre du pipeline par défaut
   (`OnLoad`, `PostLoad`, `PreUpdate`, `OnUpdate`, `OnValidate`, `PostUpdate`, `PreStore`, `OnStore`). La
   simulation va dans `OnUpdate`, les matrices monde dans `PostUpdate`.
+- **Pipeline** : une liste de systèmes, exécutée par `progress` (celui par défaut) ou par `run_pipeline`
+  (le nôtre, `Simulation`). Un système y entre par son étiquette, et flecs les exécute dans l'ordre de leur
+  déclaration. Deux pipelines, c'est ce qui permet de rejouer la simulation N fois sans rejouer le rendu.
 - **Hiérarchie** : le composant `flecs::Parent` contient l'entité parente, et flecs y ajoute la profondeur
   (`(ParentDepth, @n)`). `group_by(flecs::ParentDepth)` range les entités par niveau pour qu'un parent soit
   calculé avant ses enfants — c'est ce qui remplace une récursion. Coût mesuré : 100 000 entités sur 10
@@ -74,7 +85,20 @@ sauvegardées (phase 7), en dépendent. Vérification : `tools/explorer-check.sh
 | `group_by` **ne trie pas** les groupes : il les parcourt dans l'ordre inverse de leur création, donc un petit-enfant avant son parent | ajouter `query_flags(EcsQueryGroupByOrdered)` ; un test construit une hiérarchie dans le désordre |
 | Une requête `(ChildOf, parent)` **combinée à un composant** ne se résout pas table par table quand la hiérarchie est dans `flecs::Parent` : 212 µs pour 10 000 cubes, contre 8 | filtrer autrement (un tag, comme `Cube` dans le sandbox), ou interroger `flecs::Parent` |
 | `entity(...).get<T>()` dans la boucle d'un système, ou `it.world()`, coûtent 0,5 ms par 100 000 entités | capturer le monde et l'identifiant du composant une fois, puis `ecs_get_id` |
+| Une requête dont le **singleton manque** ne correspond à rien, et son système se tait au lieu d'échouer | poser le singleton à l'import du module (`RenderAlpha`), et un test qui vérifie qu'un `progress` seul compose quand même les matrices |
+| Les *tick sources* (`interval(1/60)`) **ne rattrapent pas** le retard : à 30 images/s, le système tourne 30 fois par seconde, pas 60 | l'accumulateur de `fixed_step.hpp` et un pipeline exécuté N fois ([ADR-0016](../../docs/adr/0016-boucle-a-pas-fixe.md)) |
 | Sans `ipaddr`, le serveur REST écoute sur **toutes les interfaces**, et son API sait supprimer des entités et exécuter des scripts | toujours `127.0.0.1` ; `tools/explorer-check.sh` échoue sinon |
+
+## Ce que coûte un tour (Release, 100 000 entités)
+
+| Mesure | Valeur |
+|---|---|
+| Un pas de simulation (`SavePreviousTransform` + `ApplyVelocity`) | 0,16 ms |
+| Une passe de rendu, toutes les entités interpolées | 2,09 ms |
+| Les matrices monde seules, 10 niveaux de hiérarchie | 1,42 ms |
+
+`levain_scene_bench`, machine de référence. L'interpolation ne se paie que sur ce que la simulation déplace :
+sur les quelques centaines d'acteurs en mouvement d'un monde ouvert, elle coûte quelques microsecondes.
 
 ## Équivalents ailleurs
 
@@ -82,4 +106,4 @@ sauvegardées (phase 7), en dépendent. Vérification : `tools/explorer-check.sh
 |---|---|---|
 | **Unreal** | Mass Entity ; *tick groups* | Un ECS à archetypes à côté des Actors ; les phases s'appellent groupes de tick (`TG_PrePhysics`, `TG_PostPhysics`…) (**documenté** : documentation d'Epic). |
 | **Unity** | Entities (DOTS) ; *system groups* | Un ECS à archetypes rangés en *chunks* ; les systèmes dans des groupes (`Initialization`, `Simulation`, `Presentation`). La hiérarchie y est aussi un composant de l'enfant (`Parent`), et `LocalToWorldSystem` compose les matrices comme le nôtre (**documenté** : manuel du package Entities). |
-| **Godot** | Arbre de scène, `Node` | Pas d'ECS : des nœuds hiérarchiques, mis à jour par `_process` et `_physics_process` (**documenté** : docs officielles). |
+| **Godot** | Arbre de scène, `Node` | Pas d'ECS : des nœuds hiérarchiques, mis à jour par `_process` (par image) et `_physics_process` (à pas fixe, 60 Hz) — nos deux pipelines. L'interpolation de la physique y est optionnelle et désactivée par défaut (**documenté** : docs officielles). |
