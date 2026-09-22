@@ -9,13 +9,15 @@ add_executable(levain_tests
     file_test.cpp
     frame_time_test.cpp
     image_test.cpp
+    input_test.cpp
     log_test.cpp
     process_test.cpp
     scene_test.cpp
     texture_test.cpp
     version_test.cpp)
 target_link_libraries(levain_tests PRIVATE
-    levain::assets levain::core levain::platform levain::render levain::scene doctest::doctest)
+    levain::assets levain::core levain::input levain::platform levain::render levain::scene
+    doctest::doctest)
 
 # La macro qui génère le main de doctest ne doit s'appliquer qu'à une seule unité de
 # compilation, sinon chaque fichier de test en produirait un. On la pose donc sur ce fichier
@@ -28,6 +30,7 @@ set_source_files_properties(doctest_main.cpp
 target_compile_definitions(levain_tests PRIVATE
     LEVAIN_EXPECTED_VERSION="${PROJECT_VERSION}"
     LEVAIN_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data"
+    LEVAIN_DATA_DIR="${CMAKE_SOURCE_DIR}/data"
     LEVAIN_CMAKE_COMMAND="${CMAKE_COMMAND}")
 
 # doctest_discover_tests lance le binaire à la compilation pour lister ses cas, et en
