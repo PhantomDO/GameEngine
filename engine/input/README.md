@@ -6,8 +6,8 @@ Traduire des appuis en **intentions de jeu**. Le code du jeu demande « avance �
 touche W » : c'est ce qui permet de changer les touches sans recompiler et de piloter la même action au clavier
 et à la manette ([ADR-0017](../../docs/adr/0017-input-par-actions.md)).
 
-**État** : les liaisons se lisent dans un fichier texte. L'état des actions et des axes vient juste après,
-dans la même issue (#66), et la caméra libre du sandbox dans #67.
+**État en M3.4** : les liaisons se lisent dans un fichier texte, l'état des actions et des axes se met à jour à
+chaque image, et le sandbox y branche sa caméra libre.
 
 ## Invariants
 
@@ -15,15 +15,19 @@ dans la même issue (#66), et la caméra libre du sandbox dans #67.
    répond jamais (règle n°7) : `loadBindings` rend une erreur, avec le numéro de ligne.
 2. **Les noms sont ceux de SDL**, résolus par `platform/input.hpp` : aucune table à maintenir ici. Attention,
    la table de SDL est restée celle d'une manette Xbox — `a`, `b`, `x`, `y`, et non `south`, `east`…
-3. **Une action ou un axe se résout en indice une fois**, au chargement (`actionIndex`, `axisIndex`) : aucune
+3. **Un axe est une vitesse**, que le jeu multiplie par la durée de son pas. Un stick en donne une
+   naturellement ; le déplacement de la souris est divisé par la durée de l'image pour en devenir une. Sans
+   ça, tourner la caméra à la souris irait deux fois plus vite à 120 images/s qu'à 60.
+4. **Une action ou un axe se résout en indice une fois**, au chargement (`actionIndex`, `axisIndex`) : aucune
    comparaison de chaînes par image.
-4. **Ce module ne voit jamais SDL** : il ne connaît que les types de `platform`.
+5. **Ce module ne voit jamais SDL** : il ne connaît que les types de `platform`.
 
 ## Points d'entrée
 
 | Fichier | Contenu |
 |---|---|
 | [`include/levain/input/bindings.hpp`](include/levain/input/bindings.hpp) | `Bindings`, `loadBindings`, `parseBindings` (la version qui se teste sans disque), `actionIndex`, `axisIndex` |
+| [`include/levain/input/state.hpp`](include/levain/input/state.hpp) | `InputState`, `updateInput`, `actionHeld`, `actionPressed`, `axisValue`, et la logique nue : `applyEvent`, `applyDeadzone`, `sourceValue` |
 | [`../../data/input.cfg`](../../data/input.cfg) | Les liaisons de la démo. Un test vérifie qu'il est valide |
 
 ## Le fichier de liaisons
@@ -39,7 +43,10 @@ deadzone = 0.15
 - Un jeton s'écrit `appareil:nom[:échelle]`, l'appareil étant `key`, `mouse` ou `pad`.
 - **L'échelle fait tout le travail** : elle transforme une touche en demi-axe (`key:A:-1`), règle la
   sensibilité de la souris (`mouse:x:0.15`) et la vitesse d'un stick, en degrés par seconde ici.
-- `deadzone` est la zone morte des sticks, dont se servira l'état des axes.
+- Une **gâchette** est un axe : dans une `action`, elle compte comme un appui passé la moitié de sa course
+  (`ActionThreshold`).
+- `deadzone` est la zone morte des sticks. En deçà, la valeur est nulle ; au-delà, la plage restante est
+  réétalée sur [0, 1], pour qu'il n'y ait pas de saut au franchissement du seuil.
 
 ## Ce qui n'est pas là, et pourquoi
 

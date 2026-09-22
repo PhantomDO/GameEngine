@@ -1,4 +1,4 @@
-add_library(levain_input STATIC src/bindings.cpp)
+add_library(levain_input STATIC src/bindings.cpp src/state.cpp)
 add_library(levain::input ALIAS levain_input)
 
 target_include_directories(levain_input PUBLIC include)
