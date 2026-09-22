@@ -26,6 +26,44 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-22 — M3.1 — Clôture
+
+- **Temps Donnovan pour M3.1 : 0,33 h déclarées, provisoire** : 15 min pour #96, 5 min pour #97, essai de
+  l'explorer compris. À réconcilier avec le total de la journée (skill `session`), avant d'en tirer un ratio :
+  les réponses PR par PR ont déjà sous-estimé M1.2, M2.1 et M2.2.
+- Définition de « terminé » (SPECS §9) : démo lançable sous Linux ; critères mesurés et consignés ; CI verte, zéro
+  erreur de validation ; README de `scene` (nouveau) et de `render` à jour ; board renseigné ; tag `m3.1` et
+  release. Pas d'étude : E3 vient à la fin de la phase 3.
+
+### Critères du milestone
+
+| Critère (ROADMAP) | Mesuré | Commande |
+|---|---|---|
+| Les entités de la démo sont visibles et modifiables dans l'explorer | `cube_50_50` lu par l'API de l'explorer ; une vitesse posée le fait monter de ~5 unités en 1 s ; essayé par Donnovan dans flecs.dev/explorer | `./tools/explorer-check.sh` |
+| Mise à jour de 100 000 entités (Transform + Velocity) en moins d'1 ms | médiane **0,071 à 0,095 ms** | `./build/linux-release/tests/levain_scene_bench` |
+| En plus : flecs absent de `core`, `platform`, `gpu` et `render` | oui, contrôlé à chaque `ctest` | `ctest -R deps.flecs-visibility` |
+| En plus : l'explorer n'écoute que sur la boucle locale, et pas du tout en Release | oui | `./tools/explorer-check.sh` |
+
+### Temps (provisoire)
+
+| Issue | Estimé | Déclaré |
+|---|---:|---:|
+| #61 Monde flecs, composants et systèmes (#96) | 0,5 h | 0,25 h |
+| #62 Rendu du monde et explorer (#97) | 0,5 h | 0,08 h |
+| **M3.1** (ROADMAP) | **1,0 h** | 0,33 h, à réconcilier |
+
+### Ce que M3.1 a appris
+
+- **Un outil de développement peut ouvrir une porte** : l'explorer de flecs écoutait par défaut sur toutes les
+  interfaces, avec une API qui supprime des entités et exécute des scripts. Le contrôle qui le vérifie fait
+  partie du script de M3.1.
+- **La propriété de la mémoire traverse les API C** : `EcsRest::ipaddr`, libéré par flecs, ne se voyait qu'à la
+  sortie du programme. ASan l'a trouvé ; le chemin normal n'aurait rien montré.
+- **Tester la réflexion par son format de sortie** : le test JSON a trouvé le piège de `count = 1` avant que
+  l'explorer n'affiche des tableaux.
+
+**Prochaine étape** : M3.2 — relations `ChildOf` et matrices monde en cascade (#63).
+
 ## 2026-09-22 — M3.1 — Le rendu lit le monde ; explorer flecs en Debug (#62)
 
 - Temps Donnovan : à renseigner
