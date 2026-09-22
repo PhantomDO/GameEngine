@@ -9,7 +9,8 @@ quel sous Direct3D 12 le jour où ce backend existera (`docs/QA.md`, question du
 **État en M2.2** : le premier triangle (`TrianglePass`), une caméra perspective (`Camera`), des meshes indexés
 dessinés avec un depth buffer (`MeshPass`), en plusieurs exemplaires par un seul draw (`Instances`), texturés
 avec tous leurs niveaux de mip (`createTexture`, `createMaterialBindings`), lus par un sampler réglable
-(`createSampler`, filtrage anisotrope), et le temps GPU d'une frame (`GpuTimer`).
+(`createSampler`, filtrage anisotrope), et le temps GPU d'une frame (`GpuTimer`). Le pipeline des meshes se
+recrée à chaud quand son shader change (`reloadMeshPassShaders`, ADR-0014).
 
 ## Invariants
 
@@ -26,7 +27,7 @@ avec tous leurs niveaux de mip (`createTexture`, `createMaterialBindings`), lus 
 | [`include/levain/render/triangle.hpp`](include/levain/render/triangle.hpp) | `createTrianglePass`, `drawTriangle` |
 | [`include/levain/render/camera.hpp`](include/levain/render/camera.hpp) | `Camera`, `viewProjectionOf` — profondeur de 0 à 1, comme Vulkan et Direct3D 12 |
 | [`include/levain/render/mesh.hpp`](include/levain/render/mesh.hpp) | `Mesh`, `createMesh`, `createCube`, `createPlane` — buffers de sommets et d'indices ; `Instances`, `createInstances` — un décalage par exemplaire |
-| [`include/levain/render/mesh_pass.hpp`](include/levain/render/mesh_pass.hpp) | `createMeshPass`, `ensureDepthTexture`, `createMaterialBindings`, `drawMesh` — la première passe avec constantes, profondeur et texture |
+| [`include/levain/render/mesh_pass.hpp`](include/levain/render/mesh_pass.hpp) | `createMeshPass`, `reloadMeshPassShaders`, `ensureDepthTexture`, `createMaterialBindings`, `drawMesh` — la première passe avec constantes, profondeur et texture |
 | [`include/levain/render/texture.hpp`](include/levain/render/texture.hpp) | `TextureLevel`, `createTexture` — une texture sRGB et tous ses niveaux de mip ; `SamplerSettings`, `createSampler`, `clampAnisotropy` |
 | [`include/levain/render/gpu_timer.hpp`](include/levain/render/gpu_timer.hpp) | `GpuTimer`, `beginGpuTimer`, `endGpuTimer` — temps GPU par timer queries |
 
@@ -89,6 +90,21 @@ l'horizon, le contraste du damier passe de 0,088 à 0,160 ; le temps GPU de la f
 Côté Vulkan, il faut la fonctionnalité `samplerAnisotropy` du device (`engine/gpu/src/device_vk.cpp`) : sans
 elle, la validation refuse le sampler.
 
+## Le hot-reload des shaders
+
+Modifier `shaders/mesh.slang` pendant que le sandbox tourne change l'image **en moins d'une demi-seconde**
+([ADR-0014](../../docs/adr/0014-hot-reload-des-shaders.md)) :
+
+1. le sandbox voit la nouvelle date du fichier (`core::takeChangedFiles`, toutes les 100 ms) ;
+2. il relance le build des shaders (`platform::runProcess`, `cmake --build … --target levain_shaders`), ~350 ms ;
+3. `reloadMeshPassShaders` relit le SPIR-V et recrée **le pipeline seul** : binding layouts, buffers et binding
+   sets restent. Le pipeline dépend des shaders ; les layouts, de ce que la passe leur fournit.
+
+Si la compilation échoue, le message de slangc va dans le log et le pipeline en place continue de servir.
+Si elle réussit mais que NVRHI refuse le pipeline, la passe garde aussi l'ancien : le remplacement se fait sur une
+copie. Limite : un shader qui ne correspond plus à la passe (un attribut retiré) déclenche une erreur de
+validation, donc une assertion en Debug. Vérification : `tools/shader-hot-reload.sh`.
+
 ## Mesurer le temps GPU
 
 Le CPU ne voit que le temps qu'il passe à enregistrer : le GPU exécute plus tard, en parallèle. Une **timer
@@ -104,6 +120,7 @@ que quand le GPU a fini la frame, d'où l'anneau de trois requêtes de `GpuTimer
 | **Godot** | `servers/rendering/renderer_rd` | Les renderers Forward+ et Mobile, écrits au-dessus de `RenderingDevice` (**documenté** : dépôt public). |
 | **Unity** | SRP (URP, HDRP) | Les pipelines de rendu, écrits en C# au-dessus de la couche graphique interne (**documenté** : packages publics). |
 | **Unreal** | `FRHIRenderQuery`, `stat gpu` | Timer queries au-dessus de la RHI, affichées par passe (**documenté** : sources publiques). |
+| **Unreal** | `recompileshaders changed`, `ShaderCompileWorker` | Recompilation à chaud par des processus séparés (**documenté** : documentation d'Epic). |
 | **Unity** | GPU Instancing, Frame Timing Manager | Instancing activé par matériau ; temps GPU par frame (**documenté** : manuel). |
 | **Unreal** | `TextureGroup`, `r.MaxAnisotropy` | L'anisotropie se règle par groupe de textures, plafonnée par un réglage global (**documenté** : sources publiques). |
 | **Unity** | Texture Importer, *Aniso Level* ; `QualitySettings.anisotropicFiltering` | Un niveau par texture, que les réglages de qualité peuvent forcer (**documenté** : manuel). |

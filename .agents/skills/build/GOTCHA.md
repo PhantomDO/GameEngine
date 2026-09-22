@@ -5,6 +5,12 @@ dans `engine/platform/README.md`, section « Pièges connus ».
 
 ## Shaders
 
+- **Lire l'erreur d'un shader dans la sortie de ninja** (2026-09-22) : chercher « error » ramène aussi la
+  ligne de commande, qui contient `-warnings-as-errors`, et les nouveaux diagnostics de slangc
+  (`error[E20001]`) s'étalent sur plusieurs lignes, avec la ligne fautive et un repère. Ninja encadre chaque
+  échec : `FAILED: …`, la commande, puis la sortie de la commande jusqu'à la ligne d'état suivante `[n/m]`. Garder
+  la sortie de la première commande en échec (`firstFailure`, `sandbox/src/shader_reload.cpp`) : les deux
+  points d'entrée d'un fichier échouent sur les mêmes erreurs.
 - **`SV_VertexID` exige `shaderDrawParameters`** (2026-09-21). En HLSL, il compte depuis 0 sans le sommet de base
   du draw ; en Vulkan, il l'inclut. Slang compense en lisant ce sommet de base (capacité SPIR-V
   `DrawParameters`) : sans la fonctionnalité côté device, la validation refuse le shader à sa création.

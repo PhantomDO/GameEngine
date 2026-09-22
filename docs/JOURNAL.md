@@ -25,6 +25,29 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-22 — M2.3 — Hot-reload des shaders (#45, #46)
+
+- Temps Donnovan : à renseigner
+- Sessions Claude Code : 1
+- Fait : ADR-0014 (sondage : relancer le build des shaders plutôt que la bibliothèque Slang) ;
+  `platform::runProcess` (SDL_CreateProcessWithProperties) ; `core::FileWatch` (dates de modification) ;
+  `render::reloadMeshPassShaders`, qui recrée le pipeline seul, sur une copie ; `sandbox/src/shader_reload.cpp`
+  relie le tout ; `tools/shader-hot-reload.sh` vérifie teinte, erreur et retour à l'original.
+- Mesures (machine de référence, Debug avec validation) :
+  - **modification visible en moins d'1 s** : **~450 ms** du fichier enregistré au pipeline recréé. Détection
+    6 à 98 ms (surveillance toutes les 100 ms), build 335 à 364 ms, pipeline 0,2 à 2,1 ms, sur six rechargements
+    (`./tools/shader-hot-reload.sh`, fenêtre Wayland, hors écran et ASan) ;
+  - **une erreur de compilation ne fait pas planter** : le message de slangc (fichier, ligne, colonne) va dans
+    le log, la boucle tourne ses 10 s jusqu'au bout avec le shader précédent ;
+  - **seuls les pipelines touchés sont recréés** : `triangle.slang` modifié → recompilé, « aucun pipeline à
+    recréer » ;
+  - options de mesure comparées pour l'ADR : build des shaders 330 à 400 ms, `slangc` seul 145 ms par point
+    d'entrée ;
+  - trois presets verts, 44 tests ; sous ASan et UBSan, le script passe aussi.
+- Écarts et problèmes : le build bloque la boucle le temps de la compilation (~350 ms, une image figée) ; noté
+  `ponytail:` dans le code, un thread si ça gêne.
+- Prochaine étape : clôture de M2.3, puis étude E2 (#47) et clôture de la phase 2.
+
 ## 2026-09-21 — M2.2 — Clôture
 
 - **Temps Donnovan pour M2.2 : 1,0 h**, réconciliée sur le total de la journée : 6 h déclarées, dont 5 h déjà

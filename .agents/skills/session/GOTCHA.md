@@ -29,6 +29,8 @@ Un piège par entrée : symptôme, cause, parade. Le plus récent en haut.
 - **Parade** : une PR par issue, en branches empilées (B part de A). La règle n°1 interdit d'ouvrir B avant la
   fusion de A : B reste poussée sans PR. Après la fusion de A **en squash**, les commits de A n'existent plus
   sur `main` : `git rebase --onto main <dernier commit de A>` sur B, sinon le rebase rejoue A.
+- **`gh pr merge --delete-branch` supprime aussi la branche locale** (2026-09-22) : le rebase de B qui la
+  nommait échoue (« amont invalide »). Noter le hash du dernier commit de A avant la fusion, et rebaser sur lui.
 
 ## Mesurer avant d'annoncer un chiffre (2026-09-20, 2026-09-21)
 
