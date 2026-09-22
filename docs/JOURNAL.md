@@ -26,6 +26,33 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-22 — M3.4 — Input par actions : le brut, puis les intentions (#66)
+
+- Temps Donnovan : à renseigner
+- Sessions Claude Code : 1
+- Fait : ADR-0017 ; `platform/input.hpp` (événements bruts du clavier, de la souris et des manettes,
+  résolution des noms de SDL, capture de la souris, ouverture des manettes branchées à chaud) ;
+  `pollEvents`/`waitEvents` rendent désormais fenêtre **et** périphériques ; nouveau module `engine/input`
+  (`Bindings`, `parseBindings`, `InputState`, `updateInput`) ; `data/input.cfg` ; sept tests.
+- Mesures :
+  - **la même action au clavier et à la manette** : un test enfonce « Space » puis le bouton « a » de la
+    manette, la même action répond, sans rien changer d'autre (`levain_tests`) ;
+  - **changer les touches sans recompiler** : les liaisons viennent d'un fichier texte, dont un test vérifie
+    la validité au build ; un nom inconnu de SDL échoue avec son numéro de ligne (contre-test : `key:Spacee`
+    et `pad:south` refusés) ;
+  - **le regard à la souris ne dépend pas de la cadence** : un axe est une vitesse, le déplacement de la
+    souris est divisé par la durée de l'image ; 10 pixels donnent le même angle à 60 et à 120 images/s ;
+  - trois presets verts, 67 tests en Debug.
+- Écarts et problèmes :
+  - la table de noms de SDL est restée celle d'une manette Xbox : `SDL_GetGamepadButtonFromString("south")`
+    rend −1 alors que l'énumération s'appelle `SDL_GAMEPAD_BUTTON_SOUTH`. Vérifié avant d'écrire l'ADR, et le
+    fichier de liaisons utilise `pad:a` ;
+  - `pollEvents` change de type de retour (`Events`, deux listes) : la fenêtre et les périphériques sortent de
+    la même file SDL, les séparer à la source évitait un `variant` ;
+  - les bornes des codes (512 touches, 32 boutons…) sont vérifiées par `static_assert` contre celles de SDL :
+    une version qui en ajoute casse le build au lieu de déborder d'un tableau d'état.
+- Prochaine étape : #67 — la caméra libre, pilotée par ces actions.
+
 ## 2026-09-22 — M3.3 — Clôture
 
 - **Temps Donnovan pour M3.3 : 1,33 h** (ratio 1,33), réconcilié sur le total de la journée : 3 h 30, dont
