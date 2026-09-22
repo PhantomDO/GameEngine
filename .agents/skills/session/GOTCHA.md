@@ -59,6 +59,10 @@ Un piège par entrée : symptôme, cause, parade. Le plus récent en haut.
 - **Le 22/09, M3.3 déclarait 0,33 h et en avait coûté 1,33** (×4) : entre les deux PR, Donnovan avait posé
   deux questions de conception et ouvert le sujet du jeu visé. Une question, un sondage, une discussion de
   cadrage sont du temps Donnovan : ne jamais présenter le déclaré par PR comme autre chose qu'un provisoire.
+- **Le même jour, M3.4 : 0,42 h déclarées, 1,00 h réelles** (×2,4). Le provisoire donnait un ratio de phase de
+  0,71, sous la fourchette, et j'ai annoncé à Donnovan un recalibrage possible de toute la roadmap — pour
+  rien : réconcilié, le ratio remonte à 0,87. **Ne pas tirer de conclusion de phase sur des chiffres
+  provisoires**, et le dire quand on en parle quand même.
 
 ## Numéros d'ADR (2026-09-20)
 

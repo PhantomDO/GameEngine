@@ -28,8 +28,9 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ## 2026-09-22 — M3.4 — Clôture
 
-- **Temps Donnovan pour M3.4 : 0,42 h déclarées, provisoire** : 5 min pour l'ADR (#106), 20 min pour les
-  quatre PR. À réconcilier avec le total de la journée, comme M3.3 l'a été (×4 d'écart ce jour-là).
+- **Temps Donnovan pour M3.4 : 1,00 h** (ratio 1,00), réconcilié sur le total de la journée : 4 h 30
+  annoncées le soir, dont 3 h 30 déjà imputées jusqu'à M3.3. Déclaré PR par PR : 0,42 h, soit **2,4 fois
+  moins**. Cinquième fois que le déclaré sous-estime ; réparti au prorata : #66 à 0,79 h, #67 à 0,21 h.
 - Définition de « terminé » (SPECS §9) : démo lançable sous Linux et pilotable ; critères mesurés et
   consignés ; CI verte, zéro erreur de validation ; README de `input` (nouveau), de `platform` et de `scene` à
   jour ; board renseigné ; tag `m3.4` et release. Pas d'étude : E3 vient à la fin de la phase 3, après M3.5.
@@ -46,15 +47,15 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ### Temps
 
-| Issue | Estimé | Déclaré |
+| Issue | Estimé | Passé |
 |---|---:|---:|
-| #66 Actions et axes (ADR-0017, #106, #107, #108, #109) | 0,5 h | 0,33 h |
-| #67 Caméra libre (#110) | 0,5 h | 0,09 h |
-| **M3.4** (ROADMAP) | **1,0 h** | 0,42 h, à réconcilier |
+| #66 Actions et axes (ADR-0017, #106, #107, #108, #109) | 0,5 h | 0,79 h |
+| #67 Caméra libre (#110) | 0,5 h | 0,21 h |
+| **M3.4** (ROADMAP) | **1,0 h** | **1,00 h** (ratio 1,00) |
 
-Phase 3 à ce stade : 2,67 h passées pour 3,75 h estimées (M3.1 à M3.4), **ratio 0,71** — sous la fourchette
-0,8–1,25. Si M3.5 ne le relève pas, la clôture de la phase déclenchera un recalibrage des estimations
-restantes (ROADMAP, « Recalibrage »).
+Phase 3 à ce stade : **3,25 h passées pour 3,75 h estimées** (M3.1 à M3.4), **ratio 0,87** — dans la
+fourchette 0,8–1,25. L'alerte lancée avec le chiffre provisoire (0,71) tombe d'elle-même : c'était le déclaré
+PR par PR qui la provoquait, pas le travail. Le ratio définitif se calculera après M3.5 et l'étude E3.
 
 ### Ce que M3.4 a appris
 
