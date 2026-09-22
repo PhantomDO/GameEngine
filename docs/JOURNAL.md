@@ -22,8 +22,69 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 |---|---:|---:|---:|
 | 0 | 6,0 | **5,0** | **0,83** |
 | 1 | 4,5 | **3,0** | **0,67** |
+| 2 | 3,75 | **4,25** | **1,13** |
 
 ---
+
+## 2026-09-22 — Phase 2 — Clôture (M2.3 compris)
+
+- **Temps Donnovan pour la journée : 1,25 h** (« environ 1 h 15 »), réparti ainsi :
+  - le sondage de l'ADR-0014, #83 et #84 : 0,5 h déclarées (« 30 min au plus ») ;
+  - la lecture de l'étude E2 : 0,33 h (20 min) ;
+  - le reste, 0,42 h, la relecture de #85 : réparti entre #45 et #46 au prorata de leurs estimations.
+- Définition de « terminé » pour M2.3 (SPECS §9) : démo lançable sous Linux ; critères mesurés et consignés ; CI
+  verte, zéro erreur de validation ; README de `core`, `platform` et `render` à jour ; board renseigné ; tag
+  `m2.3` et release. Étude de la phase : **E2, écrite et lue** (#86).
+
+### Critères de M2.3
+
+| Critère (ROADMAP et issues) | Mesuré | Commande |
+|---|---|---|
+| Modification visible en moins d'1 s, sans redémarrer | **~450 ms**, du fichier enregistré au pipeline recréé | `./tools/shader-hot-reload.sh` |
+| Une erreur de compilation ne fait pas planter | message de slangc dans le log, la boucle continue avec le shader précédent | idem |
+| Seuls les pipelines touchés sont recréés | `triangle.slang` modifié : recompilé, « aucun pipeline à recréer » | `touch shaders/triangle.slang` pendant le sandbox |
+
+### Temps de M2.3
+
+| Issue | Estimé | Déclaré | Réconcilié |
+|---|---:|---:|---:|
+| #45 Surveillance et recompilation (ADR-0014, #83, #84, #85) | 0,65 h | 0,5 h | 0,84 h |
+| #46 Repli sur erreur (#85) | 0,15 h | — | 0,08 h |
+| #47 Étude E2 (#86) | 0,15 h | 0,33 h | 0,33 h |
+| **M2.3** (ROADMAP) | **1,0 h** | | **1,25 h — ratio 1,25** |
+
+### Phase 2 — le ratio
+
+| Milestone | Estimé | Passé |
+|---|---:|---:|
+| M2.1 Caméra, meshes et binding sets | 1,75 h | 2,0 h |
+| M2.2 Textures | 1,0 h | 1,0 h |
+| M2.3 Hot-reload des shaders | 1,0 h | 1,25 h |
+| **Phase 2** | **3,75 h** | **4,25 h** — ratio **1,13** |
+
+**Dans la fourchette 0,8–1,25 : aucun recalibrage.** Le recalibrage de la phase 1 (×0,67) avait un peu trop
+coupé, comme le craignaient ses deux réserves ; la phase 2 corrige en partie. Le ratio cumulé des phases 0 à 2,
+(5,0 + 3,0 + 4,25) / (6,0 + 4,5 + 3,75) = **0,86**, est lui aussi dans la fourchette. M2.3 touche la borne haute
+(1,25) : un ADR, trois PR de code et une étude, pour 1,0 h estimée. À surveiller en phase 3, qui a elle aussi un
+ADR par milestone ou presque.
+
+### Phase 4 détaillée
+
+Huit issues créées, #87 à #94, sur les milestones M4.1 à M4.4, avec estimation (6,0 h au total, celui de la
+ROADMAP) et phase sur le board. Chacune note qu'elle sera ajustée après M3.5, le choix du jeu.
+
+### Ce que la phase 2 a appris
+
+- **Les preuves visuelles deviennent des commandes** : RenderDoc s'automatise sans fenêtre (niveaux de mip,
+  comparaison du filtrage), le hot-reload se vérifie par un script. Aucune capture d'écran de bureau.
+- **Un test d'image évite ce que Vulkan laisse approcher** : un damier réduit dépendait du niveau de mip choisi
+  par chaque pilote (152 pixels d'écart entre lavapipe et RADV).
+- **Découper tôt coûte moins cher** : M2.3 faisait 575 lignes ; ADR, puis deux PR empilées de 227 et 348 lignes,
+  relues en une matinée.
+- **Une dépendance tierce peut déclencher un sanitizer** : stb_image_resize2 remplacé par vingt lignes plutôt
+  qu'éteindre UBSan (règle n°4).
+
+- Prochaine étape : M3.1 — intégration de flecs et explorer (#61, #62).
 
 ## 2026-09-22 — M2.3 — Hot-reload des shaders (#45, #46)
 

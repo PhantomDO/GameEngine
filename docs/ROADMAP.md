@@ -351,6 +351,18 @@ décisions en font partie (voir la définition des « Heures Donnovan » plus ha
 dépens — mesurée d'abord à 3,0 h en ne comptant que les relectures, contre **4,9 h réelles**. Le ratio erroné de
 0,50 aurait amputé la roadmap de 30 % sans raison.
 
+### Phase 2 — ratio 1,13, aucun recalibrage
+
+| Milestone | Estimé | Passé |
+|---|---:|---:|
+| M2.1 Caméra, meshes et binding sets | 1,75 h | 2,0 h |
+| M2.2 Textures | 1,0 h | 1,0 h |
+| M2.3 Hot-reload des shaders | 1,0 h | 1,25 h |
+| **Phase 2** | **3,75 h** | **4,25 h** — ratio **1,13** |
+
+Dans la fourchette 0,8–1,25 : les estimations des phases 3 à 8 sont conservées. Le ratio remonte au-dessus de
+1, comme l'annonçait la réserve du recalibrage de la phase 1 ; le ratio cumulé des phases 0 à 2 est de **0,86**.
+
 ### Phase 1 — ratio 0,67, recalibrage (v0.5)
 
 | Milestone | Estimé | Passé |
