@@ -22,9 +22,19 @@ pid=
 trap '[ -n "$pid" ] && kill "$pid" 2>/dev/null; rm -f "$log"' EXIT
 
 fail() { echo "ÉCHEC : $1"; exit 1; }
-position_y() { curl -sf "$api/entity/$cube?values=true" | grep -o '"position":{[^}]*}' | grep -o '"y":[-0-9.e]*' | cut -d: -f2; }
-# La 14e valeur de la matrice monde (colonnes) : la translation en y.
-world_y() { curl -sf "$api/entity/$cube?values=true" | grep -o '"matrix":\[[^]]*\]' | cut -d'[' -f2 | cut -d, -f14; }
+# Les composants du cube, en JSON, lus par leur nom : il y a plusieurs « position » dans la réponse
+# depuis que l'état précédent accompagne ce que la simulation déplace (M3.3).
+component_field() {
+    curl -sf "$api/entity/$cube?values=true" | python3 -c '
+import json, sys
+value = json.load(sys.stdin)["components"]
+for key in sys.argv[1:]:
+    value = value[int(key)] if key.isdigit() else value[key]
+print(value)' "$@"
+}
+position_y() { component_field levain.scene.SceneModule.Transform position y; }
+# La 14e valeur de la matrice monde (rangée par colonnes) : la translation en y.
+world_y() { component_field levain.scene.SceneModule.WorldTransform matrix 13; }
 put_component() { curl -sf -X PUT "$api/component/$1?component=$2&value=$(quote "$3")" >/dev/null; }
 quote() { python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1]))' "$1"; }
 

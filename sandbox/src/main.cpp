@@ -36,6 +36,7 @@
 #include "levain/render/mesh_pass.hpp"
 #include "levain/render/texture.hpp"
 #include "levain/scene/components.hpp"
+#include "levain/scene/fixed_step.hpp"
 #include "levain/scene/scene.hpp"
 #include "levain/scene/transform.hpp"
 
@@ -137,6 +138,7 @@ constexpr float GroundTextureRepeat = GroundSize / 8.0f;
 struct DemoScene
 {
     flecs::world world; ///< Les cubes, une entité chacun (M3.1), enfants de « grid » (M3.2).
+    levain::scene::FixedStep fixedStep; ///< L'horloge de la simulation, 60 Hz (M3.3).
     flecs::query<const levain::scene::WorldTransform> cubes;
     std::vector<glm::vec3>
         cubePositions; ///< Relevées à chaque frame, gardées pour ne pas réallouer.
@@ -256,7 +258,9 @@ levain::core::Result<DemoScene> createDemoScene(levain::gpu::GpuDevice& gpu,
     // Les cubes, et rien d'autre : ni la grille, qui n'est qu'un point d'accroche, ni le sol.
     flecs::query<const levain::scene::WorldTransform> cubes =
         world.query_builder<const levain::scene::WorldTransform>("cubes").with<Cube>().build();
-    world.progress(0.0f); // les matrices monde, avant le premier envoi au GPU
+    levain::scene::FixedStep fixedStep;
+    levain::scene::advanceWorld(world, fixedStep,
+                                0.0f); // les matrices monde, avant le premier envoi
     std::vector<glm::vec3> cubePositions;
     gatherCubePositions(cubes, cubePositions);
 
@@ -288,6 +292,7 @@ levain::core::Result<DemoScene> createDemoScene(levain::gpu::GpuDevice& gpu,
                                         .nearPlane = 0.5f,
                                         .farPlane = 1000.0f};
     return DemoScene{.world = std::move(world),
+                     .fixedStep = fixedStep,
                      .cubes = std::move(cubes),
                      .cubePositions = std::move(cubePositions),
                      .meshPass = std::move(*meshPass),
@@ -438,6 +443,8 @@ void runMainLoop(levain::platform::Window& window, levain::gpu::GpuDevice& gpu, 
     int frameCount = 0;
     ShaderReload shaderReload = startShaderReload();
     const nvrhi::FramebufferInfo sceneTarget = sceneTargetOf(gpu);
+    // La première image n'a pas d'image précédente : un pas de simulation, pour démarrer.
+    double lastFrameSeconds = scene.fixedStep.stepSeconds;
 
     while (state.isRunning && secondsBetween(loopStart, Clock::now()) < loopSeconds)
     {
@@ -467,10 +474,12 @@ void runMainLoop(levain::platform::Window& window, levain::gpu::GpuDevice& gpu, 
         reloadChangedShaders(shaderReload, *gpu.nvrhi, sceneTarget, scene.meshPass);
 
         {
-            // Un tour du monde flecs : ses systèmes, et les requêtes de l'explorer en Debug. Sans
-            // argument, flecs mesure lui-même le temps écoulé depuis le tour précédent.
+            // Un tour du monde : les pas de simulation que la dernière image a mérités, puis une
+            // passe de rendu qui interpole et compose les matrices monde (ADR-0016). La durée
+            // passée est celle de l'image précédente : celle-ci n'est pas encore finie.
             LEVAIN_PROFILE_SCOPE_NAMED("monde");
-            scene.world.progress();
+            levain::scene::advanceWorld(scene.world, scene.fixedStep,
+                                        static_cast<float>(lastFrameSeconds));
         }
 
         {
@@ -488,6 +497,7 @@ void runMainLoop(levain::platform::Window& window, levain::gpu::GpuDevice& gpu, 
         const Clock::time_point frameEnd = Clock::now();
         const double frameSeconds = secondsBetween(previousFrameEnd, frameEnd);
         previousFrameEnd = frameEnd;
+        lastFrameSeconds = frameSeconds;
 
         if (const auto summary =
                 levain::core::recordFrame(frameTimes, frameSeconds, FrameTimePeriodSeconds))

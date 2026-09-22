@@ -1,7 +1,9 @@
 /// Benchmarks des critères de la phase 3 :
 ///   - M3.1 : un tour du monde flecs qui met à jour 100 000 entités (`Transform` + `Velocity`), en
 ///     moins d'1 ms ;
-///   - M3.2 : les matrices monde de 100 000 entités sur 10 niveaux de hiérarchie, en moins de 2 ms.
+///   - M3.2 : les matrices monde de 100 000 entités sur 10 niveaux de hiérarchie, en moins de 2 ms
+///   ;
+///   - M3.3 : ce que coûtent un pas de simulation et une passe de rendu qui interpole (ADR-0016).
 ///
 /// Le second mesure aussi, pour mémoire, le stockage `ChildOf` que l'ADR-0015 a écarté : c'est la
 /// comparaison qui justifie le choix, et elle doit rester reproductible.
@@ -82,10 +84,16 @@ void measureUpdate()
     }
 
     flecs::system applyVelocity = systemNamed(world, "levain::scene::SceneModule::ApplyVelocity");
-    std::print("M3.1 — {} entités (Transform + Velocity), {} tours : ApplyVelocity seul {:.3f} ms, "
-               "tour complet {:.3f} ms (les matrices monde de M3.2 comprises)\n",
-               EntityCount, Frames, medianMilliseconds([&applyVelocity] { applyVelocity.run(); }),
-               medianMilliseconds([&world] { world.progress(FrameSeconds); }));
+    const flecs::entity_t simulation = world.get<levain::scene::SimulationPipeline>().pipeline;
+    std::print("M3.1 — {} entités (Transform + Velocity) : ApplyVelocity seul {:.3f} ms\n",
+               EntityCount, medianMilliseconds([&applyVelocity] { applyVelocity.run(); }));
+    // Le pas de simulation porte aussi la copie de l'état précédent, et la passe de rendu son
+    // interpolation : ici, les 100 000 entités ont une Velocity, donc toutes sont interpolées.
+    std::print(
+        "M3.3 — un pas de simulation {:.3f} ms, une passe de rendu {:.3f} ms "
+        "(interpolation et matrices monde des mêmes {} entités)\n",
+        medianMilliseconds([&world, simulation] { world.run_pipeline(simulation, FrameSeconds); }),
+        medianMilliseconds([&world] { world.progress(FrameSeconds); }), EntityCount);
 }
 
 /// Une hiérarchie de `Levels` niveaux de `PerLevel` entités. `childrenPerParent` décide de sa
@@ -162,7 +170,8 @@ void measureChildOf(int childrenPerParent, std::string_view shape)
                 [](const Transform& local, const WorldTransform* parent, WorldTransform& transform)
                 {
                     transform.matrix = levain::scene::worldMatrix(
-                        parent != nullptr ? parent->matrix : glm::mat4{1.0f}, local);
+                        parent != nullptr ? parent->matrix : glm::mat4{1.0f},
+                        levain::scene::localMatrix(local));
                 });
         });
     std::print("       pour mémoire, ChildOf + cascade, {} : requête seule {:.3f} ms, {} tables\n",

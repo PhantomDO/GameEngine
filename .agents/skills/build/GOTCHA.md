@@ -3,6 +3,17 @@
 Un piège par entrée : symptôme, cause, parade. Le plus récent en haut. Les pièges propres à SDL sont détaillés
 dans `engine/platform/README.md`, ceux de flecs dans `engine/scene/README.md`, section « Pièges connus ».
 
+## Une signature qui coûte 5 ns par entité (2026-09-22)
+
+- **Symptôme** : le système des matrices monde passait de 1,42 à 1,91 ms sur 100 000 entités, sans changement
+  de logique. Même code écrit à la main dans un binaire de test : 1,42 ms.
+- **Cause** : `worldMatrix(const glm::mat4&, const Transform&)` composait la matrice locale elle-même. Écrite
+  ainsi, le compilateur matérialise et copie la matrice de retour ; en lui passant la matrice locale déjà
+  composée, il écrit directement dans la destination.
+- **Parade** : pour une fonction appelée par entité et par image, passer ce qui est déjà calculé plutôt que ce
+  qu'il faut calculer. Le bisectage se fait en réécrivant le même corps à la main dans un binaire de test, et
+  en supprimant une différence à la fois (termes de requête, phase, ordre de création, signature).
+
 ## Shaders
 
 - **Lire l'erreur d'un shader dans la sortie de ninja** (2026-09-22) : chercher « error » ramène aussi la

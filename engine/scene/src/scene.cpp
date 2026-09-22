@@ -45,6 +45,10 @@ void describeComponents(flecs::world& world)
                                                   offsetof(Velocity, linear));
     world.component<WorldTransform>().member<float>("matrix", Mat4Floats,
                                                     offsetof(WorldTransform, matrix));
+    world.component<PreviousTransform>().member<Transform>("transform", ScalarMember,
+                                                           offsetof(PreviousTransform, transform));
+    world.component<RenderAlpha>().member<float>("value", ScalarMember,
+                                                 offsetof(RenderAlpha, value));
 }
 
 /// La matrice monde du parent, ou l'identité pour une racine (`parent` nul) et pour un parent sans
@@ -73,13 +77,42 @@ SceneModule::SceneModule(flecs::world& world)
     world.module<SceneModule>();
     describeComponents(world);
 
-    // La glu : une instruction par système, la logique vit dans motion.hpp (ADR-0011). OnUpdate est
-    // la phase de la simulation dans le pipeline par défaut de flecs, entre PreUpdate et OnValidate
-    // (https://www.flecs.dev/flecs/Systems.html, section « Builtin Pipeline »).
+    // Les systèmes de simulation, dans leur pipeline à part (ADR-0016) : ils tournent N fois par
+    // image, toujours avec le même pas. Dans un pipeline, flecs exécute les systèmes dans l'ordre
+    // de leur déclaration (https://www.flecs.dev/flecs/md_docs_2Systems.html) : l'état précédent se
+    // copie donc avant que quoi que ce soit ne bouge.
+    world.system<const Transform, PreviousTransform>("SavePreviousTransform")
+        .kind<Simulation>()
+        .each([](const Transform& transform, PreviousTransform& previous)
+              { previous.transform = transform; });
+
+    // La glu : une instruction par système, la logique vit dans motion.hpp (ADR-0011).
     world.system<Transform, const Velocity>("ApplyVelocity")
-        .kind(flecs::OnUpdate)
+        .kind<Simulation>()
         .each([](flecs::iter& it, std::size_t, Transform& transform, const Velocity& velocity)
               { applyVelocity(transform, velocity, it.delta_time()); });
+
+    // Un Transform posé à la main — une entité qui naît, un objet téléporté, l'explorer qui écrit —
+    // remet l'état précédent au même endroit. Sans ça, l'entité serait affichée à sa position
+    // d'avant pendant une image, et une entité neuve à l'origine du monde. Les systèmes, eux,
+    // écrivent par référence : ils ne déclenchent pas cet observateur.
+    world.observer<const Transform, PreviousTransform>("ResetPreviousTransform")
+        .event(flecs::OnSet) // un Transform posé à la main
+        .event(flecs::OnAdd) // ou l'état précédent qui arrive après lui (l'ordre des set)
+        .each([](const Transform& transform, PreviousTransform& previous)
+              { previous.transform = transform; });
+
+    // Le facteur d'interpolation existe dès l'import : le système des matrices monde le demande en
+    // singleton, et une requête dont le singleton manque ne correspond à **rien** — le rendu se
+    // tairait au lieu d'échouer (règle n°7). 1 : on affiche l'état simulé tel quel.
+    world.set<RenderAlpha>({.value = 1.0f});
+
+    world.set<SimulationPipeline>(
+        {.pipeline = world.pipeline().with(flecs::System).with<Simulation>().build()});
+
+    // Ce que la simulation déplace garde son état précédent, et rien d'autre : le décor immobile ne
+    // paie pas l'interpolation (ADR-0016). Demain, un corps physique l'ajoutera de la même façon.
+    world.component<Velocity>().add(flecs::With, world.component<PreviousTransform>());
 
     // Toute entité qui a un Transform a aussi un WorldTransform : le trait With de flecs l'ajoute
     // (https://www.flecs.dev/flecs/md_docs_2ComponentTraits.html). Personne n'a à y penser.
@@ -96,17 +129,40 @@ SceneModule::SceneModule(flecs::world& world)
     // Le pointeur du monde est capturé une fois : it.world() le reconstruit à chaque entité.
     const flecs::world_t* worldPtr = world.c_ptr();
     const flecs::entity_t worldTransformId = world.id<WorldTransform>();
-    world.system<const Transform, const flecs::Parent*, WorldTransform>("ComputeWorldTransforms")
+    world
+        .system<const Transform, const PreviousTransform*, const flecs::Parent*, const RenderAlpha,
+                WorldTransform>("ComputeWorldTransforms")
+        .term_at(3)
+        .src<RenderAlpha>() // un singleton : lu une fois par table, et non par entité
         .kind(flecs::PostUpdate)
         .group_by(flecs::ParentDepth)
         .query_flags(EcsQueryGroupByOrdered)
         .each(
-            [worldPtr, worldTransformId](const Transform& local, const flecs::Parent* parent,
+            [worldPtr, worldTransformId](const Transform& local, const PreviousTransform* previous,
+                                         const flecs::Parent* parent, const RenderAlpha& alpha,
                                          WorldTransform& transform)
             {
-                transform.matrix =
-                    worldMatrix(parentWorldMatrix(worldPtr, parent, worldTransformId), local);
+                // Sans état précédent, l'entité est rendue telle quelle : c'est le cas du décor.
+                const Transform displayed =
+                    previous != nullptr ? interpolate(previous->transform, local, alpha.value)
+                                        : local;
+                transform.matrix = worldMatrix(
+                    parentWorldMatrix(worldPtr, parent, worldTransformId), localMatrix(displayed));
             });
+}
+
+int advanceWorld(flecs::world& world, FixedStep& step, float frameSeconds)
+{
+    const StepPlan plan = planSteps(step, frameSeconds);
+    const flecs::entity_t simulation = world.get<SimulationPipeline>().pipeline;
+    for (int i = 0; i < plan.steps; ++i)
+    {
+        // Le pas, jamais le temps réel de l'image : c'est là que tient le déterminisme (ADR-0016).
+        world.run_pipeline(simulation, step.stepSeconds);
+    }
+    world.set<RenderAlpha>({.value = plan.alpha});
+    world.progress(frameSeconds); // le pipeline par défaut : interpolation et matrices monde
+    return plan.steps;
 }
 
 } // namespace levain::scene

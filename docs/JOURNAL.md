@@ -26,6 +26,40 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-22 — M3.3 — Boucle à pas fixe et interpolation (#64, #65)
+
+- Temps Donnovan : à renseigner
+- Sessions Claude Code : 1
+- Fait : ADR-0016 (sondage : accumulateur et pipeline dédié, interpolation automatique de ce que la simulation
+  déplace) ; `fixed_step.hpp` (`FixedStep`, `planSteps`, le plafond de 4 pas) ; composants `PreviousTransform`
+  et `RenderAlpha` ; étiquette `Simulation` et pipeline créé par le module ; `SavePreviousTransform` ;
+  `ApplyVelocity` passe dans le pipeline de simulation ; `ComputeWorldTransforms` affiche l'entre-deux ;
+  observateur qui remet l'état précédent quand un `Transform` est posé à la main (naissance, téléportation) ;
+  `advanceWorld` ; le sandbox y passe ; `levain_scene_bench` mesure le pas et la passe de rendu.
+- Mesures (Release, machine de référence) :
+  - **état identique au bit près quelle que soit la cadence** : 120 pas simulés à 30, 60 et 144 images/s
+    donnent la même position, comparée sans tolérance (`levain_tests`) ;
+  - **les tick sources de flecs ne rattrapent pas** : un système à `interval(1/60)` sur 60 images à 30
+    images/s tourne 60 fois au lieu de 120 — d'où l'accumulateur (mesuré au prototype, consigné dans l'ADR) ;
+  - un **pas de simulation** de 100 000 entités : **0,156 ms** ; une **passe de rendu** avec les 100 000
+    interpolées : **2,09 ms** (`levain_scene_bench`) ;
+  - les matrices monde de M3.2 ne perdent rien : **1,43 ms** en chaînes, 1,42 en arbre large ;
+  - coût dans le sandbox (hors écran, `--seconds 10`) : 34 959 frames, **286 µs par frame** contre 214 en
+    M3.2 ; les 10 000 cubes ont une `Velocity`, donc tous sont interpolés ;
+  - trois presets verts, 60 tests en Debug.
+- Écarts et problèmes :
+  - **une requête dont le singleton manque ne correspond à rien** : sans `RenderAlpha` dans le monde, le
+    système des matrices monde ne tournait pas — et se taisait (règle n°7). Trouvé par le banc, qui est tombé
+    à 0,001 ms. Le module pose le singleton à l'import, et un test vérifie qu'un `progress` seul compose
+    quand même ;
+  - **une entité neuve s'affichait à l'origine** pendant une image : son état précédent était vide. Un
+    observateur le remet à la valeur posée, ce qui couvre aussi les téléportations ;
+  - **la signature d'une fonction a coûté 0,45 ms** sur 100 000 entités : `worldMatrix(parent, Transform)`
+    composait la matrice locale elle-même, et le compilateur ne savait plus éviter une copie de matrice. Elle
+    prend maintenant les deux matrices. Le même écart traînait depuis M3.2 sans être compris ;
+  - le plafond de 4 pas se voit dans les tests : une image d'un quart de seconde ne simule que 4 pas, pas 15.
+- Prochaine étape : clôture de M3.3, puis M3.4 (input par actions et caméra libre).
+
 ## 2026-09-22 — M3.2 — Clôture
 
 - **Temps Donnovan pour M3.2 : 0,42 h** (ratio 0,56), confirmé par le total de la journée : 2 h 10 annoncées
