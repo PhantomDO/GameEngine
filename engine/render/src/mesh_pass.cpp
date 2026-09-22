@@ -9,6 +9,31 @@
 namespace levain::render
 {
 
+namespace
+{
+
+/// Le pipeline des shaders de `pass`, avec ses layouts : ce que recrée le hot-reload.
+nvrhi::GraphicsPipelineHandle createPipeline(nvrhi::IDevice& device, const MeshPass& pass,
+                                             const nvrhi::FramebufferInfo& target)
+{
+    nvrhi::GraphicsPipelineDesc desc;
+    desc.primType = nvrhi::PrimitiveType::TriangleList;
+    desc.inputLayout = pass.inputLayout;
+    desc.VS = pass.vertexShader;
+    desc.PS = pass.pixelShader;
+    desc.addBindingLayout(pass.frameLayout);
+    desc.addBindingLayout(pass.materialLayout);
+    desc.renderState.depthStencilState.depthTestEnable = true;
+    desc.renderState.depthStencilState.depthWriteEnable = true;
+    desc.renderState.depthStencilState.depthFunc = nvrhi::ComparisonFunc::Less;
+    // Faces avant dans le sens trigonométrique, comme les décrit createCube.
+    desc.renderState.rasterState.frontCounterClockwise = true;
+    desc.renderState.rasterState.cullMode = nvrhi::RasterCullMode::Back;
+    return device.createGraphicsPipeline(desc, target);
+}
+
+} // namespace
+
 core::Result<MeshPass> createMeshPass(nvrhi::IDevice& device, const nvrhi::FramebufferInfo& target)
 {
     auto vertexShader = loadShader(device, "mesh.vertexMain", nvrhi::ShaderType::Vertex);
@@ -79,34 +104,47 @@ core::Result<MeshPass> createMeshPass(nvrhi::IDevice& device, const nvrhi::Frame
         nvrhi::BindingSetDesc().addItem(nvrhi::BindingSetItem::ConstantBuffer(0, sceneConstants)),
         frameLayout);
 
-    nvrhi::GraphicsPipelineDesc desc;
-    desc.primType = nvrhi::PrimitiveType::TriangleList;
-    desc.inputLayout = inputLayout;
-    desc.VS = *vertexShader;
-    desc.PS = *pixelShader;
-    desc.addBindingLayout(frameLayout);
-    desc.addBindingLayout(materialLayout);
-    desc.renderState.depthStencilState.depthTestEnable = true;
-    desc.renderState.depthStencilState.depthWriteEnable = true;
-    desc.renderState.depthStencilState.depthFunc = nvrhi::ComparisonFunc::Less;
-    // Faces avant dans le sens trigonométrique, comme les décrit createCube.
-    desc.renderState.rasterState.frontCounterClockwise = true;
-    desc.renderState.rasterState.cullMode = nvrhi::RasterCullMode::Back;
-
-    nvrhi::GraphicsPipelineHandle pipeline = device.createGraphicsPipeline(desc, target);
-    if (!inputLayout || !frameLayout || !materialLayout || !sceneConstants || !frameBindings ||
-        !pipeline)
+    MeshPass pass{.vertexShader = std::move(*vertexShader),
+                  .pixelShader = std::move(*pixelShader),
+                  .inputLayout = std::move(inputLayout),
+                  .frameLayout = std::move(frameLayout),
+                  .materialLayout = std::move(materialLayout),
+                  .sceneConstants = std::move(sceneConstants),
+                  .frameBindings = std::move(frameBindings),
+                  .pipeline = {}};
+    pass.pipeline = createPipeline(device, pass, target);
+    if (!pass.inputLayout || !pass.frameLayout || !pass.materialLayout || !pass.sceneConstants ||
+        !pass.frameBindings || !pass.pipeline)
     {
         return core::makeError(core::ErrorCode::InvalidData, "passe des meshes refusée par NVRHI");
     }
-    return MeshPass{.vertexShader = std::move(*vertexShader),
-                    .pixelShader = std::move(*pixelShader),
-                    .inputLayout = std::move(inputLayout),
-                    .frameLayout = std::move(frameLayout),
-                    .materialLayout = std::move(materialLayout),
-                    .sceneConstants = std::move(sceneConstants),
-                    .frameBindings = std::move(frameBindings),
-                    .pipeline = std::move(pipeline)};
+    return pass;
+}
+
+core::Result<void> reloadMeshPassShaders(nvrhi::IDevice& device, MeshPass& pass,
+                                         const nvrhi::FramebufferInfo& target)
+{
+    auto vertexShader = loadShader(device, "mesh.vertexMain", nvrhi::ShaderType::Vertex);
+    auto pixelShader = loadShader(device, "mesh.fragmentMain", nvrhi::ShaderType::Pixel);
+    if (!vertexShader || !pixelShader)
+    {
+        return std::unexpected(vertexShader ? pixelShader.error() : vertexShader.error());
+    }
+
+    // Sur une copie : en cas d'échec, `pass` garde ses shaders et son pipeline, et le rendu
+    // continue avec eux (#46). L'ancien pipeline reste vivant tant qu'une frame en vol s'en sert :
+    // NVRHI garde les ressources des command lists jusqu'à leur exécution.
+    MeshPass candidate = pass;
+    candidate.vertexShader = std::move(*vertexShader);
+    candidate.pixelShader = std::move(*pixelShader);
+    candidate.pipeline = createPipeline(device, candidate, target);
+    if (!candidate.pipeline)
+    {
+        return core::makeError(core::ErrorCode::InvalidData,
+                               "pipeline des meshes refusé par NVRHI");
+    }
+    pass = std::move(candidate);
+    return {};
 }
 
 nvrhi::BindingSetHandle createMaterialBindings(nvrhi::IDevice& device, const MeshPass& pass,

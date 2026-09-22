@@ -39,6 +39,15 @@ struct MeshPass
 [[nodiscard]] core::Result<MeshPass> createMeshPass(nvrhi::IDevice& device,
                                                     const nvrhi::FramebufferInfo& target);
 
+/// Le nom des sources de la passe dans `shaders/`, sans extension : le hot-reload recrée la passe
+/// quand ce fichier change (ADR-0014).
+inline constexpr const char* MeshPassShaderFile = "mesh";
+
+/// Recharge les shaders compilés de la passe et recrée son pipeline, sans toucher aux layouts, aux
+/// buffers ni aux binding sets. En cas d'échec, `pass` reste tel quel (#46).
+[[nodiscard]] core::Result<void> reloadMeshPassShaders(nvrhi::IDevice& device, MeshPass& pass,
+                                                       const nvrhi::FramebufferInfo& target);
+
 /// Le depth buffer à la taille de l'image où l'on dessine : recréé seulement quand elle change.
 [[nodiscard]] nvrhi::ITexture* ensureDepthTexture(nvrhi::IDevice& device,
                                                   nvrhi::TextureHandle& depth, std::uint32_t width,

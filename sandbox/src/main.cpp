@@ -19,6 +19,8 @@
 #include <glm/gtc/constants.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#include "shader_reload.hpp"
+
 #include "levain/assets/image.hpp"
 #include "levain/core/assert.hpp"
 #include "levain/core/frame_time.hpp"
@@ -165,6 +167,14 @@ textureLevelsOf(const std::vector<levain::assets::Image>& mips)
     return levels;
 }
 
+/// Le format des images où dessine la passe des meshes : la swapchain et le depth buffer.
+nvrhi::FramebufferInfo sceneTargetOf(levain::gpu::GpuDevice& gpu)
+{
+    return nvrhi::FramebufferInfo()
+        .addColorFormat(levain::gpu::swapchainFormat(gpu))
+        .setDepthFormat(levain::render::DepthFormat);
+}
+
 /// Crée la passe des meshes et envoie au GPU le cube, la grille, le sol et la texture du damier.
 levain::core::Result<DemoScene> createDemoScene(levain::gpu::GpuDevice& gpu,
                                                 const levain::render::SamplerSettings& sampler)
@@ -177,10 +187,7 @@ levain::core::Result<DemoScene> createDemoScene(levain::gpu::GpuDevice& gpu,
     const std::vector<levain::assets::Image> mips =
         levain::assets::buildMipChain(std::move(*image));
 
-    auto meshPass = levain::render::createMeshPass(
-        *gpu.nvrhi, nvrhi::FramebufferInfo()
-                        .addColorFormat(levain::gpu::swapchainFormat(gpu))
-                        .setDepthFormat(levain::render::DepthFormat));
+    auto meshPass = levain::render::createMeshPass(*gpu.nvrhi, sceneTargetOf(gpu));
     if (!meshPass)
     {
         return std::unexpected(meshPass.error());
@@ -356,6 +363,8 @@ void runMainLoop(levain::platform::Window& window, levain::gpu::GpuDevice& gpu, 
     const Clock::time_point loopStart = Clock::now();
     Clock::time_point previousFrameEnd = loopStart;
     int frameCount = 0;
+    ShaderReload shaderReload = startShaderReload();
+    const nvrhi::FramebufferInfo sceneTarget = sceneTargetOf(gpu);
 
     while (state.isRunning && secondsBetween(loopStart, Clock::now()) < loopSeconds)
     {
@@ -381,6 +390,8 @@ void runMainLoop(levain::platform::Window& window, levain::gpu::GpuDevice& gpu, 
                 applyWindowEvent(state, event);
             }
         }
+
+        reloadChangedShaders(shaderReload, *gpu.nvrhi, sceneTarget, scene.meshPass);
 
         {
             LEVAIN_PROFILE_SCOPE_NAMED("rendu");
