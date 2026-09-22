@@ -142,8 +142,9 @@ affiché.
 **M2.2 — Textures.** Chargement stb_image, génération des mipmaps, samplers, filtrage anisotrope.
 *Critère* : niveaux de mip vérifiés dans une capture RenderDoc.
 
-**M2.3 — Hot-reload des shaders.** Surveillance des fichiers, recompilation à chaud via la bibliothèque Slang,
-recréation des pipelines, repli si la compilation échoue.
+**M2.3 — Hot-reload des shaders.** Surveillance des fichiers, recompilation à chaud en relançant le build des
+shaders ([ADR-0014](adr/0014-hot-reload-des-shaders.md)), recréation des pipelines, repli si la compilation
+échoue.
 *Critères* : modification visible en moins d'1 s sans redémarrer ; une erreur de compilation ne fait pas
 planter (message dans le log).
 
