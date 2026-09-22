@@ -21,17 +21,16 @@ crée des entités (import glTF en M4.1, prefabs, éditeur) : il ne se change pa
 ## Options envisagées
 
 Mesures sur la machine de référence (SPECS §10, Release), 100 000 entités sur 10 niveaux, matrices monde
-recalculées à chaque tour. Deux formes d'arbre : des **chaînes** (10 000 racines, 9 descendants chacune, un seul
-enfant par parent) et un arbre **large** (10 000 entités par niveau, 10 enfants par parent). Repère : sans
-hiérarchie, composer les 100 000 matrices locales coûte **0,36 ms**.
+recalculées à chaque tour, médiane sur 500 tours. Deux formes d'arbre : des **chaînes** (10 000 racines, 9
+descendants chacune, un seul enfant par parent) et un arbre **large** (10 000 entités par niveau, 10 enfants par
+parent). Repère : les mêmes 100 000 entités sans hiérarchie, toutes racines, coûtent 1,05 ms par tour.
 
 | Option | Chaînes | Arbre large | Pour | Contre |
 |---|---:|---:|---|---|
-| **`Parent` + groupes par profondeur** | **1,21 ms** | **1,21 ms** | Coût stable quelle que soit la forme de l'arbre ; 259 tables en tout ; une requête qui ne touche pas à la hiérarchie garde la vitesse du plat | Chaque entité lit la matrice de son parent par un accès aléatoire (0,86 ms des 1,21) ; les opérateurs `Or` et `Not` ne le gèrent pas encore ; retirer un enfant coûte O(frères) |
-| `ChildOf` + `cascade` (la ROADMAP) | 18,6 ms | 1,51 ms | Le code le plus simple : une requête, la matrice du parent lue **une fois par table** ; la voie documentée et montrée par les exemples | Une table par parent : 90 000 tables sur les chaînes, **critère raté d'un facteur 9** ; chaque table coûte ~160 ns à parcourir, et pèse sur la mémoire et sur les caches de toutes les requêtes |
+| **`Parent` + groupes par profondeur** | **1,45 ms** (280 tables) | **1,43 ms** (280 tables) | Coût stable quelle que soit la forme de l'arbre ; une requête qui ne touche pas à la hiérarchie garde la vitesse du plat | Chaque entité lit la matrice de son parent par un accès aléatoire, et c'est l'essentiel du coût ; les opérateurs `Or` et `Not` ne le gèrent pas encore ; retirer un enfant coûte O(frères) |
+| `ChildOf` + `cascade` (la ROADMAP) | 15,1 ms (180 264 tables) | 1,76 ms (18 264 tables) | Le code le plus simple : une requête, la matrice du parent lue **une fois par table** ; la voie documentée et montrée par les exemples | Une table par parent, **critère raté d'un facteur 7,5** sur les chaînes ; chaque table coûte ~160 ns à parcourir, et pèse sur la mémoire et sur les caches de toutes les requêtes |
 
-Le prototype qui a produit ces chiffres est repris dans `levain_scene_bench` avec l'implémentation (#63) : les
-deux stockages y restent mesurables côte à côte.
+Ces chiffres viennent de `levain_scene_bench`, qui garde les deux stockages mesurables côte à côte.
 
 ## Décision
 
