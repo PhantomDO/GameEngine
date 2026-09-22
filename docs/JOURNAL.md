@@ -28,8 +28,9 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ## 2026-09-22 — M3.2 — Clôture
 
-- **Temps Donnovan pour M3.2 : 0,42 h déclarées, provisoire** : 10 min pour #99 (l'ADR), 15 min pour #100.
-  À réconcilier avec le total de la journée, comme M3.1 l'a été ce soir.
+- **Temps Donnovan pour M3.2 : 0,42 h** (ratio 0,56), confirmé par le total de la journée : 2 h 10 annoncées
+  le soir, dont 1 h 45 déjà imputées jusqu'à M3.1. Pour une fois, le déclaré PR par PR (10 min pour #99,
+  15 min pour #100) tombe juste — parce que les deux PR se sont suivies sans allers-retours entre elles.
 - Définition de « terminé » (SPECS §9) : démo lançable sous Linux ; critères mesurés et consignés ; CI verte,
   zéro erreur de validation ; README de `scene` à jour, limite d'instances nommée dans `render` ; board
   renseigné ; tag `m3.2` et release. Pas d'étude : E3 vient à la fin de la phase 3.
@@ -46,11 +47,11 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ### Temps
 
-| Issue | Estimé | Déclaré |
+| Issue | Estimé | Passé |
 |---|---:|---:|
 | ADR-0015, le stockage de la hiérarchie (#99) | — | 0,17 h |
 | #63 Hiérarchie et matrices monde (#100) | 0,65 h | 0,25 h |
-| **M3.2** (ROADMAP) | **0,75 h** | 0,42 h, à réconcilier |
+| **M3.2** (ROADMAP) | **0,75 h** | **0,42 h** (ratio 0,56) |
 
 ### Ce que M3.2 a appris
 
