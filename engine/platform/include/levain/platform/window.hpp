@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "levain/core/error.hpp"
+#include "levain/platform/input.hpp"
 
 // Déclaration anticipée : c'est tout ce que ce fichier sait de SDL. Aucun en-tête SDL ne sort
 // de `platform/` (ADR-0003), sauf dans `gpu/` pour créer la surface Vulkan à partir du handle.
@@ -61,12 +62,20 @@ struct Window
 /// surface Vulkan n'y connaît pas sa propre taille, et c'est à l'application de la donner.
 [[nodiscard]] PixelSize windowPixelSize(const Window& window);
 
+/// Ce qu'une pompe d'événements a récolté : ce qui concerne la fenêtre, et ce qui vient des
+/// périphériques. Les deux sortent du même appel parce qu'ils sortent de la même file SDL.
+struct Events
+{
+    std::vector<WindowEvent> window;
+    std::vector<InputEvent> input;
+};
+
 /// Les événements arrivés depuis le dernier appel, sans attendre.
-[[nodiscard]] std::vector<WindowEvent> pollEvents(const Window& window);
+[[nodiscard]] Events pollEvents(const Window& window);
 
 /// Comme `pollEvents`, mais dort jusqu'au premier événement. Pour une fenêtre masquée : sans
 /// rien à dessiner, la boucle tournerait à vide à 100 % d'un cœur.
-[[nodiscard]] std::vector<WindowEvent> waitEvents(const Window& window);
+[[nodiscard]] Events waitEvents(const Window& window);
 
 /// Le titre doit être en **ASCII**, et une assertion le vérifie. Sous X11, SDL 3.4.12 abandonne
 /// sans rien dire tout titre qu'il ne sait pas convertir dans la locale C, et fuit au passage

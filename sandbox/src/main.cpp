@@ -450,7 +450,7 @@ void runMainLoop(levain::platform::Window& window, levain::gpu::GpuDevice& gpu, 
     {
         if (!state.isVisible)
         {
-            for (const auto& event : levain::platform::waitEvents(window))
+            for (const auto& event : levain::platform::waitEvents(window).window)
             {
                 applyWindowEvent(state, event);
             }
@@ -465,7 +465,9 @@ void runMainLoop(levain::platform::Window& window, levain::gpu::GpuDevice& gpu, 
         {
             LEVAIN_PROFILE_SCOPE_NAMED("événements");
 
-            for (const auto& event : levain::platform::pollEvents(window))
+            // Les entrées des périphériques sortent du même appel ; la caméra libre les lira
+            // en #67.
+            for (const auto& event : levain::platform::pollEvents(window).window)
             {
                 applyWindowEvent(state, event);
             }
