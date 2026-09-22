@@ -26,6 +26,25 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-22 — M3.1 — Module scene : monde flecs, Transform, Velocity (#61)
+
+- Temps Donnovan : à renseigner
+- Sessions Claude Code : 1
+- Fait : module `engine/scene` (flecs 4.1.6, PUBLIC) ; `Transform`, `Velocity` ; `applyVelocity`, logique sans
+  flecs ; `SceneModule`, module flecs dont le système `ApplyVelocity` tourne dans `OnUpdate` ; trois tests ;
+  `levain_scene_bench` ; test `deps.flecs-visibility`, qui échoue si flecs apparaît dans `core`, `platform`,
+  `gpu` ou `render`.
+- Mesures :
+  - **100 000 entités (Transform + Velocity) mises à jour en moins d'1 ms** : médiane **0,071 à 0,095 ms** sur
+    quatre lancements de 500 tours (`./build/linux-release/tests/levain_scene_bench`, Release) ;
+  - **aucun en-tête flecs sous scene/** : `ctest -R deps.flecs-visibility` ; contre-test, un
+    `#include <flecs.h>` dans `render` le fait échouer ; restauré ;
+  - trois presets verts, 48 tests.
+- Écarts et problèmes : l'issue demandait une mesure « avec Tracy » ; un bench dédié, comme celui des allocateurs,
+  la rend reproductible sans profileur. `render` est ajouté à la liste des modules sans flecs : il n'est pas
+  au-dessus de `scene` dans le graphe de SPECS §7.
+- Prochaine étape : #62 — le renderer dessine le monde ; explorer flecs en Debug.
+
 ## 2026-09-22 — Phase 2 — Clôture (M2.3 compris)
 
 - **Temps Donnovan pour la journée : 1,25 h** (« environ 1 h 15 »), réparti ainsi :
