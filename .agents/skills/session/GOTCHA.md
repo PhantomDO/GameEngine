@@ -2,6 +2,15 @@
 
 Un piège par entrée : symptôme, cause, parade. Le plus récent en haut.
 
+## `git checkout <fichier>` efface le travail non indexé (2026-09-22)
+
+- **Symptôme** : après avoir retiré une ligne pour vérifier qu'un test échoue sans elle, `git checkout
+  engine/scene/src/scene.cpp` a rendu le fichier de `main` : une heure de travail non commité perdue (réécrite
+  de mémoire).
+- **Cause** : `git checkout <fichier>` restaure depuis l'index, qui ne contenait rien pour ce fichier.
+- **Parade** : pour un essai destructif, copier le fichier d'abord (`cp fichier /tmp/…`), ou commiter avant.
+  `git restore` a le même effet : c'est l'index qui compte, pas la commande.
+
 ## `git stash` et `git add -N` (2026-09-21)
 
 - **Symptôme** : « Entry … not uptodate. Cannot merge » ; rien n'est remisé.

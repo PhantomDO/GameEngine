@@ -26,6 +26,44 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-22 — M3.2 — Hiérarchie et matrices monde (#63)
+
+- Temps Donnovan : à renseigner
+- Sessions Claude Code : 1
+- Fait : ADR-0015 (sondage : le composant `flecs::Parent` plutôt que la relation `ChildOf`) ; composant
+  `WorldTransform`, ajouté automatiquement avec `Transform` (trait `With`) ; `transform.hpp` (`localMatrix`,
+  `worldMatrix`, `worldPosition`), sans flecs ; système `ComputeWorldTransforms` en `PostUpdate`, rangé par
+  profondeur ; les 10 000 cubes du sandbox sont enfants d'une entité `grid` ; `levain_scene_bench` mesure les
+  deux stockages ; `tools/explorer-check.sh` vérifie qu'un cube suit sa grille.
+- Mesures (Release, machine de référence) :
+  - **100 000 entités sur 10 niveaux recalculées en moins de 2 ms** : **1,45 ms** en chaînes (1 enfant par
+    parent), **1,43 ms** en arbre large (10 enfants par parent), tour du monde complet
+    (`./build/linux-release/tests/levain_scene_bench`) ;
+  - pour mémoire, le stockage écarté, `ChildOf` + `cascade` : **15,1 ms** en chaînes (180 264 tables) et
+    1,76 ms en arbre large (18 264 tables), contre 280 tables avec `Parent` ;
+  - **un enfant suit son parent déplacé** : quatre tests (`levain_tests`), dont un petit-enfant dans une
+    hiérarchie bâtie dans le désordre ; bout en bout par l'API de l'explorer, la grille levée de 10 lève la
+    matrice monde du cube de 10 sans toucher à son `Transform` (`./tools/explorer-check.sh`, Debug et ASan) ;
+  - M3.1 tient toujours : `ApplyVelocity` seul reste à **0,065 à 0,098 ms** pour 100 000 entités ;
+  - coût du monde dans le sandbox (hors écran, `--seconds 10`) : 46 617 frames, soit **214 µs par frame**
+    contre 62 µs en M3.1. Les 150 µs de plus sont les 10 000 matrices monde, recalculées à chaque tour ;
+  - trois presets verts, 54 tests en Debug.
+- Écarts et problèmes :
+  - **`group_by` ne trie pas** : il parcourt les groupes dans l'ordre inverse de leur création. Sans
+    `EcsQueryGroupByOrdered`, un petit-enfant est calculé avant son parent (x = 1 au lieu de 3, vérifié en
+    retirant le drapeau) ;
+  - **la première requête du rendu coûtait 212 µs par frame** au lieu de 8 : demander « les enfants de `grid` »
+    (`(ChildOf, grid)` + un composant) ne se résout pas table par table avec le stockage `Parent`. Le sandbox
+    marque ses cubes d'un tag ;
+  - **lire le parent par l'API C++** (`entity(...).get<T>()`) ou appeler `it.world()` dans la boucle coûtait
+    0,5 ms par 100 000 entités : le monde et l'identifiant du composant sont capturés une fois ;
+  - rien n'est recalculé à la demande (pas de « dirty flags ») : tout est recalculé à chaque tour, comme dit
+    l'ADR-0015. Dans le sandbox, la détection de changement de flecs ne servirait à rien de toute façon :
+    `ApplyVelocity` écrit dans tous les `Transform` à chaque frame ;
+  - `git checkout <fichier>` pour défaire un essai a effacé les modifications non indexées du fichier ; noté
+    dans le GOTCHA du skill `session`.
+- Prochaine étape : clôture de M3.2, puis M3.3 (boucle à pas fixe, ADR à écrire).
+
 ## 2026-09-22 — M3.1 — Clôture
 
 - **Temps Donnovan pour M3.1 : 0,50 h**, réconcilié en fin de journée. Déclaré PR par PR : 15 min pour #96,
