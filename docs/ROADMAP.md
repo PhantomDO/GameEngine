@@ -171,7 +171,8 @@ un système rangé par profondeur ([ADR-0015](adr/0015-stockage-de-la-hierarchie
 *Critère* : 100 000 entités sur 10 niveaux de profondeur recalculées en moins de 2 ms.
 
 **M3.3 — Boucle à pas fixe.** Pipeline flecs dédié à la simulation, exécuté N fois par frame par un
-accumulateur ; interpolation du rendu ; garde-fou contre la « spirale de la mort » (**ADR à écrire**).
+accumulateur ; interpolation du rendu ; garde-fou contre la « spirale de la mort »
+([ADR-0016](adr/0016-boucle-a-pas-fixe.md)).
 *Critère* : test automatique montrant un état de simulation identique au bit près après N ticks, que le rendu
 tourne à 30, 60 ou 144 images/s.
 
