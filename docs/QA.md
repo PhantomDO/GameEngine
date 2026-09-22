@@ -12,6 +12,86 @@ Réponse courte, puis détails. Références : fichier:ligne, ADR, source extern
 
 ---
 
+### Pourquoi `PreviousTransform` enveloppe un `Transform`, et pourquoi `Transform` et `WorldTransform` coexistent (2026-09-22, M3.3)
+
+Deux questions de conception posées à la relecture de #103.
+
+#### 1. Une struct qui ne contient qu'une autre struct
+
+**La contrainte n'est pas le nommage, c'est l'identité.** flecs reconnaît un composant par son **type C++** :
+`world.component<T>()` lui donne un identifiant. Deux valeurs du même type sur la même entité demandent donc
+deux identités. `friend` ne crée pas d'identité (c'est de l'accès), et `union` dirait « l'un **ou** l'autre »
+alors qu'il nous faut les deux en même temps — sans compter que lire un membre d'union écrit par un autre est
+un comportement indéfini en C++ (c'est légal en C).
+
+**Mais il existe mieux, et c'est propre à flecs : la paire.** Une paire `(Transform, Previous)` range un
+`Transform` sous une identité différente, sans nouveau type :
+
+```cpp
+struct Previous {}; // une étiquette vide
+
+entity.set<Transform, Previous>({.position = {7, 0, 0}});
+
+world.query_builder<const Transform, const Transform>()
+    .term_at(1).second<Previous>()
+    .each([](const Transform& current, const Transform& previous) { /* … */ });
+```
+
+Essayé : la réflexion du `Transform` sert **aussi** à la paire, sans rien enregistrer de plus, et l'explorer
+affiche `(levain.scene.Transform,Previous)` avec les mêmes champs. C'est l'idiome de l'exemple officiel des
+hiérarchies de flecs, qui distingue `(Position, Local)` et `(Position, World)`.
+
+| | Paire `(Transform, Previous)` | Struct enveloppe (le code actuel) |
+|---|---|---|
+| Nouveau type | aucun | un, qui n'existe que pour être nommé |
+| Réflexion | partagée avec `Transform` | à réenregistrer, affichée sur un niveau de plus |
+| Requête | `.term_at(1).second<Previous>()` | rien de spécial |
+| Sécurité | deux `const Transform&` dans la lambda : **rien n'empêche de les intervertir** | le compilateur refuse de confondre `Transform` et `PreviousTransform` |
+
+J'ai pris l'enveloppe pour cette dernière ligne : dans un système qui interpole, intervertir l'état courant et
+l'état précédent donne un bug qui ne se voit qu'à l'œil, sur une image sur deux. La paire est plus idiomatique
+et plus économe ; c'est un échange, pas une erreur. Le changement fait une quarantaine de lignes, et la
+question reviendra à chaque « même donnée, autre sens » (état précédent, état interpolé, variante d'édition).
+
+**Écarté aussi : l'héritage** (`struct PreviousTransform : Transform {}`). Il donne bien une identité sans
+indirection, mais la conversion implicite vers la base fait compiler en silence un appel qui passe le mauvais
+argument — et `offsetof` n'est garanti que sur un type *standard-layout*.
+
+#### 2. `Transform` et `WorldTransform` : deux formats de la même chose ?
+
+**Non : l'un est la source, l'autre est le produit.** Le passage `TRS → matrice` est exact et bon marché ; le
+retour ne l'est pas.
+
+- Une matrice 4×4 peut porter un **cisaillement** (le produit d'une rotation et d'une échelle non uniforme en
+  porte un dès qu'on l'empile dans une hiérarchie). Un `Transform` (position, quaternion, échelle) **ne peut
+  pas** le représenter : la décomposition perd de l'information, et le signe de l'échelle est ambigu (un
+  miroir se lit comme une rotation).
+- **La translation, elle, est bien « un pointeur sur une partie de la matrice »** : c'est la dernière colonne,
+  contiguë, et c'est exactement ce que fait
+  [`worldPosition`](../engine/scene/include/levain/scene/transform.hpp) — `glm::vec3(matrix[3])`. Mais la
+  rotation ne l'est pas : les colonnes 0 à 2 mêlent rotation **et** échelle. Les séparer demande de normaliser
+  les colonnes (faux dès qu'il y a cisaillement) puis de convertir une 3×3 en quaternion, une trentaine
+  d'opérations par entité.
+- **L'interpolation impose le quaternion** (M3.3) : interpoler deux matrices composante par composante rétrécit
+  et gauchit l'objet en chemin. C'est pourquoi `ComputeWorldTransforms` interpole le `Transform` *puis* compose
+  la matrice.
+- **Un composant ne contient pas de pointeur** (invariant 3 du README de `scene`) : flecs déplace les
+  composants en mémoire quand une entité change d'archétype. Un pointeur vers l'intérieur d'une matrice
+  pendouillerait au premier `add` de composant.
+- Taille : `Transform` 40 octets, `glm::mat4` 64. Garder les deux coûte 104 octets par entité ; tout en
+  matrices en coûterait 128 (locale + monde) et perdrait tout ce qui précède.
+
+Et les rôles diffèrent : `Transform` s'écrit (gameplay, éditeur, explorer), `WorldTransform` est **réécrit à
+chaque image** par le système — le modifier à la main ne sert à rien (invariant 5).
+
+**Ailleurs** : Unity Entities sépare `LocalTransform` (position, rotation, échelle **uniforme**) de
+`LocalToWorld` (une `float4x4`), et sort l'échelle non uniforme dans `PostTransformMatrix` — précisément parce
+qu'elle ne s'empile pas proprement dans une hiérarchie (**documenté** : manuel du package Entities,
+« Transform concepts »). Unreal garde `FTransform` (Translation, Rotation en quaternion, Scale3D) pour le
+gameplay et des `FMatrix` pour le rendu (**documenté** : référence d'API). Godot prend un intermédiaire,
+`Transform3D` = une base 3×3 plus une origine, et paie l'ambiguïté de décomposition dont parle sa
+documentation (**documenté**).
+
 ### Quiz sur l'étude E1 : les trois réponses à retenir (2026-09-21, M1.3)
 
 Issue #17 faite par sondages : 5 bonnes réponses sur 8. Les trois erreurs portent sur la liaison des ressources,
