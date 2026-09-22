@@ -24,13 +24,19 @@ lever la grille dans l'explorer lève les 10 000 cubes.
    une entité ne peut pas avoir les deux, et `ComputeWorldTransforms` ne voit que le premier — un enfant rangé
    par `ChildOf` serait traité comme une racine. Un enfant se crée par
    `world.entity(flecs::Parent{parent}, "nom")`.
-5. **`Transform` s'écrit, `WorldTransform` se lit** : le système réécrit `WorldTransform` à chaque tour, dans
+5. **Un composant porte son sens dans son type** : `PreviousTransform` enveloppe un `Transform` plutôt que
+   d'être une paire flecs `(Transform, Previous)`, pour qu'une signature de système dise laquelle des deux
+   valeurs elle reçoit. `Transform` et `WorldTransform` ne sont pas deux formats de la même chose : le premier
+   est la source (position, quaternion, échelle), le second le produit, qui peut porter un cisaillement qu'un
+   `Transform` ne saurait pas représenter. Les deux réponses détaillées sont dans
+   [`docs/QA.md`](../../docs/QA.md).
+6. **`Transform` s'écrit, `WorldTransform` se lit** : le système réécrit `WorldTransform` à chaque tour, dans
    la phase `PostUpdate`, donc après la simulation et avant que le rendu ne relève les positions.
-6. **Un système de gameplay va dans le pipeline de simulation** ([ADR-0016](../../docs/adr/0016-boucle-a-pas-fixe.md)) :
+7. **Un système de gameplay va dans le pipeline de simulation** ([ADR-0016](../../docs/adr/0016-boucle-a-pas-fixe.md)) :
    `.kind<levain::scene::Simulation>()`. Son `delta_time` vaut alors toujours un pas — c'est ce qui rend son
    résultat reproductible. Un système déclaré dans une phase du pipeline par défaut tourne, lui, une fois par
    **image**, à cadence libre : c'est la place du rendu, pas celle du jeu.
-7. **L'application avance le monde par `advanceWorld`**, jamais par `world.progress` : `progress` seul ne
+8. **L'application avance le monde par `advanceWorld`**, jamais par `world.progress` : `progress` seul ne
    simule rien.
 
 ## Points d'entrée

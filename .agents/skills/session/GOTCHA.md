@@ -56,6 +56,9 @@ Un piège par entrée : symptôme, cause, parade. Le plus récent en haut.
   dernière réponse »), elle oubliait le temps passé entre deux, en allers-retours.
 - **Parade** : demander le temps **total** sur le projet, et en fin de journée **le total depuis le matin**.
   Réconcilier le board sur ce total (écart réparti au prorata des issues).
+- **Le 22/09, M3.3 déclarait 0,33 h et en avait coûté 1,33** (×4) : entre les deux PR, Donnovan avait posé
+  deux questions de conception et ouvert le sujet du jeu visé. Une question, un sondage, une discussion de
+  cadrage sont du temps Donnovan : ne jamais présenter le déclaré par PR comme autre chose qu'un provisoire.
 
 ## Numéros d'ADR (2026-09-20)
 
