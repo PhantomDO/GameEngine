@@ -29,12 +29,15 @@
 #include "levain/core/profile.hpp"
 #include "levain/core/version.hpp"
 #include "levain/gpu/device.hpp"
+#include "levain/input/bindings.hpp"
+#include "levain/input/state.hpp"
 #include "levain/platform/window.hpp"
 #include "levain/render/camera.hpp"
 #include "levain/render/gpu_timer.hpp"
 #include "levain/render/mesh.hpp"
 #include "levain/render/mesh_pass.hpp"
 #include "levain/render/texture.hpp"
+#include "levain/scene/camera_control.hpp"
 #include "levain/scene/components.hpp"
 #include "levain/scene/fixed_step.hpp"
 #include "levain/scene/scene.hpp"
@@ -149,6 +152,7 @@ struct DemoScene
     levain::render::Instances groundInstance; ///< Une seule, sous les cubes.
     nvrhi::TextureHandle checker;
     nvrhi::BindingSetHandle material;
+    flecs::entity cameraEntity; ///< Transform + FpsController : la caméra libre (M3.4).
     levain::render::Camera camera;
     levain::render::GpuTimer gpuTimer;
     nvrhi::TextureHandle depth; ///< Créé à la première frame, à la taille de l'image.
@@ -177,6 +181,81 @@ void spawnCubeGrid(flecs::world& world)
                 .add<Cube>();
         }
     }
+}
+
+/// La caméra du rendu, relue sur l'entité : sa **matrice monde** porte la position et le regard
+/// déjà interpolés entre deux pas de simulation (ADR-0016). Lire le `Transform` ferait saccader le
+/// regard dès que le rendu va plus vite que la simulation.
+void updateRenderCamera(levain::render::Camera& camera, const flecs::entity& cameraEntity)
+{
+    const glm::mat4& world = cameraEntity.get<levain::scene::WorldTransform>().matrix;
+    camera.position = glm::vec3(world[3]);
+    camera.target = camera.position + glm::vec3(glm::mat3(world) * glm::vec3{0.0f, 0.0f, -1.0f});
+}
+
+/// Les intentions du joueur, lues dans les axes et les actions du fichier de liaisons. Le sandbox
+/// est le seul à connaître les deux côtés : `engine/scene` ignore l'existence de l'input, et
+/// `engine/input` ne sait rien des caméras (SPECS §7).
+struct CameraActions
+{
+    int moveRight = 0;
+    int moveForward = 0;
+    int moveUp = 0;
+    int lookRight = 0;
+    int lookUp = 0;
+    int lookEnable = 0;
+    int sprint = 0;
+};
+
+/// Les indices des actions et des axes dont la caméra a besoin, résolus **une fois**. Un nom absent
+/// du fichier est une erreur de chargement : sans ça, la caméra ne répondrait jamais à cette
+/// commande, sans que rien ne le dise (règle n°7).
+[[nodiscard]] levain::core::Result<CameraActions>
+cameraActionsOf(const levain::input::Bindings& bindings)
+{
+    CameraActions actions;
+    const std::array<std::pair<const char*, int*>, 5> axes{{{"move_right", &actions.moveRight},
+                                                            {"move_forward", &actions.moveForward},
+                                                            {"move_up", &actions.moveUp},
+                                                            {"look_right", &actions.lookRight},
+                                                            {"look_up", &actions.lookUp}}};
+    for (const auto& [name, index] : axes)
+    {
+        const auto found = levain::input::axisIndex(bindings, name);
+        if (!found)
+        {
+            return levain::core::makeError(levain::core::ErrorCode::InvalidData,
+                                           std::format("axe « {} » absent de input.cfg", name));
+        }
+        *index = found.value_or(-1);
+    }
+    const std::array<std::pair<const char*, int*>, 2> buttons{
+        {{"look_enable", &actions.lookEnable}, {"sprint", &actions.sprint}}};
+    for (const auto& [name, index] : buttons)
+    {
+        const auto found = levain::input::actionIndex(bindings, name);
+        if (!found)
+        {
+            return levain::core::makeError(levain::core::ErrorCode::InvalidData,
+                                           std::format("action « {} » absente de input.cfg", name));
+        }
+        *index = found.value_or(-1);
+    }
+    return actions;
+}
+
+levain::scene::FpsInput fpsInputFrom(const levain::input::InputState& input,
+                                     const CameraActions& actions)
+{
+    // Le regard à la souris ne compte que si son bouton est tenu ; à la manette, le stick suffit.
+    const bool looking = levain::input::actionHeld(input, actions.lookEnable);
+    const float lookRight = levain::input::axisValue(input, actions.lookRight);
+    const float lookUp = levain::input::axisValue(input, actions.lookUp);
+    return {.move = {levain::input::axisValue(input, actions.moveRight),
+                     levain::input::axisValue(input, actions.moveForward)},
+            .up = levain::input::axisValue(input, actions.moveUp),
+            .look = looking ? glm::vec2{lookRight, lookUp} : glm::vec2{0.0f},
+            .sprint = levain::input::actionHeld(input, actions.sprint)};
 }
 
 /// Les positions des cubes **dans le monde**, dans `positions`, que le rendu envoie ensuite au GPU.
@@ -255,6 +334,16 @@ levain::core::Result<DemoScene> createDemoScene(levain::gpu::GpuDevice& gpu,
     enableExplorerOnLoopback(world);
 #endif
     spawnCubeGrid(world);
+    // La caméra est une entité comme les autres : basse, sur le côté de la grille, et visant loin
+    // devant. Elle porte son état précédent pour que le rendu l'interpole entre deux pas de
+    // simulation (ADR-0016) — sans quoi le regard avancerait par saccades de 16 ms.
+    const flecs::entity cameraEntity =
+        world.entity("camera")
+            .set(levain::scene::Transform{.position = {100.0f, 8.0f, 120.0f}})
+            // 10,3° de lacet et 10,1° sous l'horizon : exactement le regard des milestones
+            // précédents, qui visait le point {92, 0, 76}.
+            .set(levain::scene::FpsController{.yawDegrees = 10.3f, .pitchDegrees = -10.1f})
+            .add<levain::scene::PreviousTransform>();
     // Les cubes, et rien d'autre : ni la grille, qui n'est qu'un point d'accroche, ni le sol.
     flecs::query<const levain::scene::WorldTransform> cubes =
         world.query_builder<const levain::scene::WorldTransform>("cubes").with<Cube>().build();
@@ -283,11 +372,11 @@ levain::core::Result<DemoScene> createDemoScene(levain::gpu::GpuDevice& gpu,
     nvrhi::BindingSetHandle material =
         levain::render::createMaterialBindings(*gpu.nvrhi, *meshPass, *checker, *samplerHandle);
 
-    // Basse, sur le côté de la grille, et visant loin devant : la grille occupe la gauche de
-    // l'image, le sol file jusqu'à l'horizon à droite, de plus en plus de biais. C'est là que le
-    // filtrage trilinéaire seul le rend flou.
-    const levain::render::Camera camera{.position = {100.0f, 8.0f, 120.0f},
-                                        .target = {92.0f, 0.0f, 76.0f}, // 10° sous l'horizon
+    // La grille occupe la gauche de l'image, le sol file jusqu'à l'horizon à droite, de plus en
+    // plus de biais : c'est là que le filtrage trilinéaire seul le rend flou. Position et regard
+    // sont ceux de l'entité, et le joueur peut les changer.
+    const levain::render::Camera camera{.position = {},
+                                        .target = {},
                                         .verticalFovRadians = glm::radians(60.0f),
                                         .nearPlane = 0.5f,
                                         .farPlane = 1000.0f};
@@ -302,6 +391,7 @@ levain::core::Result<DemoScene> createDemoScene(levain::gpu::GpuDevice& gpu,
                      .groundInstance = std::move(groundInstance),
                      .checker = std::move(checker),
                      .material = std::move(material),
+                     .cameraEntity = cameraEntity,
                      .camera = camera,
                      .gpuTimer = levain::render::createGpuTimer(*gpu.nvrhi),
                      .depth = {}};
@@ -431,7 +521,8 @@ std::optional<SandboxOptions> parseOptions(std::span<char* const> arguments)
 }
 
 void runMainLoop(levain::platform::Window& window, levain::gpu::GpuDevice& gpu, DemoScene& scene,
-                 double loopSeconds)
+                 double loopSeconds, const levain::input::Bindings& bindings,
+                 const CameraActions& actions)
 {
     const nvrhi::CommandListHandle commandList = gpu.nvrhi->createCommandList();
     LoopState state;
@@ -443,6 +534,9 @@ void runMainLoop(levain::platform::Window& window, levain::gpu::GpuDevice& gpu, 
     int frameCount = 0;
     ShaderReload shaderReload = startShaderReload();
     const nvrhi::FramebufferInfo sceneTarget = sceneTargetOf(gpu);
+
+    levain::input::InputState input = levain::input::makeInputState(bindings);
+    bool mouseCaptured = false;
     // La première image n'a pas d'image précédente : un pas de simulation, pour démarrer.
     double lastFrameSeconds = scene.fixedStep.stepSeconds;
 
@@ -465,12 +559,24 @@ void runMainLoop(levain::platform::Window& window, levain::gpu::GpuDevice& gpu, 
         {
             LEVAIN_PROFILE_SCOPE_NAMED("événements");
 
-            // Les entrées des périphériques sortent du même appel ; la caméra libre les lira
-            // en #67.
-            for (const auto& event : levain::platform::pollEvents(window).window)
+            const levain::platform::Events events = levain::platform::pollEvents(window);
+            for (const auto& event : events.window)
             {
                 applyWindowEvent(state, event);
             }
+            levain::input::updateInput(input, bindings, events.input,
+                                       static_cast<float>(lastFrameSeconds));
+
+            // La souris ne se capture que pendant le regard : sinon on ne pourrait plus rien
+            // faire d'autre de la fenêtre.
+            const bool looking = levain::input::actionHeld(input, actions.lookEnable);
+            if (looking != mouseCaptured)
+            {
+                levain::platform::setMouseCaptured(window, looking);
+                mouseCaptured = looking;
+            }
+            // Ce que le joueur demande, posé pour le prochain pas de simulation.
+            scene.world.set<levain::scene::FpsInput>(fpsInputFrom(input, actions));
         }
 
         reloadChangedShaders(shaderReload, *gpu.nvrhi, sceneTarget, scene.meshPass);
@@ -482,6 +588,7 @@ void runMainLoop(levain::platform::Window& window, levain::gpu::GpuDevice& gpu, 
             LEVAIN_PROFILE_SCOPE_NAMED("monde");
             levain::scene::advanceWorld(scene.world, scene.fixedStep,
                                         static_cast<float>(lastFrameSeconds));
+            updateRenderCamera(scene.camera, scene.cameraEntity);
         }
 
         {
@@ -575,7 +682,29 @@ int main(int argc, char** argv)
             return 1;
         }
 
-        runMainLoop(*window, *gpu, *scene, options->loopSeconds);
+        // Les liaisons d'entrée : changer une touche dans data/input.cfg ne demande aucune
+        // recompilation (ADR-0017). Un nom inconnu échoue ici, avec son numéro de ligne.
+        auto bindings = levain::input::loadBindings(LEVAIN_DATA_DIR "/input.cfg");
+        if (!bindings)
+        {
+            levain::core::log("sandbox", levain::core::LogLevel::Critical, "{}",
+                              bindings.error().message);
+            return 1;
+        }
+        const auto actions = cameraActionsOf(*bindings);
+        if (!actions)
+        {
+            levain::core::log("sandbox", levain::core::LogLevel::Critical, "{}",
+                              actions.error().message);
+            return 1;
+        }
+
+        levain::core::log("sandbox", levain::core::LogLevel::Info,
+                          "liaisons : {} actions et {} axes (data/input.cfg) ; clic droit pour "
+                          "regarder, ZQSD ou WASD pour avancer",
+                          bindings->actions.size(), bindings->axes.size());
+
+        runMainLoop(*window, *gpu, *scene, options->loopSeconds, *bindings, *actions);
         levain::core::log("sandbox", levain::core::LogLevel::Info, "fenêtre fermée");
     }
     catch (const std::exception& e)

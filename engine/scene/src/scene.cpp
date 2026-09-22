@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "levain/scene/camera_control.hpp"
 #include "levain/scene/components.hpp"
 #include "levain/scene/motion.hpp"
 #include "levain/scene/transform.hpp"
@@ -91,6 +92,18 @@ SceneModule::SceneModule(flecs::world& world)
         .kind<Simulation>()
         .each([](flecs::iter& it, std::size_t, Transform& transform, const Velocity& velocity)
               { applyVelocity(transform, velocity, it.delta_time()); });
+
+    // La caméra libre. La logique est dans camera_control.hpp ; ici, la glu (ADR-0011). FpsInput
+    // est un singleton que l'application repose à chaque image depuis `engine/input` — et qui
+    // existe dès l'import, sinon la requête ne correspondrait à rien (règle n°7).
+    world.set<FpsInput>({});
+    world.system<Transform, FpsController, const FpsInput>("ApplyFpsInput")
+        .term_at(2)
+        .src<FpsInput>()
+        .kind<Simulation>()
+        .each([](flecs::iter& it, std::size_t, Transform& transform, FpsController& controller,
+                 const FpsInput& input)
+              { applyFpsInput(transform, controller, input, it.delta_time()); });
 
     // Un Transform posé à la main — une entité qui naît, un objet téléporté, l'explorer qui écrit —
     // remet l'état précédent au même endroit. Sans ça, l'entité serait affichée à sa position

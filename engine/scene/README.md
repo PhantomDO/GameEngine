@@ -38,6 +38,9 @@ lever la grille dans l'explorer lève les 10 000 cubes.
    **image**, à cadence libre : c'est la place du rendu, pas celle du jeu.
 8. **L'application avance le monde par `advanceWorld`**, jamais par `world.progress` : `progress` seul ne
    simule rien.
+9. **`scene` ignore l'existence de l'input** (SPECS §7) : la caméra libre lit un singleton `FpsInput`, que
+   l'application remplit depuis `engine/input`. C'est ce qui permet de la piloter au clavier, à la manette ou
+   par un test, sans que son code change d'une ligne.
 
 ## Points d'entrée
 
@@ -47,6 +50,7 @@ lever la grille dans l'explorer lève les 10 000 cubes.
 | [`include/levain/scene/motion.hpp`](include/levain/scene/motion.hpp) | `applyVelocity` — la logique, sans flecs |
 | [`include/levain/scene/transform.hpp`](include/levain/scene/transform.hpp) | `localMatrix`, `worldMatrix` (l'ordre du produit), `interpolate`, `nlerpShortestPath`, `worldPosition` — sans flecs non plus |
 | [`include/levain/scene/fixed_step.hpp`](include/levain/scene/fixed_step.hpp) | `FixedStep` et `planSteps` — l'accumulateur et son plafond, testables sans monde |
+| [`include/levain/scene/camera_control.hpp`](include/levain/scene/camera_control.hpp) | La caméra libre : `FpsController`, `FpsInput`, `applyFpsInput`, et les pièges nommés `normalizeOrZero`, `clampPitch`, `horizontalBasisFrom` |
 | [`include/levain/scene/scene.hpp`](include/levain/scene/scene.hpp) | `SceneModule` — `world.import<levain::scene::SceneModule>()` |
 
 ## Trois notions de flecs
