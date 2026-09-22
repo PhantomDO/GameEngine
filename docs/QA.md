@@ -50,8 +50,15 @@ hiérarchies de flecs, qui distingue `(Position, Local)` et `(Position, World)`.
 
 J'ai pris l'enveloppe pour cette dernière ligne : dans un système qui interpole, intervertir l'état courant et
 l'état précédent donne un bug qui ne se voit qu'à l'œil, sur une image sur deux. La paire est plus idiomatique
-et plus économe ; c'est un échange, pas une erreur. Le changement fait une quarantaine de lignes, et la
-question reviendra à chaque « même donnée, autre sens » (état précédent, état interpolé, variante d'édition).
+et plus économe ; c'est un échange, pas une erreur.
+
+**Décision de Donnovan (22/09/2026) : on garde l'enveloppe.** Sa règle, qui vaut au-delà de ce cas : « je
+préfère que les choses soient explicites plutôt que quelqu'un qui relit le code ne le comprenne pas ». La paire
+demande de tenir dans sa tête l'ordre des termes d'une requête pour savoir lequel des deux `Transform` est
+l'état précédent ; l'enveloppe le dit dans la signature. Le raisonnement est recopié au-dessus de
+`PreviousTransform` (`engine/scene/include/levain/scene/components.hpp`), pour qu'on n'ait pas à le retrouver
+ici. La question reviendra à chaque « même donnée, autre sens » : la réponse par défaut est désormais le type
+explicite, la paire restant possible si le coût de réflexion devient réel.
 
 **Écarté aussi : l'héritage** (`struct PreviousTransform : Transform {}`). Il donne bien une identité sans
 indirection, mais la conversion implicite vers la base fait compiler en silence un appel qui passe le mauvais

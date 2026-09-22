@@ -28,8 +28,12 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ## 2026-09-22 — M3.3 — Clôture
 
-- **Temps Donnovan pour M3.3 : 0,33 h déclarées, provisoire** : 5 min pour #102 (l'ADR), 15 min pour #103.
-  À réconcilier avec le total de la journée.
+- **Temps Donnovan pour M3.3 : 1,33 h** (ratio 1,33), réconcilié sur le total de la journée : 3 h 30, dont
+  2 h 10 déjà imputées jusqu'à M3.2. Déclaré PR par PR : 0,33 h — **quatre fois moins**. L'écart n'est pas une
+  erreur de sa part : entre les deux PR, il a posé deux questions de conception (la struct enveloppe,
+  `Transform` contre `WorldTransform`) et ouvert le sujet du jeu visé (Breath of the Wild, Xenoblade). Ce
+  temps-là est du pilotage, il compte, et aucune question « combien pour cette PR ? » ne le capte. Réparti au
+  prorata du déclaré : #64 à 0,33 h, #65 à 1,00 h.
 - Définition de « terminé » (SPECS §9) : démo lançable sous Linux ; critère mesuré et consigné ; CI verte,
   zéro erreur de validation ; README de `scene` à jour ; board renseigné ; tag `m3.3` et release. Pas d'étude :
   E3 vient à la fin de la phase 3.
@@ -46,11 +50,14 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ### Temps
 
-| Issue | Estimé | Déclaré |
+| Issue | Estimé | Passé |
 |---|---:|---:|
-| #64 ADR de la boucle à pas fixe (#102) | 0,35 h | 0,08 h |
-| #65 Pipeline de simulation et interpolation (#103) | 0,65 h | 0,25 h |
-| **M3.3** (ROADMAP) | **1,0 h** | 0,33 h, à réconcilier |
+| #64 ADR de la boucle à pas fixe (#102) | 0,35 h | 0,33 h |
+| #65 Pipeline de simulation et interpolation (#103) | 0,65 h | 1,00 h |
+| **M3.3** (ROADMAP) | **1,0 h** | **1,33 h** (ratio 1,33) |
+
+Phase 3 à ce stade : 2,25 h passées pour 2,75 h estimées (M3.1 à M3.3), ratio 0,82. Le recalibrage se calcule
+à la clôture de la phase, après M3.4, M3.5 et l'étude E3.
 
 ### Ce que M3.3 a appris
 
@@ -65,8 +72,12 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 - **L'interpolation crée ses propres bugs** : une entité neuve s'affiche à l'origine, un objet téléporté
   traverse l'écran. Les deux se règlent au même endroit, un observateur sur le `Transform` posé à la main.
 - **Deux questions de conception de Donnovan** (la struct enveloppe, `Transform` contre `WorldTransform`) sont
-  archivées dans `docs/QA.md` : la paire de flecs est l'alternative idiomatique à `PreviousTransform`, et
-  reste à décider.
+  archivées dans `docs/QA.md`. Sa règle pour trancher, qui vaut au-delà de ce cas : « je préfère que les choses
+  soient explicites plutôt que quelqu'un qui relit le code ne le comprenne pas ». La paire de flecs, plus
+  idiomatique et plus économe, est donc écartée au profit du type explicite ; le raisonnement est recopié
+  au-dessus du composant, pas seulement dans `QA.md`.
+- **Une question coûte du temps Donnovan**, et ce temps n'apparaît dans aucune réponse « combien pour cette
+  PR ? ». C'est la quatrième fois que le déclaré par PR sous-estime, et la plus forte : ×4.
 
 **Prochaine étape** : M3.4 — input par actions et caméra libre (#66, #67).
 
