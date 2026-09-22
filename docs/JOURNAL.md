@@ -26,6 +26,52 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-22 — M3.4 — Clôture
+
+- **Temps Donnovan pour M3.4 : 0,42 h déclarées, provisoire** : 5 min pour l'ADR (#106), 20 min pour les
+  quatre PR. À réconcilier avec le total de la journée, comme M3.3 l'a été (×4 d'écart ce jour-là).
+- Définition de « terminé » (SPECS §9) : démo lançable sous Linux et pilotable ; critères mesurés et
+  consignés ; CI verte, zéro erreur de validation ; README de `input` (nouveau), de `platform` et de `scene` à
+  jour ; board renseigné ; tag `m3.4` et release. Pas d'étude : E3 vient à la fin de la phase 3, après M3.5.
+
+### Critères du milestone
+
+| Critère (ROADMAP) | Mesuré | Commande |
+|---|---|---|
+| Une même action pilotée au clavier et à la manette | un test de bout en bout (événement brut → liaisons → action → caméra) : « W » puis le stick gauche donnent le même déplacement, 0,2 unité par pas | `./build/linux-debug/tests/levain_tests` |
+| Changement de touches sans recompiler | les liaisons viennent de `data/input.cfg`, relu à chaque démarrage ; un nom inconnu de SDL échoue avec son numéro de ligne | idem, et `levain_sandbox` |
+| En plus : le fichier livré est valide | vérifié par un test, pas seulement par l'œil | idem |
+| En plus : le regard à la souris ne dépend pas de la cadence | 10 pixels donnent le même angle à 60 et à 120 images/s | idem |
+| En plus : `scene` ne lie pas `input` | la caméra lit un singleton `FpsInput` ; le graphe de SPECS §7 tient | build |
+
+### Temps
+
+| Issue | Estimé | Déclaré |
+|---|---:|---:|
+| #66 Actions et axes (ADR-0017, #106, #107, #108, #109) | 0,5 h | 0,33 h |
+| #67 Caméra libre (#110) | 0,5 h | 0,09 h |
+| **M3.4** (ROADMAP) | **1,0 h** | 0,42 h, à réconcilier |
+
+Phase 3 à ce stade : 2,67 h passées pour 3,75 h estimées (M3.1 à M3.4), **ratio 0,71** — sous la fourchette
+0,8–1,25. Si M3.5 ne le relève pas, la clôture de la phase déclenchera un recalibrage des estimations
+restantes (ROADMAP, « Recalibrage »).
+
+### Ce que M3.4 a appris
+
+- **Une bibliothèque peut mentir par son nom** : `SDL_GetGamepadButtonFromString("south")` rend −1 alors que
+  l'énumération s'appelle `SDL_GAMEPAD_BUTTON_SOUTH` — la table de noms de SDL3 est restée celle d'une manette
+  Xbox. Vérifié **avant** d'écrire l'ADR, ce qui a évité d'inscrire un exemple faux dans une décision.
+- **Le critère d'un milestone peut devenir un test** : « la même action au clavier et à la manette » aurait pu
+  rester une démonstration à la main ; en partant d'événements bruts, il tient en vingt lignes et ne se
+  détériorera pas.
+- **Une découpe en trois PR vaut mieux qu'une PR de 1205 lignes**, même quand le travail est d'un bloc dans la
+  tête : platform, puis le fichier, puis l'état. Seule la deuxième a dépassé la règle des 400.
+- **L'input est le premier module qui lit un fichier de configuration.** Le format choisi (texte ligne à ligne,
+  noms de SDL) servira sans doute de modèle aux réglages de l'éditeur : c'est pour ça qu'il est documenté dans
+  son README plutôt que seulement dans l'ADR.
+
+**Prochaine étape** : M3.5 — le choix du jeu (#68), puis l'étude E3 et la clôture de la phase 3.
+
 ## 2026-09-22 — M3.4 — Caméra libre pilotée par les actions (#67)
 
 - Temps Donnovan : à renseigner
