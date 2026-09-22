@@ -8,6 +8,8 @@
 
 #include <SDL3/SDL.h>
 
+#include "input_sdl.hpp"
+
 #include "levain/core/assert.hpp"
 #include "levain/core/log.hpp"
 
@@ -29,8 +31,8 @@ bool isWindowEvent(const SDL_Event& event)
     return event.type >= SDL_EVENT_WINDOW_FIRST && event.type <= SDL_EVENT_WINDOW_LAST;
 }
 
-/// Traduit un événement SDL vers les nôtres. Ce qui ne concerne pas cette fenêtre, ou qu'on ne
-/// traite pas encore (clavier, souris), est ignoré.
+/// Traduit un événement SDL de **fenêtre** vers les nôtres. Le clavier, la souris et les manettes
+/// passent par `appendInputEvent` (`input.cpp`).
 std::optional<WindowEvent> translateEvent(const SDL_Event& event, SDL_WindowID windowId)
 {
     // Envoyé par SDL sur SIGINT (Ctrl+C), SIGTERM, et à la fermeture de la dernière fenêtre.
@@ -75,15 +77,21 @@ std::optional<WindowEvent> translateEvent(const SDL_Event& event, SDL_WindowID w
     }
 }
 
-void appendPendingEvents(std::vector<WindowEvent>& events, SDL_WindowID windowId)
+void appendEvent(Events& events, const SDL_Event& event, SDL_WindowID windowId)
+{
+    if (const auto translated = translateEvent(event, windowId))
+    {
+        events.window.push_back(*translated);
+    }
+    appendInputEvent(events.input, event);
+}
+
+void appendPendingEvents(Events& events, SDL_WindowID windowId)
 {
     SDL_Event event{};
     while (SDL_PollEvent(&event))
     {
-        if (const auto translated = translateEvent(event, windowId))
-        {
-            events.push_back(*translated);
-        }
+        appendEvent(events, event, windowId);
     }
 }
 
@@ -91,6 +99,7 @@ void appendPendingEvents(std::vector<WindowEvent>& events, SDL_WindowID windowId
 
 void WindowDeleter::operator()(SDL_Window* window) const noexcept
 {
+    closeAllGamepads(); // avant SDL_Quit, qui les fermerait sans le dire
     SDL_DestroyWindow(window);
     SDL_Quit();
 }
@@ -130,26 +139,26 @@ PixelSize windowPixelSize(const Window& window)
     return size;
 }
 
-std::vector<WindowEvent> pollEvents(const Window& window)
+Events pollEvents(const Window& window)
 {
-    std::vector<WindowEvent> events;
+    Events events;
     appendPendingEvents(events, SDL_GetWindowID(window.handle.get()));
     return events;
 }
 
-std::vector<WindowEvent> waitEvents(const Window& window)
+Events waitEvents(const Window& window)
 {
     const SDL_WindowID windowId = SDL_GetWindowID(window.handle.get());
-    std::vector<WindowEvent> events;
+    Events events;
 
     SDL_Event event{};
     if (!SDL_WaitEvent(&event))
     {
         core::log("platform", core::LogLevel::Warning, "SDL_WaitEvent : {}", SDL_GetError());
     }
-    else if (const auto translated = translateEvent(event, windowId))
+    else
     {
-        events.push_back(*translated);
+        appendEvent(events, event, windowId);
     }
 
     appendPendingEvents(events, windowId);

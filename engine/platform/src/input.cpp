@@ -1,0 +1,198 @@
+#include "levain/platform/input.hpp"
+
+#include <algorithm>
+#include <vector>
+
+#include <SDL3/SDL.h>
+
+#include "input_sdl.hpp"
+
+#include "levain/core/log.hpp"
+#include "levain/platform/window.hpp"
+
+namespace levain::platform
+{
+
+// Les bornes annoncées dans l'en-tête doivent couvrir celles de SDL. Si une version de SDL ajoute
+// des touches ou des boutons, le build casse ici, et non à l'exécution en écrivant hors d'un
+// tableau d'état.
+static_assert(SDL_SCANCODE_COUNT <= KeyCodeCount);
+static_assert(SDL_GAMEPAD_BUTTON_COUNT <= PadButtonCount);
+static_assert(SDL_GAMEPAD_AXIS_COUNT <= PadAxisCount);
+
+namespace
+{
+
+/// Les manettes ouvertes. SDL n'envoie les événements d'une manette qu'une fois celle-ci ouverte,
+/// et il faut la refermer quand elle est débranchée
+/// (https://wiki.libsdl.org/SDL3/SDL_OpenGamepad). Comme la fenêtre possède déjà SDL — une seule à
+/// la fois, invariant n°2 du README —, cette liste vit ici plutôt que dans l'API.
+std::vector<SDL_Gamepad*> openedGamepads;
+
+std::optional<std::uint16_t> codeOf(int value, int invalid)
+{
+    return value == invalid ? std::nullopt : std::optional{static_cast<std::uint16_t>(value)};
+}
+
+/// Les deux axes de la souris, envoyés ensemble : un mouvement en diagonale donne deux
+/// déplacements, et `engine/input` les accumule séparément.
+void appendMouseMotion(std::vector<InputEvent>& events, const SDL_MouseMotionEvent& motion)
+{
+    events.push_back({.type = InputEventType::AxisMotion,
+                      .device = InputDevice::Mouse,
+                      .code = 0,
+                      .value = motion.xrel});
+    events.push_back({.type = InputEventType::AxisMotion,
+                      .device = InputDevice::Mouse,
+                      .code = 1,
+                      .value = motion.yrel});
+}
+
+/// Un axe de manette va de -32768 à 32767 chez SDL ; le moteur ne connaît que [-1, 1]. La division
+/// par 32767 laisserait -1,00003 sur la butée basse, d'où le maximum.
+float normalizedAxis(std::int16_t value)
+{
+    return std::max(static_cast<float>(value) / 32767.0f, -1.0f);
+}
+
+} // namespace
+
+std::optional<std::uint16_t> keyCodeFromName(const std::string& name)
+{
+    return codeOf(SDL_GetScancodeFromName(name.c_str()), SDL_SCANCODE_UNKNOWN);
+}
+
+std::optional<std::uint16_t> mouseButtonCodeFromName(const std::string& name)
+{
+    // SDL n'a pas de table de noms pour les boutons de la souris : celle-ci est à nous, et ses
+    // valeurs sont celles de SDL_BUTTON_LEFT et consorts.
+    if (name == "left")
+    {
+        return SDL_BUTTON_LEFT;
+    }
+    if (name == "right")
+    {
+        return SDL_BUTTON_RIGHT;
+    }
+    if (name == "middle")
+    {
+        return SDL_BUTTON_MIDDLE;
+    }
+    return std::nullopt;
+}
+
+std::optional<std::uint16_t> mouseAxisCodeFromName(const std::string& name)
+{
+    if (name == "x")
+    {
+        return 0;
+    }
+    if (name == "y")
+    {
+        return 1;
+    }
+    return std::nullopt;
+}
+
+std::optional<std::uint16_t> padButtonCodeFromName(const std::string& name)
+{
+    return codeOf(SDL_GetGamepadButtonFromString(name.c_str()), SDL_GAMEPAD_BUTTON_INVALID);
+}
+
+std::optional<std::uint16_t> padAxisCodeFromName(const std::string& name)
+{
+    return codeOf(SDL_GetGamepadAxisFromString(name.c_str()), SDL_GAMEPAD_AXIS_INVALID);
+}
+
+void setMouseCaptured(const Window& window, bool captured)
+{
+    if (!SDL_SetWindowRelativeMouseMode(window.handle.get(), captured))
+    {
+        core::log("platform", core::LogLevel::Warning, "souris non capturée : {}", SDL_GetError());
+    }
+}
+
+void appendInputEvent(std::vector<InputEvent>& events, const SDL_Event& event)
+{
+    switch (event.type)
+    {
+    case SDL_EVENT_KEY_DOWN:
+    case SDL_EVENT_KEY_UP:
+        // `repeat` : la répétition automatique d'une touche tenue. Une action ne doit se
+        // déclencher qu'au vrai appui.
+        if (!event.key.repeat)
+        {
+            events.push_back(
+                {.type = event.key.down ? InputEventType::ButtonDown : InputEventType::ButtonUp,
+                 .device = InputDevice::Keyboard,
+                 .code = static_cast<std::uint16_t>(event.key.scancode)});
+        }
+        break;
+
+    case SDL_EVENT_MOUSE_BUTTON_DOWN:
+    case SDL_EVENT_MOUSE_BUTTON_UP:
+        events.push_back(
+            {.type = event.button.down ? InputEventType::ButtonDown : InputEventType::ButtonUp,
+             .device = InputDevice::Mouse,
+             .code = event.button.button});
+        break;
+
+    case SDL_EVENT_MOUSE_MOTION:
+        appendMouseMotion(events, event.motion);
+        break;
+
+    case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
+    case SDL_EVENT_GAMEPAD_BUTTON_UP:
+        events.push_back(
+            {.type = event.gbutton.down ? InputEventType::ButtonDown : InputEventType::ButtonUp,
+             .device = InputDevice::Gamepad,
+             .code = event.gbutton.button});
+        break;
+
+    case SDL_EVENT_GAMEPAD_AXIS_MOTION:
+        events.push_back({.type = InputEventType::AxisMotion,
+                          .device = InputDevice::Gamepad,
+                          .code = event.gaxis.axis,
+                          .value = normalizedAxis(event.gaxis.value)});
+        break;
+
+    case SDL_EVENT_GAMEPAD_ADDED:
+        if (SDL_Gamepad* gamepad = SDL_OpenGamepad(event.gdevice.which))
+        {
+            openedGamepads.push_back(gamepad);
+            core::log("platform", core::LogLevel::Info, "manette branchée : {}",
+                      SDL_GetGamepadName(gamepad));
+        }
+        break;
+
+    case SDL_EVENT_GAMEPAD_REMOVED:
+        closeGamepad(event.gdevice.which);
+        break;
+
+    default:
+        break;
+    }
+}
+
+void closeGamepad(std::uint32_t instanceId)
+{
+    const auto opened = std::ranges::find_if(openedGamepads, [instanceId](SDL_Gamepad* gamepad)
+                                             { return SDL_GetGamepadID(gamepad) == instanceId; });
+    if (opened != openedGamepads.end())
+    {
+        SDL_CloseGamepad(*opened);
+        openedGamepads.erase(opened);
+        core::log("platform", core::LogLevel::Info, "manette débranchée");
+    }
+}
+
+void closeAllGamepads()
+{
+    for (SDL_Gamepad* gamepad : openedGamepads)
+    {
+        SDL_CloseGamepad(gamepad);
+    }
+    openedGamepads.clear();
+}
+
+} // namespace levain::platform

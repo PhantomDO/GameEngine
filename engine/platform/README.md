@@ -6,8 +6,9 @@ La frontière avec le système d'exploitation : fenêtre, événements, processu
 manettes). C'est le **seul module qui inclut SDL3** ([ADR-0003](../../docs/adr/0003-plateforme-sdl3.md)) ; le
 reste du moteur ne voit que nos propres types.
 
-**État en M2.3** : une fenêtre, ses événements (fermeture, redimensionnement, masquée, visible) et son titre ;
-le lancement d'un programme externe (`runProcess`), pour le hot-reload des shaders.
+**État en M3.4** : une fenêtre, ses événements (fermeture, redimensionnement, masquée, visible) et son titre ;
+le lancement d'un programme externe (`runProcess`), pour le hot-reload des shaders ; l'**input brut** du
+clavier, de la souris et des manettes, avec la résolution des noms de SDL dont se sert `engine/input`.
 
 ## Invariants
 
@@ -25,6 +26,23 @@ le lancement d'un programme externe (`runProcess`), pour le hot-reload des shade
 |---|---|
 | [`include/levain/platform/window.hpp`](include/levain/platform/window.hpp) | `createWindow`, `windowPixelSize`, `pollEvents`, `waitEvents`, `setWindowTitle` |
 | [`include/levain/platform/process.hpp`](include/levain/platform/process.hpp) | `runProcess` — lance un programme, attend sa fin, rend sa sortie (standard et erreur mêlées) et son code de retour |
+| [`include/levain/platform/input.hpp`](include/levain/platform/input.hpp) | `InputEvent` (appuis, axes, souris), `keyCodeFromName` et ses cousines, `setMouseCaptured` |
+
+## Trois choses à savoir sur l'input brut
+
+**Une manette doit être ouverte pour parler.** SDL n'envoie les événements d'une manette qu'après
+`SDL_OpenGamepad`, et il faut la refermer quand elle est débranchée. Le module garde donc la liste des manettes
+ouvertes (`input.cpp`) et la vide avant `SDL_Quit` — comme la fenêtre possède déjà SDL, cette liste n'a pas à
+sortir dans l'API.
+
+**Un axe de manette et un mouvement de souris ne se lisent pas pareil.** Le premier donne une **position**,
+qui reste la même tant que le joueur ne bouge pas le stick ; le second donne un **déplacement**, qui n'existe
+que le temps d'une image. `engine/input` accumule l'un et remet l'autre à zéro à chaque image.
+
+**Les noms de SDL sont notre table.** `SDL_GetScancodeFromName("Space")`, `SDL_GetGamepadAxisFromString("leftx")` :
+rien à maintenir ici. Mais la table des boutons est restée celle d'une manette Xbox — `SDL_GetGamepadButtonFromString("south")`
+rend −1 alors que l'énumération s'appelle `SDL_GAMEPAD_BUTTON_SOUTH`. Les fichiers de liaisons écrivent donc
+`pad:a`, et un nom refusé fait échouer le chargement.
 
 ## Trois choses à savoir sur les fenêtres
 
