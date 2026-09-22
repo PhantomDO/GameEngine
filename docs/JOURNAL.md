@@ -26,6 +26,34 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-22 — M3.4 — Caméra libre pilotée par les actions (#67)
+
+- Temps Donnovan : à renseigner
+- Sessions Claude Code : 1
+- Fait : `scene/camera_control.hpp` (`FpsController`, `FpsInput`, `applyFpsInput`, et les pièges nommés de
+  l'ADR-0011 : `normalizeOrZero`, `clampPitch`, `horizontalBasisFrom`) ; système `ApplyFpsInput` dans le
+  pipeline de simulation ; la caméra du sandbox devient une entité, interpolée entre deux pas ; le sandbox lit
+  `data/input.cfg`, met à jour l'input et pose `FpsInput` à chaque image ; capture de la souris pendant le
+  regard ; huit tests.
+- Mesures :
+  - **la même caméra au clavier et à la manette** : un test de bout en bout (événement brut → liaisons →
+    action → caméra) déplace la caméra de 0,2 unité par pas, d'abord avec « W », puis avec le stick gauche.
+    Seule la source de l'événement change (`levain_tests`) ;
+  - **le code de la caméra ne connaît ni SDL ni les touches** : `applyFpsInput` prend un `FpsInput` de valeurs
+    déjà lues ; `scene` ne lie pas `input` (SPECS §7) ;
+  - la diagonale n'avance pas plus vite que la ligne droite, le tangage est borné à ±85° et ne fait pas
+    décoller la caméra : un test par piège ;
+  - le sandbox tourne avec la caméra en entité, regard identique aux milestones précédents (lacet 10,3°,
+    tangage −10,1°, ce qui vise exactement l'ancien point de mire) ;
+  - trois presets verts, 68 tests en Debug.
+- Écarts et problèmes :
+  - la caméra porte son état précédent (`PreviousTransform`) pour être interpolée : sans lui, le regard
+    avancerait par paliers de 16 ms alors que le rendu va plus vite ;
+  - le rendu lit la **matrice monde** de la caméra, pas son `Transform` : c'est elle qui porte l'interpolation ;
+  - `runMainLoop` ne lit pas le fichier de liaisons : le chargement remonte dans `main`, avec les autres mises
+    en place, et une liaison absente arrête le sandbox avec un message clair.
+- Prochaine étape : clôture de M3.4.
+
 ## 2026-09-22 — M3.4 — Input par actions : le brut, puis les intentions (#66)
 
 - Temps Donnovan : à renseigner
