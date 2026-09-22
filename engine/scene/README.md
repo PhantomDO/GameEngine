@@ -5,9 +5,10 @@
 Le modèle objet du moteur : le monde flecs, ses composants et ses systèmes (ADR-0004). Tout ce qui vit dans une
 partie (objets, caméra, lumières) sera une entité de ce monde.
 
-**État en M3.1** : les composants `Transform` et `Velocity`, décrits pour la réflexion de flecs ; un système,
-`ApplyVelocity`, dans la phase `OnUpdate`. Le sandbox en fait 10 000 cubes, que l'explorer web de flecs affiche
-et modifie en Debug.
+**État en M3.2** : les composants `Transform`, `Velocity` et `WorldTransform`, décrits pour la réflexion de
+flecs ; deux systèmes, `ApplyVelocity` (phase `OnUpdate`) et `ComputeWorldTransforms` (phase `PostUpdate`), qui
+compose les matrices monde en descendant la hiérarchie. Le sandbox en fait 10 000 cubes, enfants d'une entité
+`grid` : lever la grille dans l'explorer lève les 10 000 cubes.
 
 ## Invariants
 
@@ -16,15 +17,22 @@ et modifie en Debug.
    l'application qui relie la scène et le rendu.
 2. **La logique en fonctions libres, la glu flecs en une instruction** (ADR-0011) : `applyVelocity`
    (`motion.hpp`) ne sait rien de flecs et se teste seule ; `scene.cpp` ne fait que la brancher sur les entités.
-3. **Les composants sont des données** : pas de méthode, pas de pointeur vers d'autres entités (les relations
-   de flecs s'en chargeront, M3.2).
+3. **Les composants sont des données** : pas de méthode, pas de pointeur vers d'autres entités. Le lien
+   parent-enfant est un composant de flecs, `flecs::Parent`.
+4. **La hiérarchie passe par `flecs::Parent`, jamais par `child_of`** ([ADR-0015](../../docs/adr/0015-stockage-de-la-hierarchie.md)) :
+   une entité ne peut pas avoir les deux, et `ComputeWorldTransforms` ne voit que le premier — un enfant rangé
+   par `ChildOf` serait traité comme une racine. Un enfant se crée par
+   `world.entity(flecs::Parent{parent}, "nom")`.
+5. **`Transform` s'écrit, `WorldTransform` se lit** : le système réécrit `WorldTransform` à chaque tour, dans
+   la phase `PostUpdate`, donc après la simulation et avant que le rendu ne relève les positions.
 
 ## Points d'entrée
 
 | Fichier | Contenu |
 |---|---|
-| [`include/levain/scene/components.hpp`](include/levain/scene/components.hpp) | `Transform` (position, rotation, échelle), `Velocity` |
+| [`include/levain/scene/components.hpp`](include/levain/scene/components.hpp) | `Transform` (position, rotation, échelle, **dans le repère du parent**), `Velocity`, `WorldTransform` (la matrice monde, calculée) |
 | [`include/levain/scene/motion.hpp`](include/levain/scene/motion.hpp) | `applyVelocity` — la logique, sans flecs |
+| [`include/levain/scene/transform.hpp`](include/levain/scene/transform.hpp) | `localMatrix`, `worldMatrix` (l'ordre du produit), `worldPosition` — sans flecs non plus |
 | [`include/levain/scene/scene.hpp`](include/levain/scene/scene.hpp) | `SceneModule` — `world.import<levain::scene::SceneModule>()` |
 
 ## Trois notions de flecs
@@ -36,7 +44,11 @@ et modifie en Debug.
   les archetypes qui correspondent et les garde en cache.
 - **Phase** : `world.progress()` exécute les systèmes phase par phase, dans l'ordre du pipeline par défaut
   (`OnLoad`, `PostLoad`, `PreUpdate`, `OnUpdate`, `OnValidate`, `PostUpdate`, `PreStore`, `OnStore`). La
-  simulation va dans `OnUpdate`.
+  simulation va dans `OnUpdate`, les matrices monde dans `PostUpdate`.
+- **Hiérarchie** : le composant `flecs::Parent` contient l'entité parente, et flecs y ajoute la profondeur
+  (`(ParentDepth, @n)`). `group_by(flecs::ParentDepth)` range les entités par niveau pour qu'un parent soit
+  calculé avant ses enfants — c'est ce qui remplace une récursion. Coût mesuré : 100 000 entités sur 10
+  niveaux en **1,43 ms** (`levain_scene_bench`, Release), sans dépendre de la forme de l'arbre.
 
 Lectures : *Quickstart* de flecs (`docs/LECTURES.md`, D1), puis *Queries* (D2).
 
@@ -44,8 +56,9 @@ Lectures : *Quickstart* de flecs (`docs/LECTURES.md`, D1), puis *Queries* (D2).
 
 En Debug, le sandbox active l'addon REST de flecs sur `127.0.0.1:27750`. Ouvrir
 [flecs.dev/explorer](https://www.flecs.dev/explorer) dans un navigateur **sur la même machine** : il s'y connecte
-seul, liste les entités (`cube_50_50` au centre de la grille) et permet d'éditer leurs composants. Donner une
-vitesse à un cube le fait partir : le rendu relit le monde à chaque frame.
+seul, liste les entités (`grid` et ses enfants, dont `cube_50_50` au centre) et permet d'éditer leurs
+composants. Donner une vitesse à un cube le fait partir : le rendu relit le monde à chaque frame. **Déplacer la
+grille déplace les 10 000 cubes d'un bloc**, sans toucher à leur `Transform` : c'est la hiérarchie de M3.2.
 
 L'explorer affiche des champs, pas des octets, grâce à la **réflexion** (addon meta) : `scene.cpp` décrit chaque
 champ de chaque composant par son type et son décalage. Le JSON de l'explorer, et plus tard celui des scènes
@@ -58,6 +71,9 @@ sauvegardées (phase 7), en dépendent. Vérification : `tools/explorer-check.sh
 | `member<T>(nom, 1, décalage)` fait un **tableau** d'un élément, sérialisé `"x":[2.5]` | `ScalarMember` (0) : c'est 0 qui veut dire scalaire |
 | La surcharge `member(nom, &Type::champ)` calcule son décalage en déréférençant un pointeur nul | `offsetof`, que UBSan ne signale pas |
 | `EcsRest::ipaddr` : flecs en prend la propriété et le **libère** à la destruction du monde | `ecs_os_strdup` ; une chaîne statique finissait en « double free » |
+| `group_by` **ne trie pas** les groupes : il les parcourt dans l'ordre inverse de leur création, donc un petit-enfant avant son parent | ajouter `query_flags(EcsQueryGroupByOrdered)` ; un test construit une hiérarchie dans le désordre |
+| Une requête `(ChildOf, parent)` **combinée à un composant** ne se résout pas table par table quand la hiérarchie est dans `flecs::Parent` : 212 µs pour 10 000 cubes, contre 8 | filtrer autrement (un tag, comme `Cube` dans le sandbox), ou interroger `flecs::Parent` |
+| `entity(...).get<T>()` dans la boucle d'un système, ou `it.world()`, coûtent 0,5 ms par 100 000 entités | capturer le monde et l'identifiant du composant une fois, puis `ecs_get_id` |
 | Sans `ipaddr`, le serveur REST écoute sur **toutes les interfaces**, et son API sait supprimer des entités et exécuter des scripts | toujours `127.0.0.1` ; `tools/explorer-check.sh` échoue sinon |
 
 ## Équivalents ailleurs
@@ -65,5 +81,5 @@ sauvegardées (phase 7), en dépendent. Vérification : `tools/explorer-check.sh
 | Moteur | Où | Ce qu'on y trouve |
 |---|---|---|
 | **Unreal** | Mass Entity ; *tick groups* | Un ECS à archetypes à côté des Actors ; les phases s'appellent groupes de tick (`TG_PrePhysics`, `TG_PostPhysics`…) (**documenté** : documentation d'Epic). |
-| **Unity** | Entities (DOTS) ; *system groups* | Un ECS à archetypes rangés en *chunks* ; les systèmes dans des groupes (`Initialization`, `Simulation`, `Presentation`) (**documenté** : manuel du package Entities). |
+| **Unity** | Entities (DOTS) ; *system groups* | Un ECS à archetypes rangés en *chunks* ; les systèmes dans des groupes (`Initialization`, `Simulation`, `Presentation`). La hiérarchie y est aussi un composant de l'enfant (`Parent`), et `LocalToWorldSystem` compose les matrices comme le nôtre (**documenté** : manuel du package Entities). |
 | **Godot** | Arbre de scène, `Node` | Pas d'ECS : des nœuds hiérarchiques, mis à jour par `_process` et `_physics_process` (**documenté** : docs officielles). |

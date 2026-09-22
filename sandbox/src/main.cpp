@@ -37,6 +37,7 @@
 #include "levain/render/texture.hpp"
 #include "levain/scene/components.hpp"
 #include "levain/scene/scene.hpp"
+#include "levain/scene/transform.hpp"
 
 namespace
 {
@@ -114,6 +115,14 @@ std::string describeFrameTimes(const levain::core::FrameTimeSummary& summary, do
         summary.averageMs, summary.minMs, summary.maxMs, 1000.0 / summary.averageMs, gpuMs);
 }
 
+/// Ce que le rendu dessine comme cube : un tag, vide, posé sur les entités de la grille. Demander
+/// plutôt « les enfants de grid » coûterait 212 µs par frame au lieu de 8 : une requête
+/// `(ChildOf, parent)` combinée à un composant ne se résout pas table par table quand la hiérarchie
+/// est rangée dans `flecs::Parent` (manuel des hiérarchies de flecs, « Query performance »).
+struct Cube
+{
+};
+
 /// Le critère de M2.1 : 10 000 cubes instanciés, en une grille de 100 × 100.
 constexpr int GridSide = 100;
 constexpr float GridSpacing = 1.5f;
@@ -127,8 +136,8 @@ constexpr float GroundTextureRepeat = GroundSize / 8.0f;
 /// file jusqu'à l'horizon, où se voit le filtrage anisotrope.
 struct DemoScene
 {
-    flecs::world world; ///< Les cubes, une entité chacun (M3.1).
-    flecs::query<const levain::scene::Transform> cubes;
+    flecs::world world; ///< Les cubes, une entité chacun (M3.1), enfants de « grid » (M3.2).
+    flecs::query<const levain::scene::WorldTransform> cubes;
     std::vector<glm::vec3>
         cubePositions; ///< Relevées à chaque frame, gardées pour ne pas réallouer.
     levain::render::MeshPass meshPass;
@@ -143,11 +152,16 @@ struct DemoScene
     nvrhi::TextureHandle depth; ///< Créé à la première frame, à la taille de l'image.
 };
 
-/// Les cubes de la grille, centrée sur l'origine : une entité chacun, nommée par sa colonne et sa
-/// rangée (« cube_50_50 » au centre) pour la retrouver dans l'explorer. Une vitesse nulle, que
-/// l'explorer peut changer.
+/// Les cubes de la grille : une entité chacun, nommée par sa colonne et sa rangée
+/// (« grid.cube_50_50 » au centre) pour la retrouver dans l'explorer, et **enfant** d'une entité
+/// « grid » qu'on peut déplacer d'un bloc (M3.2). Leur position est donc dans le repère de la
+/// grille, et leur vitesse, nulle au départ, est celle que l'explorer peut changer.
+///
+/// La hiérarchie passe par le composant `flecs::Parent` et jamais par `child_of` : une entité ne
+/// peut pas avoir les deux, et le système des matrices monde ne voit que le premier (ADR-0015).
 void spawnCubeGrid(flecs::world& world)
 {
+    const flecs::entity grid = world.entity("grid").set(levain::scene::Transform{});
     const float half = static_cast<float>(GridSide - 1) * GridSpacing / 2.0f;
     for (int z = 0; z < GridSide; ++z)
     {
@@ -155,21 +169,23 @@ void spawnCubeGrid(flecs::world& world)
         {
             const glm::vec3 position{static_cast<float>(x) * GridSpacing - half, 0.0f,
                                      static_cast<float>(z) * GridSpacing - half};
-            world.entity(std::format("cube_{}_{}", x, z).c_str())
+            world.entity(flecs::Parent{grid}, std::format("cube_{}_{}", x, z).c_str())
                 .set(levain::scene::Transform{.position = position})
-                .set(levain::scene::Velocity{});
+                .set(levain::scene::Velocity{})
+                .add<Cube>();
         }
     }
 }
 
-/// Les positions des cubes du monde, dans `positions`, que le rendu envoie ensuite au GPU. La glu
-/// entre scene et render, qui ne se connaissent pas (SPECS §7).
-void gatherCubePositions(const flecs::query<const levain::scene::Transform>& cubes,
+/// Les positions des cubes **dans le monde**, dans `positions`, que le rendu envoie ensuite au GPU.
+/// La glu entre scene et render, qui ne se connaissent pas (SPECS §7). Lire `WorldTransform` et non
+/// `Transform` : c'est ce qui fait suivre les cubes quand la grille bouge.
+void gatherCubePositions(const flecs::query<const levain::scene::WorldTransform>& cubes,
                          std::vector<glm::vec3>& positions)
 {
     positions.clear();
-    cubes.each([&positions](const levain::scene::Transform& transform)
-               { positions.push_back(transform.position); });
+    cubes.each([&positions](const levain::scene::WorldTransform& transform)
+               { positions.push_back(levain::scene::worldPosition(transform)); });
 }
 
 #ifdef LEVAIN_ENABLE_EXPLORER
@@ -237,8 +253,10 @@ levain::core::Result<DemoScene> createDemoScene(levain::gpu::GpuDevice& gpu,
     enableExplorerOnLoopback(world);
 #endif
     spawnCubeGrid(world);
-    flecs::query<const levain::scene::Transform> cubes =
-        world.query_builder<const levain::scene::Transform>("cubes").build();
+    // Les cubes, et rien d'autre : ni la grille, qui n'est qu'un point d'accroche, ni le sol.
+    flecs::query<const levain::scene::WorldTransform> cubes =
+        world.query_builder<const levain::scene::WorldTransform>("cubes").with<Cube>().build();
+    world.progress(0.0f); // les matrices monde, avant le premier envoi au GPU
     std::vector<glm::vec3> cubePositions;
     gatherCubePositions(cubes, cubePositions);
 

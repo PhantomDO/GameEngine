@@ -5,6 +5,7 @@
 
 #include "levain/scene/components.hpp"
 #include "levain/scene/motion.hpp"
+#include "levain/scene/transform.hpp"
 
 namespace levain::scene
 {
@@ -21,6 +22,9 @@ namespace
 /// Le nombre d'éléments d'un champ, pour flecs : 0 est un scalaire. 1 en ferait un tableau d'un
 /// élément, sérialisé « "x":[2.5] » au lieu de « "x":2.5 ».
 constexpr std::int32_t ScalarMember = 0;
+
+/// Les 16 flottants d'une glm::mat4, en colonnes : l'explorer les affiche en tableau.
+constexpr std::int32_t Mat4Floats = 16;
 
 void describeComponents(flecs::world& world)
 {
@@ -39,6 +43,27 @@ void describeComponents(flecs::world& world)
         .member<glm::vec3>("scale", ScalarMember, offsetof(Transform, scale));
     world.component<Velocity>().member<glm::vec3>("linear", ScalarMember,
                                                   offsetof(Velocity, linear));
+    world.component<WorldTransform>().member<float>("matrix", Mat4Floats,
+                                                    offsetof(WorldTransform, matrix));
+}
+
+/// La matrice monde du parent, ou l'identité pour une racine (`parent` nul) et pour un parent sans
+/// `Transform`, qui laisse donc son enfant dans le repère du monde.
+///
+/// Lecture par `ecs_get_id` plutôt que par l'API C++ : le parent n'est pas dans la même table que
+/// l'enfant (c'est le prix du stockage non fragmenté, ADR-0015), et cet accès est fait pour chaque
+/// entité, à chaque tour. `entity(...).get<T>()` y ajoute 0,5 ms sur 100 000 entités.
+const glm::mat4& parentWorldMatrix(const flecs::world_t* world, const flecs::Parent* parent,
+                                   flecs::entity_t worldTransformId)
+{
+    static const glm::mat4 identity{1.0f};
+    if (parent == nullptr)
+    {
+        return identity;
+    }
+    const auto* parentWorld =
+        static_cast<const WorldTransform*>(ecs_get_id(world, parent->value, worldTransformId));
+    return parentWorld != nullptr ? parentWorld->matrix : identity;
 }
 
 } // namespace
@@ -55,6 +80,33 @@ SceneModule::SceneModule(flecs::world& world)
         .kind(flecs::OnUpdate)
         .each([](flecs::iter& it, std::size_t, Transform& transform, const Velocity& velocity)
               { applyVelocity(transform, velocity, it.delta_time()); });
+
+    // Toute entité qui a un Transform a aussi un WorldTransform : le trait With de flecs l'ajoute
+    // (https://www.flecs.dev/flecs/md_docs_2ComponentTraits.html). Personne n'a à y penser.
+    world.component<Transform>().add(flecs::With, world.component<WorldTransform>());
+
+    // Les matrices monde, après la simulation et avant le rendu. Le parent est lu dans le composant
+    // flecs::Parent (ADR-0015) ; il est optionnel, une racine n'en a pas.
+    //
+    // group_by range les entités par profondeur de hiérarchie, pour qu'un parent soit calculé avant
+    // ses enfants. EcsQueryGroupByOrdered est **obligatoire** : sans lui, flecs parcourt les
+    // groupes dans l'ordre inverse de leur création, et un petit-enfant traîne une frame de retard
+    // (https://www.flecs.dev/flecs/md_docs_2Queries.html, section « Grouping »).
+    //
+    // Le pointeur du monde est capturé une fois : it.world() le reconstruit à chaque entité.
+    const flecs::world_t* worldPtr = world.c_ptr();
+    const flecs::entity_t worldTransformId = world.id<WorldTransform>();
+    world.system<const Transform, const flecs::Parent*, WorldTransform>("ComputeWorldTransforms")
+        .kind(flecs::PostUpdate)
+        .group_by(flecs::ParentDepth)
+        .query_flags(EcsQueryGroupByOrdered)
+        .each(
+            [worldPtr, worldTransformId](const Transform& local, const flecs::Parent* parent,
+                                         WorldTransform& transform)
+            {
+                transform.matrix =
+                    worldMatrix(parentWorldMatrix(worldPtr, parent, worldTransformId), local);
+            });
 }
 
 } // namespace levain::scene

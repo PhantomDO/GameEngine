@@ -53,7 +53,7 @@ y apprend, le temps de lecture (approximatif) et le bon moment pour la lire. Tou
 | D1 | [flecs — Quickstart](https://www.flecs.dev/flecs/Quickstart.html) | 30 min | Entités, composants, systèmes, requêtes : tout ce qu'il faut pour M3.1 | Avant M3.1 |
 | D2 | [flecs — Queries](https://www.flecs.dev/flecs/Queries.html) | 40 min | Le langage de requêtes, cœur de flecs | M3.1–M3.2 |
 | D3 | [flecs — Systems](https://www.flecs.dev/flecs/Systems.html) | 30 min | Phases, pipelines, intervalles, tick sources : la base de la boucle à pas fixe | M3.3 |
-| D4 | [flecs — Hierarchies](https://www.flecs.dev/flecs/HierarchiesManual.html) | 20 min | `ChildOf` et requêtes en cascade pour propager les transforms | M3.2 |
+| D4 | [flecs — Hierarchies](https://www.flecs.dev/flecs/HierarchiesManual.html) | 20 min | Les deux stockages de hiérarchie (`ChildOf` et `Parent`) et ce que chacun coûte ; section « Hierarchy storage » pour l'ADR-0015 | M3.2 |
 | D5 | [flecs — Remote API et explorer](https://www.flecs.dev/flecs/FlecsRemoteApi.html) ([explorer](https://flecs.dev/explorer)) | 10 min | Voir et modifier le monde en direct depuis le navigateur | M3.1 |
 | D6 | [flecs — Relationships](https://www.flecs.dev/flecs/Relationships.html) | 40 min | Les relations entre entités, point fort de flecs, utiles pour le gameplay | Phase 8 |
 | D7 | [flecs — Documentation](https://www.flecs.dev/flecs/Docs.html) | Référence | Index de tous les manuels, dont la réflexion (meta) et le JSON pour l'éditeur | Phase 7 |
