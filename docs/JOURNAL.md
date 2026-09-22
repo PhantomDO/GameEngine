@@ -26,6 +26,50 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-22 — M3.3 — Clôture
+
+- **Temps Donnovan pour M3.3 : 0,33 h déclarées, provisoire** : 5 min pour #102 (l'ADR), 15 min pour #103.
+  À réconcilier avec le total de la journée.
+- Définition de « terminé » (SPECS §9) : démo lançable sous Linux ; critère mesuré et consigné ; CI verte,
+  zéro erreur de validation ; README de `scene` à jour ; board renseigné ; tag `m3.3` et release. Pas d'étude :
+  E3 vient à la fin de la phase 3.
+
+### Critères du milestone
+
+| Critère (ROADMAP) | Mesuré | Commande |
+|---|---|---|
+| État de simulation identique au bit près après N ticks, que le rendu tourne à 30, 60 ou 144 images/s | 120 pas donnent la même position aux trois cadences, comparée **sans tolérance** | `./build/linux-debug/tests/levain_tests` |
+| En plus : coût d'un pas de simulation, 100 000 entités | **0,156 ms** | `./build/linux-release/tests/levain_scene_bench` |
+| En plus : coût d'une passe de rendu, 100 000 entités toutes interpolées | **2,09 ms** | idem |
+| En plus : M3.2 ne perd rien | 1,43 ms en chaînes, 1,42 en arbre large | idem |
+| En plus : le sandbox tourne avec la nouvelle boucle | 34 959 frames en 10 s, 286 µs par image contre 214 en M3.2 | `SDL_VIDEO_DRIVER=offscreen ./build/linux-release/sandbox/levain_sandbox --seconds 10` |
+
+### Temps
+
+| Issue | Estimé | Déclaré |
+|---|---:|---:|
+| #64 ADR de la boucle à pas fixe (#102) | 0,35 h | 0,08 h |
+| #65 Pipeline de simulation et interpolation (#103) | 0,65 h | 0,25 h |
+| **M3.3** (ROADMAP) | **1,0 h** | 0,33 h, à réconcilier |
+
+### Ce que M3.3 a appris
+
+- **Un silence vaut un échec** : une requête dont le singleton manque ne correspond à rien, et son système ne
+  tourne pas — sans rien dire. C'est la règle n°7 rencontrée pour la troisième fois du projet. Le banc l'a vue
+  parce qu'un chiffre est tombé à 0,001 ms ; sans banc, le rendu aurait simplement gelé les objets.
+- **Une signature peut coûter 30 % du budget** : `worldMatrix(parent, Transform)` composait la matrice locale
+  elle-même et empêchait le compilateur d'éviter une copie — 0,45 ms sur 100 000 entités. L'écart traînait
+  depuis M3.2, attribué à tort au coût des termes de requête. La méthode qui l'a trouvé (réécrire le même
+  corps à la main dans un binaire de test, puis supprimer une différence à la fois) est notée dans le GOTCHA
+  du skill `build`.
+- **L'interpolation crée ses propres bugs** : une entité neuve s'affiche à l'origine, un objet téléporté
+  traverse l'écran. Les deux se règlent au même endroit, un observateur sur le `Transform` posé à la main.
+- **Deux questions de conception de Donnovan** (la struct enveloppe, `Transform` contre `WorldTransform`) sont
+  archivées dans `docs/QA.md` : la paire de flecs est l'alternative idiomatique à `PreviousTransform`, et
+  reste à décider.
+
+**Prochaine étape** : M3.4 — input par actions et caméra libre (#66, #67).
+
 ## 2026-09-22 — M3.3 — Boucle à pas fixe et interpolation (#64, #65)
 
 - Temps Donnovan : à renseigner
