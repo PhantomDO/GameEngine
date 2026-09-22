@@ -11,10 +11,11 @@ add_executable(levain_tests
     image_test.cpp
     log_test.cpp
     process_test.cpp
+    scene_test.cpp
     texture_test.cpp
     version_test.cpp)
 target_link_libraries(levain_tests PRIVATE
-    levain::assets levain::core levain::platform levain::render doctest::doctest)
+    levain::assets levain::core levain::platform levain::render levain::scene doctest::doctest)
 
 # La macro qui génère le main de doctest ne doit s'appliquer qu'à une seule unité de
 # compilation, sinon chaque fichier de test en produirait un. On la pose donc sur ce fichier
@@ -40,6 +41,15 @@ doctest_discover_tests(levain_tests)
 # de référence et se consigne dans le journal (AGENTS.md, règle non négociable n°6).
 add_executable(levain_bench allocator_bench.cpp)
 target_link_libraries(levain_bench PRIVATE levain::core)
+
+add_executable(levain_scene_bench scene_bench.cpp)
+target_link_libraries(levain_scene_bench PRIVATE levain::scene)
+
+# SPECS §7 : flecs n'apparaît pas sous scene/. Un contrôle des sources plutôt que du link : les
+# en-têtes de vcpkg sont visibles de tous les modules, un #include <flecs.h> compilerait partout.
+add_test(NAME deps.flecs-visibility
+         COMMAND ${CMAKE_COMMAND} -DROOT=${PROJECT_SOURCE_DIR}
+                 -P ${CMAKE_CURRENT_SOURCE_DIR}/check_flecs_visibility.cmake)
 
 # Tests de fumée du rendu (#16, M2.1) : dessinent une scène hors écran et comparent l'image à une
 # référence. SDL_VIDEO_DRIVER=offscreen : pas d'écran en CI, la surface est « headless » (lavapipe).
