@@ -5,8 +5,9 @@
 Le modèle objet du moteur : le monde flecs, ses composants et ses systèmes (ADR-0004). Tout ce qui vit dans une
 partie (objets, caméra, lumières) sera une entité de ce monde.
 
-**État en M3.1** : les composants `Transform` et `Velocity`, et un système, `ApplyVelocity`, dans la phase
-`OnUpdate`.
+**État en M3.1** : les composants `Transform` et `Velocity`, décrits pour la réflexion de flecs ; un système,
+`ApplyVelocity`, dans la phase `OnUpdate`. Le sandbox en fait 10 000 cubes, que l'explorer web de flecs affiche
+et modifie en Debug.
 
 ## Invariants
 
@@ -38,6 +39,26 @@ partie (objets, caméra, lumières) sera une entité de ce monde.
   simulation va dans `OnUpdate`.
 
 Lectures : *Quickstart* de flecs (`docs/LECTURES.md`, D1), puis *Queries* (D2).
+
+## L'explorer
+
+En Debug, le sandbox active l'addon REST de flecs sur `127.0.0.1:27750`. Ouvrir
+[flecs.dev/explorer](https://www.flecs.dev/explorer) dans un navigateur **sur la même machine** : il s'y connecte
+seul, liste les entités (`cube_50_50` au centre de la grille) et permet d'éditer leurs composants. Donner une
+vitesse à un cube le fait partir : le rendu relit le monde à chaque frame.
+
+L'explorer affiche des champs, pas des octets, grâce à la **réflexion** (addon meta) : `scene.cpp` décrit chaque
+champ de chaque composant par son type et son décalage. Le JSON de l'explorer, et plus tard celui des scènes
+sauvegardées (phase 7), en dépendent. Vérification : `tools/explorer-check.sh`.
+
+## Pièges connus (flecs 4.1.6)
+
+| Piège | Parade |
+|---|---|
+| `member<T>(nom, 1, décalage)` fait un **tableau** d'un élément, sérialisé `"x":[2.5]` | `ScalarMember` (0) : c'est 0 qui veut dire scalaire |
+| La surcharge `member(nom, &Type::champ)` calcule son décalage en déréférençant un pointeur nul | `offsetof`, que UBSan ne signale pas |
+| `EcsRest::ipaddr` : flecs en prend la propriété et le **libère** à la destruction du monde | `ecs_os_strdup` ; une chaîne statique finissait en « double free » |
+| Sans `ipaddr`, le serveur REST écoute sur **toutes les interfaces**, et son API sait supprimer des entités et exécuter des scripts | toujours `127.0.0.1` ; `tools/explorer-check.sh` échoue sinon |
 
 ## Équivalents ailleurs
 

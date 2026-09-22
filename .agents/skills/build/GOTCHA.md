@@ -1,7 +1,7 @@
 # Pièges — build, tests, sanitizers, CI
 
 Un piège par entrée : symptôme, cause, parade. Le plus récent en haut. Les pièges propres à SDL sont détaillés
-dans `engine/platform/README.md`, section « Pièges connus ».
+dans `engine/platform/README.md`, ceux de flecs dans `engine/scene/README.md`, section « Pièges connus ».
 
 ## Shaders
 

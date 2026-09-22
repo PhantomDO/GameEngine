@@ -1,6 +1,10 @@
 add_executable(levain_sandbox src/main.cpp src/shader_reload.cpp)
 target_link_libraries(levain_sandbox PRIVATE
-    levain::assets levain::core levain::platform levain::gpu levain::render)
+    levain::assets levain::core levain::platform levain::gpu levain::render levain::scene)
+
+# L'explorer web de flecs, en Debug seulement : en Release, le code qui l'active n'est pas compilé,
+# et aucun serveur n'écoute.
+target_compile_definitions(levain_sandbox PRIVATE $<$<CONFIG:Debug>:LEVAIN_ENABLE_EXPLORER=1>)
 
 # Les textures sont lues dans le dépôt, comme les shaders compilés dans le build : pas de copie à
 # tenir à jour.

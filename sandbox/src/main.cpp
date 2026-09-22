@@ -16,6 +16,7 @@
 #include <utility>
 #include <vector>
 
+#include <flecs.h>
 #include <glm/gtc/constants.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -34,6 +35,8 @@
 #include "levain/render/mesh.hpp"
 #include "levain/render/mesh_pass.hpp"
 #include "levain/render/texture.hpp"
+#include "levain/scene/components.hpp"
+#include "levain/scene/scene.hpp"
 
 namespace
 {
@@ -124,6 +127,10 @@ constexpr float GroundTextureRepeat = GroundSize / 8.0f;
 /// file jusqu'à l'horizon, où se voit le filtrage anisotrope.
 struct DemoScene
 {
+    flecs::world world; ///< Les cubes, une entité chacun (M3.1).
+    flecs::query<const levain::scene::Transform> cubes;
+    std::vector<glm::vec3>
+        cubePositions; ///< Relevées à chaque frame, gardées pour ne pas réallouer.
     levain::render::MeshPass meshPass;
     levain::render::Mesh cube;
     levain::render::Instances grid;
@@ -136,22 +143,53 @@ struct DemoScene
     nvrhi::TextureHandle depth; ///< Créé à la première frame, à la taille de l'image.
 };
 
-/// Les positions de la grille, centrée sur l'origine.
-std::vector<glm::vec3> gridOffsets()
+/// Les cubes de la grille, centrée sur l'origine : une entité chacun, nommée par sa colonne et sa
+/// rangée (« cube_50_50 » au centre) pour la retrouver dans l'explorer. Une vitesse nulle, que
+/// l'explorer peut changer.
+void spawnCubeGrid(flecs::world& world)
 {
-    std::vector<glm::vec3> offsets;
-    offsets.reserve(static_cast<std::size_t>(GridSide) * GridSide);
     const float half = static_cast<float>(GridSide - 1) * GridSpacing / 2.0f;
     for (int z = 0; z < GridSide; ++z)
     {
         for (int x = 0; x < GridSide; ++x)
         {
-            offsets.emplace_back(static_cast<float>(x) * GridSpacing - half, 0.0f,
-                                 static_cast<float>(z) * GridSpacing - half);
+            const glm::vec3 position{static_cast<float>(x) * GridSpacing - half, 0.0f,
+                                     static_cast<float>(z) * GridSpacing - half};
+            world.entity(std::format("cube_{}_{}", x, z).c_str())
+                .set(levain::scene::Transform{.position = position})
+                .set(levain::scene::Velocity{});
         }
     }
-    return offsets;
 }
+
+/// Les positions des cubes du monde, dans `positions`, que le rendu envoie ensuite au GPU. La glu
+/// entre scene et render, qui ne se connaissent pas (SPECS §7).
+void gatherCubePositions(const flecs::query<const levain::scene::Transform>& cubes,
+                         std::vector<glm::vec3>& positions)
+{
+    positions.clear();
+    cubes.each([&positions](const levain::scene::Transform& transform)
+               { positions.push_back(transform.position); });
+}
+
+#ifdef LEVAIN_ENABLE_EXPLORER
+/// L'explorer web de flecs (https://www.flecs.dev/explorer) lit et modifie le monde par l'addon
+/// REST, sur le port 27750. Debug seulement, et **sur la boucle locale** : par défaut, flecs écoute
+/// sur toutes les interfaces, et son API distante sait aussi supprimer des entités et exécuter des
+/// scripts (https://www.flecs.dev/flecs/FlecsRemoteApi.html).
+void enableExplorerOnLoopback(flecs::world& world)
+{
+    world.import<flecs::stats>(); // les statistiques de l'onglet « Stats » de l'explorer
+    // ipaddr doit venir de l'allocateur de flecs : EcsRest en prend la propriété et le libère à la
+    // destruction du monde (src/addons/rest.c, ECS_DTOR(EcsRest)). Une chaîne statique finissait en
+    // « double free » à la sortie du sandbox.
+    world.set<flecs::Rest>(
+        {.port = ECS_REST_DEFAULT_PORT, .ipaddr = ecs_os_strdup("127.0.0.1"), .impl = nullptr});
+    levain::core::log("sandbox", levain::core::LogLevel::Info,
+                      "explorer : https://www.flecs.dev/explorer (REST sur 127.0.0.1:{})",
+                      ECS_REST_DEFAULT_PORT);
+}
+#endif
 
 /// Les niveaux de mip dans le format qu'attend render. Ils pointent dans `mips`, qui doit leur
 /// survivre jusqu'à l'envoi.
@@ -193,11 +231,22 @@ levain::core::Result<DemoScene> createDemoScene(levain::gpu::GpuDevice& gpu,
         return std::unexpected(meshPass.error());
     }
 
+    flecs::world world;
+    world.import<levain::scene::SceneModule>();
+#ifdef LEVAIN_ENABLE_EXPLORER
+    enableExplorerOnLoopback(world);
+#endif
+    spawnCubeGrid(world);
+    flecs::query<const levain::scene::Transform> cubes =
+        world.query_builder<const levain::scene::Transform>("cubes").build();
+    std::vector<glm::vec3> cubePositions;
+    gatherCubePositions(cubes, cubePositions);
+
     const nvrhi::CommandListHandle upload = gpu.nvrhi->createCommandList();
     upload->open();
     levain::render::Mesh cube = levain::render::createCube(*gpu.nvrhi, *upload);
     levain::render::Instances grid =
-        levain::render::createInstances(*gpu.nvrhi, *upload, gridOffsets());
+        levain::render::createInstances(*gpu.nvrhi, *upload, cubePositions);
     levain::render::Mesh ground =
         levain::render::createPlane(*gpu.nvrhi, *upload, GroundSize, GroundTextureRepeat);
     // Juste sous les cubes, qui tournent sur eux-mêmes : leur demi-diagonale fait 0,87.
@@ -220,7 +269,10 @@ levain::core::Result<DemoScene> createDemoScene(levain::gpu::GpuDevice& gpu,
                                         .verticalFovRadians = glm::radians(60.0f),
                                         .nearPlane = 0.5f,
                                         .farPlane = 1000.0f};
-    return DemoScene{.meshPass = std::move(*meshPass),
+    return DemoScene{.world = std::move(world),
+                     .cubes = std::move(cubes),
+                     .cubePositions = std::move(cubePositions),
+                     .meshPass = std::move(*meshPass),
                      .cube = std::move(cube),
                      .grid = std::move(grid),
                      .ground = std::move(ground),
@@ -284,6 +336,9 @@ std::optional<double> renderFrame(levain::gpu::GpuDevice& gpu,
         commandList.clearTextureFloat(backBuffer, nvrhi::AllSubresources, clearColor);
         // 1 : la profondeur la plus lointaine, que tout ce qu'on dessine vient remplacer.
         commandList.clearDepthStencilTexture(depth, nvrhi::AllSubresources, true, 1.0f, false, 0);
+        // Le renderer dessine ce que contient le monde : les positions du tour qui vient de finir.
+        gatherCubePositions(scene.cubes, scene.cubePositions);
+        levain::render::updateInstances(commandList, scene.grid, scene.cubePositions);
         levain::render::drawMesh(commandList, scene.meshPass, *framebuffer, scene.cube, scene.grid,
                                  *scene.material, constants);
         levain::render::drawMesh(
@@ -392,6 +447,13 @@ void runMainLoop(levain::platform::Window& window, levain::gpu::GpuDevice& gpu, 
         }
 
         reloadChangedShaders(shaderReload, *gpu.nvrhi, sceneTarget, scene.meshPass);
+
+        {
+            // Un tour du monde flecs : ses systèmes, et les requêtes de l'explorer en Debug. Sans
+            // argument, flecs mesure lui-même le temps écoulé depuis le tour précédent.
+            LEVAIN_PROFILE_SCOPE_NAMED("monde");
+            scene.world.progress();
+        }
 
         {
             LEVAIN_PROFILE_SCOPE_NAMED("rendu");

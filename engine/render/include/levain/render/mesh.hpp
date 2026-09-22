@@ -33,12 +33,19 @@ struct Mesh
 struct Instances
 {
     nvrhi::BufferHandle offsets;
-    std::uint32_t count = 0;
+    std::uint32_t count = 0;    ///< Instances dessinées.
+    std::uint32_t capacity = 0; ///< Positions que le buffer peut contenir.
 };
 
-/// Crée le buffer des positions et enregistre son envoi dans `commandList`.
+/// Crée le buffer des positions, à la taille de `offsets`, et enregistre son envoi dans
+/// `commandList`.
 [[nodiscard]] Instances createInstances(nvrhi::IDevice& device, nvrhi::ICommandList& commandList,
                                         std::span<const glm::vec3> offsets);
+
+/// Remplace les positions des instances, par exemple à chaque frame depuis le monde flecs. Au-delà
+/// de la capacité du buffer, les positions en trop ne sont pas dessinées.
+void updateInstances(nvrhi::ICommandList& commandList, Instances& instances,
+                     std::span<const glm::vec3> offsets);
 
 /// Crée les buffers et enregistre l'envoi des données dans `commandList`, que l'appelant a ouverte
 /// et exécutera avant le premier dessin.
