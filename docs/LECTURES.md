@@ -38,6 +38,14 @@ y apprend, le temps de lecture (approximatif) et le bon moment pour la lire. Tou
 | C5 | Alain Galvan, [*Unreal Engine Architecture*](https://alain.xyz/blog/unreal-engine-architecture) | 30 min | Vue d'ensemble des modules d'Unreal, RHI comprise | Facultatif |
 | C6 | Yuriy O'Donnell, [*FrameGraph* (Frostbite, GDC 2017)](https://www.gdcvault.com/play/1024612/FrameGraph-Extensible-Rendering-Architecture-in) | 1 h (vidéo) | Le graphe de rendu (niveau 3) : l'étape au-dessus de NVRHI, candidat pour la v2 | Phase 5 ou v2 |
 
+## C bis. Shaders, variantes et pipelines (étude E2)
+
+| # | Source | Durée | Ce qu'on y apprend | Quand |
+|---|---|---|---|---|
+| C7 | Godot, [*Reducing stutter from shader (pipeline) compilations*](https://docs.godotengine.org/en/stable/tutorials/performance/pipeline_compilations.html) | 15 min | **La meilleure explication publique des saccades de pipelines**, et des ubershaders de Godot 4.4 qui les évitent | Phase 2 ou 5 |
+| C8 | Epic, [*PSO Precaching for Unreal Engine*](https://dev.epicgames.com/documentation/en-us/unreal-engine/pso-precaching-for-unreal-engine) | 20 min | Comment Unreal précompile les pipelines au chargement des assets, en tâche de fond | Phase 5 |
+| C9 | Unity, [*Strip shader variants*](https://docs.unity3d.com/6000.1/Documentation/Manual/shader-variant-stripping.html) | 10 min | Les variantes par mots-clés (`multi_compile`, `shader_feature`) et ce qu'elles coûtent | Avant l'ADR sur les variantes |
+
 ## D. flecs et l'ECS (phase 3)
 
 | # | Source | Durée | Ce qu'on y apprend | Quand |
