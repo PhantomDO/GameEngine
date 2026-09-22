@@ -26,6 +26,29 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-22 — M3.1 — Le rendu lit le monde ; explorer flecs en Debug (#62)
+
+- Temps Donnovan : à renseigner
+- Sessions Claude Code : 1
+- Fait : réflexion des composants (addon meta : `vec3`, `quat`, `Transform`, `Velocity`) ; `updateInstances` ;
+  les 10 000 cubes du sandbox sont des entités (`cube_x_z`), le rendu relève leurs positions à chaque frame ;
+  addon REST en Debug seulement, sur `127.0.0.1` ; `tools/explorer-check.sh`.
+- Mesures :
+  - **entités visibles et modifiables** : `cube_50_50` lu par l'API REST de l'explorer, avec ses composants ;
+    une vitesse de 5 posée par l'API le fait monter de 5,19 et 5,33 unités en une seconde
+    (`./tools/explorer-check.sh`, Debug et ASan) ;
+  - **l'explorer n'est pas compilé en Release** : `LEVAIN_ENABLE_EXPLORER` n'y est pas défini, aucun serveur
+    n'écoute sur le port 27750 (même script) ;
+  - **le serveur n'écoute que sur la boucle locale** ; contre-test sans `ipaddr` : `0.0.0.0:27750`, le script
+    échoue ; restauré ;
+  - coût du monde dans le sandbox (Release, hors écran, `--seconds 10`) : 161 321 et 162 088 frames, soit
+    ~62 µs par frame contre ~45 µs en M2.2 ; 0,043 ms de GPU ;
+  - trois presets verts, 49 tests.
+- Écarts et problèmes : trois pièges de flecs, trouvés par un test ou par ASan, notés dans le README de
+  `scene` : un champ déclaré avec `count = 1` devient un tableau ; `EcsRest::ipaddr` est libéré par flecs
+  (« double free » à la sortie) ; le serveur REST écoute par défaut sur toutes les interfaces.
+- Prochaine étape : clôture de M3.1.
+
 ## 2026-09-22 — M3.1 — Module scene : monde flecs, Transform, Velocity (#61)
 
 - Temps Donnovan : à renseigner

@@ -1,3 +1,5 @@
+#include <string_view>
+
 #include <doctest/doctest.h>
 #include <flecs.h>
 
@@ -41,4 +43,25 @@ TEST_CASE("le système ApplyVelocity tourne dans la phase OnUpdate")
 
     REQUIRE(system.is_valid());
     CHECK(system.has(flecs::DependsOn, flecs::OnUpdate));
+}
+
+TEST_CASE("les champs des composants se lisent et s'écrivent en JSON, comme dans l'explorer")
+{
+    flecs::world world;
+    world.import<levain::scene::SceneModule>();
+    Transform transform;
+    transform.position = {2.5f, 0.0f, 0.0f};
+    const flecs::entity entity = world.entity("cube").set(transform);
+
+    // L'explorer lit le monde en JSON (addon REST) : sans la réflexion, il ne verrait qu'un bloc
+    // d'octets.
+    const flecs::string json = entity.to_json();
+    CHECK(std::string_view{json.c_str()}.find(R"("position":{"x":2.5)") != std::string_view::npos);
+
+    // Et il écrit de la même façon : c'est ce que fait l'explorer quand on modifie un champ.
+    entity.set_json<Transform>(R"({"position":{"x":7, "y":1, "z":0}})");
+    CHECK(entity.get<Transform>().position.x == doctest::Approx(7.0f));
+    CHECK(entity.get<Transform>().position.y == doctest::Approx(1.0f));
+    CHECK(entity.get<Transform>().rotation.w ==
+          doctest::Approx(1.0f)); // champs absents : inchangés
 }

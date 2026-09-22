@@ -48,9 +48,23 @@ Instances createInstances(nvrhi::IDevice& device, nvrhi::ICommandList& commandLi
                                            .setKeepInitialState(true)
                                            .setDebugName("instances : positions")),
         .count = static_cast<std::uint32_t>(offsets.size()),
+        .capacity = static_cast<std::uint32_t>(offsets.size()),
     };
     commandList.writeBuffer(instances.offsets, offsets.data(), offsets.size_bytes());
     return instances;
+}
+
+void updateInstances(nvrhi::ICommandList& commandList, Instances& instances,
+                     std::span<const glm::vec3> offsets)
+{
+    // ponytail: capacité fixe ; des entités créées depuis l'explorer au-delà ne s'affichent pas.
+    // Un buffer recréé plus grand le jour où la scène grandit pour de bon.
+    const std::span<const glm::vec3> drawn =
+        offsets.first(std::min(offsets.size(), static_cast<std::size_t>(instances.capacity)));
+    // writeBuffer se place dans la command list, avant le dessin qui lit ces positions : NVRHI met
+    // la barrière entre les deux, et le GPU n'écrase pas ce qu'une frame précédente lit encore.
+    commandList.writeBuffer(instances.offsets, drawn.data(), drawn.size_bytes());
+    instances.count = static_cast<std::uint32_t>(drawn.size());
 }
 
 /// Les coordonnées de texture des quatre coins d'une face carrée, dans l'ordre où createCube et
