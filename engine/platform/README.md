@@ -2,11 +2,12 @@
 
 ## Rôle
 
-La frontière avec le système d'exploitation : fenêtre, événements, et plus tard l'input brut (clavier, souris,
+La frontière avec le système d'exploitation : fenêtre, événements, processus, et plus tard l'input brut (clavier, souris,
 manettes). C'est le **seul module qui inclut SDL3** ([ADR-0003](../../docs/adr/0003-plateforme-sdl3.md)) ; le
 reste du moteur ne voit que nos propres types.
 
-**État en M1.1** : une fenêtre, ses événements (fermeture, redimensionnement, masquée, visible) et son titre.
+**État en M2.3** : une fenêtre, ses événements (fermeture, redimensionnement, masquée, visible) et son titre ;
+le lancement d'un programme externe (`runProcess`), pour le hot-reload des shaders.
 
 ## Invariants
 
@@ -23,6 +24,7 @@ reste du moteur ne voit que nos propres types.
 | Fichier | Contenu |
 |---|---|
 | [`include/levain/platform/window.hpp`](include/levain/platform/window.hpp) | `createWindow`, `windowPixelSize`, `pollEvents`, `waitEvents`, `setWindowTitle` |
+| [`include/levain/platform/process.hpp`](include/levain/platform/process.hpp) | `runProcess` — lance un programme, attend sa fin, rend sa sortie (standard et erreur mêlées) et son code de retour |
 
 ## Trois choses à savoir sur les fenêtres
 
