@@ -1,6 +1,6 @@
 # ADR-0018 — Moteur, plugins et jeu : deux dépôts, trois niveaux
 
-- **Statut** : proposé
+- **Statut** : accepté le 2026-09-23 (validé par Donnovan, classement conservé tel quel)
 - **Date** : 2026-09-23
 - **Milestone** : M3.6
 
@@ -60,7 +60,7 @@ la configuration : au moindre écart, la configuration échoue et dit quoi corri
 
 ### Où va chaque fonctionnalité
 
-Classement proposé par Claude selon la règle de Donnovan, **à corriger ligne par ligne à la relecture**.
+Classement proposé par Claude selon la règle de Donnovan, validé par lui sans correction.
 
 | Fonctionnalité | Niveau | Pour | Contre |
 |---|---|---|---|
