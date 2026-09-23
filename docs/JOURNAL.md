@@ -23,6 +23,79 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 | 0 | 6,0 | **5,0** | **0,83** |
 | 1 | 4,5 | **3,0** | **0,67** |
 | 2 | 3,75 | **4,25** | **1,13** |
+| 3 | 4,5 | **5,25** | **1,17** |
+
+---
+
+## 2026-09-23 — Phase 3 — Clôture (M3.6 compris) : le jeu a son dépôt
+
+- **Temps Donnovan pour M3.6 : 0,50 h**, soit le total de la journée (« 2 h en tout ») moins les 1,50 h de
+  M3.5. Réparti au prorata des estimations : #114 à 0,25 h, #115 à 0,25 h. **Ratio 1,00.**
+- Définition de « terminé » pour M3.6 (SPECS §9) : le jeu est lançable sous Linux ; les critères sont mesurés et
+  consignés ; la CI est verte dans les deux dépôts, sans erreur de validation ; les README sont à jour (Levain
+  et *Rando*) ; le board est renseigné ; le tag `m3.6` et la release suivent. Étude de la phase : **E3, écrite
+  et relue** (#119).
+- **Ce que M3.6 a livré** :
+  - l'[ADR-0018](adr/0018-moteur-plugins-et-jeu.md) : deux dépôts, trois niveaux (moteur, plugins moteur,
+    plugins gameplay) et le classement de chaque fonctionnalité, validé sans correction ;
+  - le moteur utilisable par un autre dépôt (#122) ;
+  - le dépôt public [PhantomDO/Rando](https://github.com/PhantomDO/Rando), avec sa CI et la protection de
+    `main` ([Rando#1](https://github.com/PhantomDO/Rando/pull/1)). La page de game design y a déménagé.
+
+### Critères de M3.6
+
+| Critère (ROADMAP) | Mesuré | Commande |
+|---|---|---|
+| La CI du jeu compile contre un commit figé du moteur | `63f75bf` téléchargé depuis GitHub : trois presets verts, en local et sur la CI de *Rando* | `cmake --preset <preset> && cmake --build --preset <preset>` (dans *Rando*) |
+| Une modification locale du moteur se voit dans le jeu sans rien publier | une ligne de log modifiée dans le clone de Levain s'affiche au lancement de *Rando* (modification annulée ensuite) | `cmake --preset linux-debug -B build/local-engine -DFETCHCONTENT_SOURCE_DIR_LEVAIN=../Levain` |
+| En plus : le jeu tourne | hors écran, 2 s : 20 171 frames (Debug), 76 167 (Release), 15 396 (ASan) | `SDL_VIDEO_DRIVER=offscreen ./build/<preset>/game/rando --seconds 2` |
+| En plus : un manifeste vcpkg incomplet est refusé | « dépendance absente ou différente : stb », à la configuration du jeu | `cmake --preset linux-debug` (dans *Rando*) |
+| En plus : les contrôles attrapent vraiment les erreurs | chaque contrôle désactivé à la main fait échouer son test | `ctest -R "cmake\."` |
+
+### Temps de M3.6
+
+| Issue | Estimé | Passé |
+|---|---:|---:|
+| #114 ADR-0018 (#121) | 0,25 h | 0,25 h |
+| #115 Le moteur vu d'un jeu, le dépôt *Rando* (#122, Rando#1) | 0,25 h | 0,25 h |
+| **M3.6** (ROADMAP) | **0,5 h** | **0,50 h** (ratio 1,00) |
+
+### Phase 3 — le ratio
+
+| Milestone | Estimé | Passé |
+|---|---:|---:|
+| M3.1 Intégration de flecs et explorer | 1,0 h | 0,50 h |
+| M3.2 Transforms et hiérarchie | 0,75 h | 0,42 h |
+| M3.3 Boucle à pas fixe | 1,0 h | 1,33 h |
+| M3.4 Input par actions et caméra libre | 1,0 h | 1,00 h |
+| M3.5 Choix du jeu | 0,25 h | 1,50 h |
+| M3.6 Dépôt du jeu | 0,5 h | 0,50 h |
+| **Phase 3** | **4,5 h** | **5,25 h** — ratio **1,17** |
+
+**Dans la fourchette 0,8–1,25 : aucun recalibrage.** Sans M3.5, le ratio serait de 0,88. Le dépassement vient
+du choix du jeu, qui a cadré toute la v1, et non du travail de moteur. Le ratio cumulé des phases 0 à 3,
+(5,0 + 3,0 + 4,25 + 5,25) / (6,0 + 4,5 + 3,75 + 4,5) = **0,93**, est aussi dans la fourchette. Les ajouts du
+jeu (+9,5 h) sont déjà dans la ROADMAP v0.6 : la fin visée reste le 16/05/2027.
+
+### Phase 5 détaillée
+
+Seize issues créées, #123 à #138, sur M5.1 à M5.7, avec estimation (10,25 h au total, celui de la ROADMAP) et
+phase sur le board. Deux ADR y figurent : forward ou forward+ (#123), et **des passes de rendu venues d'un
+plugin** (#134). Ce second ADR est le coût que l'ADR-0018 annonçait pour ranger le terrain en plugin.
+
+### Ce que la phase 3 a appris
+
+- **Mesurer avant de suivre la documentation** : `ChildOf`, la voie documentée, ratait le critère de M3.2 d'un
+  facteur 7,5. La documentation de flecs le dit elle-même, mais seulement dans le manuel des hiérarchies.
+- **Un singleton absent désactive une requête sans bruit** (M3.3) : le benchmark affichait 0,001 ms, un temps
+  trop beau pour être vrai. Un chiffre trop bon se vérifie comme un chiffre trop mauvais.
+- **Le temps déclaré PR par PR sous-estime** : ×4 en M3.3, ×2,4 en M3.4. Seul le total de la journée compte.
+- **Un choix de produit coûte plus cher qu'un choix technique** : M3.5 a pris six fois son estimation, et
+  valait la peine, parce que chaque ajout a été arbitré avant d'écrire du code.
+- **Mon outil local peut masquer une panne de la CI** : CMake 4.4 active des politiques qu'un `cmake -P` de la
+  CI n'a pas (GOTCHA du build).
+
+**Prochaine étape** : la phase 4, en commençant par M4.1, l'import glTF (#87, #88).
 
 ---
 
@@ -33,7 +106,7 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
   périmètre qui a changé (voir plus bas).
 - Définition de « terminé » (SPECS §9) : page de game design validée par Donnovan ; ROADMAP v0.6 et SPECS à
   jour ; étude E3 écrite et relue ; board renseigné ; tag `m3.5`. Pas de code, donc pas de démo.
-- **Le jeu** ([JEU.md](JEU.md)) : *Rando*, un vertical slice de 5 à 10 minutes dans l'esprit de *Breath of the
+- **Le jeu** ([JEU.md](https://github.com/PhantomDO/Rando/blob/main/docs/JEU.md)) : *Rando*, un vertical slice de 5 à 10 minutes dans l'esprit de *Breath of the
   Wild*. Une vallée de 500 m, un sanctuaire visible dès le départ ; planer, nager, marcher en gérant une
   endurance ; des cœurs perdus par la chute, la noyade et les pièges ; des énigmes d'objets physiques ; pas
   d'ennemis.
@@ -49,7 +122,7 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 | Critère (ROADMAP) | Résultat | Où |
 |---|---|---|
-| La page est validée par Donnovan | validée le 23/09, titre *Rando* choisi par lui | [JEU.md](JEU.md), #113 |
+| La page est validée par Donnovan | validée le 23/09, titre *Rando* choisi par lui | [JEU.md](https://github.com/PhantomDO/Rando/blob/main/docs/JEU.md), #113 |
 | La ROADMAP est mise à jour en conséquence | v0.6 : 7 milestones créés, 2 étendus, échéances recalées, milestones et issues GitHub créés (#114 à #118) | [ROADMAP.md](ROADMAP.md) |
 | Étude E3 | écrite et relue | [E3](etudes/E3-modeles-objets.md), #119 |
 

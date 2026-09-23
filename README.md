@@ -6,7 +6,7 @@ Moteur de jeu 3D en C++23 pour Linux, sur NVRHI (Vulkan) et flecs, construit ét
 Un levain, c'est ce qu'on nourrit un peu chaque semaine, qui reste vivant entre deux fournées, et à partir de
 quoi on cuit autre chose. C'est le rythme et le rôle de ce moteur.
 
-**Statut** : fin de la phase 3 (scène et ECS). Le jeu construit avec, *[Rando](docs/JEU.md)*, vit dans son
+**Statut** : fin de la phase 3 (scène et ECS). Le jeu construit avec, *[Rando](https://github.com/PhantomDO/Rando/blob/main/docs/JEU.md)*, vit dans son
 propre dépôt.
 
 - [Spécifications](docs/SPECS.md)
