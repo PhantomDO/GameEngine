@@ -6,8 +6,8 @@ Moteur de jeu 3D en C++23 pour Linux, sur NVRHI (Vulkan) et flecs, construit ét
 Un levain, c'est ce qu'on nourrit un peu chaque semaine, qui reste vivant entre deux fournées, et à partir de
 quoi on cuit autre chose. C'est le rythme et le rôle de ce moteur.
 
-**Statut** : phase 0. Le moteur a fait un aller-retour par Rust le 20/09/2026 (tags `m0.2` et `m0.4`) ;
-les raisons du retour au C++ sont dans l'[ADR-0011](docs/adr/0011-retour-au-cpp.md).
+**Statut** : fin de la phase 3 (scène et ECS). Le jeu construit avec, *[Rando](docs/JEU.md)*, vit dans son
+propre dépôt.
 
 - [Spécifications](docs/SPECS.md)
 - [Roadmap chiffrée](docs/ROADMAP.md)
@@ -20,7 +20,34 @@ les raisons du retour au C++ sont dans l'[ADR-0011](docs/adr/0011-retour-au-cpp.
 
 ## Compiler
 
-*À venir en M0.2.*
+Les outils sont listés dans [SETUP.md](docs/SETUP.md). Puis :
+
+```bash
+cmake --preset linux-debug
+cmake --build --preset linux-debug
+ctest --test-dir build/linux-debug
+```
+
+## Faire un jeu avec Levain
+
+Un jeu récupère le moteur par `FetchContent`, à un commit figé
+([ADR-0018](docs/adr/0018-moteur-plugins-et-jeu.md)) ; les tests et le sandbox ne sont alors pas construits.
+
+```cmake
+FetchContent_Declare(levain
+    GIT_REPOSITORY https://github.com/PhantomDO/Levain.git
+    GIT_TAG <commit>)
+FetchContent_MakeAvailable(levain)
+target_link_libraries(mon_jeu PRIVATE levain::scene levain::gpu)
+```
+
+- **Le `vcpkg.json` du jeu doit contenir celui du moteur** (même baseline, mêmes dépendances) et une copie de
+  `ports/`. vcpkg ne lit que le manifeste du projet principal ; le moteur vérifie la copie à la configuration,
+  et dit ce qui manque.
+- **Pour modifier le moteur et le jeu en même temps**, sans rien publier :
+  `cmake --preset linux-debug -DFETCHCONTENT_SOURCE_DIR_LEVAIN=../Levain`.
+- **Un plugin** se déclare par `levain_add_plugin(<nom> SOURCES … DEPENDS …)` ([cmake/LevainPlugin.cmake](
+  cmake/LevainPlugin.cmake)) : il ne lie que ce qu'il déclare, et le moteur ne dépend jamais de lui.
 
 ## Licence
 

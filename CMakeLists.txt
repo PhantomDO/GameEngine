@@ -42,7 +42,14 @@ add_compile_options(-Wall -Wextra -Werror)
 # Ninja : deux étapes par fichier (scan + dyndep) pour un résultat toujours vide. On le coupe.
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 
-enable_testing()
+# Le moteur se construit seul ou comme dépendance d'un jeu, récupéré par FetchContent (ADR-0018).
+# Dans le second cas, le manifeste vcpkg lu est celui du jeu : il doit contenir le nôtre.
+list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
+include(LevainPlugin)
+if(NOT PROJECT_IS_TOP_LEVEL)
+    include(CheckVcpkgManifest)
+    levain_check_vcpkg_manifest("${PROJECT_SOURCE_DIR}" "${CMAKE_SOURCE_DIR}")
+endif()
 
 add_subdirectory(shaders)
 add_subdirectory(engine/core)
@@ -52,5 +59,11 @@ add_subdirectory(engine/render)
 add_subdirectory(engine/assets)
 add_subdirectory(engine/scene)
 add_subdirectory(engine/input)
-add_subdirectory(sandbox)
-add_subdirectory(tests)
+
+# La démo et les tests ne concernent que le moteur : un jeu qui l'inclut n'en paie pas la
+# compilation.
+if(PROJECT_IS_TOP_LEVEL)
+    enable_testing()
+    add_subdirectory(sandbox)
+    add_subdirectory(tests)
+endif()
