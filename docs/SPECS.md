@@ -124,9 +124,9 @@ engine/
 ├── audio/      intégration miniaudio
 ├── input/      actions et axes au-dessus de platform
 └── app/        boucle principale, cycle de vie
-editor/         exécutable de l'éditeur
+editor/         bibliothèque de l'éditeur ; l'exécutable est construit par le jeu (ADR-0018)
+plugins/        plugins moteur (level design) : terrain, eau, végétation (ADR-0018)
 sandbox/        une démo par milestone
-games/          le jeu construit sur le moteur
 shaders/        sources Slang
 tests/          tests unitaires et benchmarks
 tools/          scripts (bootstrap GitHub, mesures)
@@ -138,8 +138,13 @@ docs/           SPECS, ROADMAP, JOURNAL, LECTURES, QA, SETUP, adr/, etudes/
 ```
 core ← platform ← gpu ← render
 core ← scene (flecs) ← assets, physics, audio, input
-tout ce qui précède ← app ← editor, sandbox, games
+tout ce qui précède ← app ← editor, sandbox
+moteur ← plugins moteur ← jeu (autre dépôt) et ses plugins gameplay
 ```
+
+**Le jeu vit dans son propre dépôt**, `Rando`, qui récupère le moteur par `FetchContent`. Le moteur ne dépend
+jamais d'un plugin ; un plugin peut dépendre d'un autre s'il le déclare
+([ADR-0018](adr/0018-moteur-plugins-et-jeu.md)).
 
 Visibilité des bibliothèques :
 
