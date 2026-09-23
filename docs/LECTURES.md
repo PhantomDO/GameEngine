@@ -61,6 +61,7 @@ y apprend, le temps de lecture (approximatif) et le bon moment pour la lire. Tou
 | D9 | [ECS FAQ](https://github.com/SanderMertens/ecs-faq) | 30 min | Vocabulaire, familles d'ECS, liste des implémentations | Phase 3 |
 | D10 | Michele Caini (auteur d'EnTT), [*ECS back and forth*](https://skypjack.github.io/2019-02-14-ecs-baf-part-1/) | 1 h (série) | L'autre grande famille : les sparse sets. Indispensable pour l'étude E3 | Étude E3 |
 | D12 | Glenn Fiedler, [*Fix Your Timestep!*](https://gafferongames.com/post/fix_your_timestep/) | 20 min | Le patron de la boucle à pas fixe : accumulateur, plafond de rattrapage, interpolation du rendu ([ADR-0016](adr/0016-boucle-a-pas-fixe.md)) | Avant M3.3 |
+| D13 | Juan Linietsky, [*Why isn't Godot an ECS-based game engine?*](https://godotengine.org/article/why-isnt-godot-ecs-based-game-engine/) | 20 min | La défense d'un modèle objet (nœuds, héritage, composition par enfants) par l'auteur de Godot, et où il place l'orienté données : dans les serveurs ([E3](etudes/E3-modeles-objets.md)) | Étude E3 |
 | D11 | Mike Acton, [*Data-Oriented Design and C++* (CppCon 2014)](https://www.youtube.com/watch?v=rX0ItVEVjHc) | 1 h 30 (vidéo) | La conférence fondatrice de la pensée orientée données, à l'origine de l'ECS moderne | Facultatif |
 
 ## Ajouter une lecture
