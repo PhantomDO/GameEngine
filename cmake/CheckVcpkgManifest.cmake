@@ -12,6 +12,13 @@
 #   include(CheckVcpkgManifest) puis levain_check_vcpkg_manifest(<moteur> <jeu>)
 #   cmake -DENGINE_DIR=<moteur> -DGAME_DIR=<jeu> -P CheckVcpkgManifest.cmake   (les tests)
 
+# Lancé par `cmake -P`, un script n'a aucune politique par défaut : `IN_LIST` n'y serait pas un
+# opérateur (CMP0057), et tout le contrôle échouerait à tort. Une fonction garde les politiques en
+# vigueur à sa définition, d'où ce réglage avant elle.
+if(CMAKE_SCRIPT_MODE_FILE)
+    cmake_policy(VERSION 3.28)
+endif()
+
 function(levain_check_vcpkg_manifest engineDir gameDir)
     foreach(dir IN ITEMS "${engineDir}" "${gameDir}")
         if(NOT EXISTS "${dir}/vcpkg.json")

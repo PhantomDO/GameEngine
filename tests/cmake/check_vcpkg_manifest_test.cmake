@@ -1,6 +1,8 @@
 # Vérifie que CheckVcpkgManifest.cmake accepte une copie fidèle du manifeste du moteur, et refuse
 # chaque écart. Lancé par ctest : cmake -DROOT=<dépôt> -DWORK=<dossier> -P check_vcpkg_manifest_test.cmake
 
+cmake_minimum_required(VERSION 3.28) # un script n'a sinon aucune politique
+
 set(check "${ROOT}/cmake/CheckVcpkgManifest.cmake")
 
 # Un « jeu » neuf dans WORK, copie du manifeste et des ports du moteur.

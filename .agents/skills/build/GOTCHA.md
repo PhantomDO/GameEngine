@@ -3,6 +3,17 @@
 Un piège par entrée : symptôme, cause, parade. Le plus récent en haut. Les pièges propres à SDL sont détaillés
 dans `engine/platform/README.md`, ceux de flecs dans `engine/scene/README.md`, section « Pièges connus ».
 
+## `cmake -P` : aucune politique par défaut (2026-09-23)
+
+- **Symptôme** : `cmake.vcpkg-manifest` vert en local (CMake 4.4), rouge sur les trois jobs de la CI : « Policy
+  CMP0057 is not set: Support new IN_LIST if() operator », puis un manifeste correct refusé.
+- **Cause** : un script lancé par `cmake -P` n'hérite d'aucun `cmake_minimum_required` : ses politiques sont
+  celles des vieilles versions, et `IN_LIST` n'est pas un opérateur. Le CMake 4 local les active par défaut, et
+  masquait l'erreur.
+- **Parade** : un script autonome commence par `cmake_minimum_required(VERSION 3.28)`. Un fichier aussi inclus
+  par `include()` règle `cmake_policy(VERSION 3.28)` seulement si `CMAKE_SCRIPT_MODE_FILE`, **avant** ses
+  fonctions, qui gardent les politiques de leur définition.
+
 ## Une signature qui coûte 5 ns par entité (2026-09-22)
 
 - **Symptôme** : le système des matrices monde passait de 1,42 à 1,91 ms sur 100 000 entités, sans changement
