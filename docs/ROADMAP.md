@@ -1,6 +1,6 @@
 # Roadmap v1
 
-> Version 0.6 — 23/09/2026 — statut : **à valider par Donnovan** (M3.5, choix du jeu)
+> Version 0.6 — 23/09/2026 — statut : **validé par Donnovan** (M3.5, choix du jeu : *Rando*)
 >
 > v0.6 : **le jeu est choisi** ([page de game design](JEU.md)). Il ajoute 9,5 h : un dépôt séparé pour le jeu
 > (M3.6), l'animation squelettique (M4.5, sortie des candidats v2), le terrain (M5.6, M7.6), l'eau et l'herbe

@@ -1,6 +1,6 @@
-# Le jeu — page de game design
+# Rando — page de game design
 
-> Version 0.1 — 23/09/2026 — statut : **à valider par Donnovan** (M3.5, #68)
+> Version 1.0 — 23/09/2026 — statut : **validé par Donnovan** (M3.5, #68)
 >
 > Chaque choix de cette page vient d'une question posée à Donnovan le 23/09/2026 : voir « Décisions » en bas.
 > Cette page déménagera dans le dépôt du jeu quand il existera (M3.6).
@@ -11,13 +11,8 @@ Un **vertical slice de 5 à 10 minutes**, dans l'esprit de *Breath of the Wild* 
 vallée, voit un sanctuaire au loin, et **trouve lui-même son chemin** pour l'atteindre. Le plaisir vient du
 mouvement et du regard, pas du combat : il n'y a pas d'ennemis.
 
-Trois pitchs, à choisir à la relecture. Le titre retenu donnera son nom au dépôt du jeu.
-
-| Titre de travail | Pitch |
-|---|---|
-| **Mère** | Tu portes le dernier levain-mère du village jusqu'au four ancien, au sommet de la vallée. Clin d'œil au nom du moteur ; ton léger. |
-| **Vigie** | Le feu de la tour de guet s'est éteint. Traverse la vallée et rallume-le, pour que le village le revoie. |
-| **Vallée** | Pas d'histoire : un nom de code technique, et le sanctuaire comme seul but. |
+**Titre : *Rando***, choisi par Donnovan le 23/09/2026. C'est aussi le nom du dépôt du jeu. Les autres
+titres proposés, *Mère*, *Vigie* et *Vallée*, sont écartés.
 
 ## Le parcours type
 
@@ -143,4 +138,5 @@ Posées à Donnovan le 23/09/2026, dans cet ordre. « Reco. » : l'option recomm
 | Un plugin, techniquement | **Lié à la compilation en v1, chargé dynamiquement plus tard** |
 | Les plugins gameplay | **Dans le dépôt du jeu** |
 | Le dépôt du jeu | Public, sous la même licence que le moteur (reco.) |
+| Le titre | ***Rando*** (proposition de Donnovan, hors des trois pitchs) |
 | Les assets tiers | Un script de téléchargement vérifié par hash (reco.) |
