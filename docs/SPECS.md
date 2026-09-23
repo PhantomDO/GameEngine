@@ -66,11 +66,13 @@ Le temps de Donnovan est la ressource rare du projet. Trois règles en découlen
 - **Physique** : corps rigides, colliders, requêtes (raycasts), character controller.
 - **Audio** : sons 2D et 3D.
 - **Outils** : éditeur (hiérarchie, inspecteur, gizmos, picking), sérialisation de scènes, undo/redo, mode Play.
-- **Le jeu** : un petit jeu 3D, choisi à la fin de la phase 3, construit uniquement avec le moteur et son éditeur.
+- **Monde** (pour le jeu) : animation squelettique, terrain, eau, herbe dense.
+- **Le jeu** : un petit jeu 3D, choisi en M3.5 ([JEU.md](JEU.md)), dans son propre dépôt, construit uniquement
+  avec le moteur et son éditeur.
 
 ### Hors périmètre v1 (candidats pour la v2)
 
-Render graph, animation squelettique, GPU-driven rendering, ray tracing, scripting, réseau, streaming de monde,
+Render graph, GPU-driven rendering, ray tracing, scripting, réseau, streaming de monde,
 consoles, mobile, macOS (NVRHI n'a pas de backend Metal), VR.
 
 ## 5. Contraintes
@@ -232,4 +234,4 @@ logiciel, comme WARP en CI.
 
 ## 11. Questions ouvertes
 
-- Le jeu : à choisir en M3.5, pour que les phases 4 à 8 servent ce jeu-là.
+- Le jeu : choisi en M3.5, voir [JEU.md](JEU.md).

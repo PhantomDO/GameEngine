@@ -1,6 +1,13 @@
 # Roadmap v1
 
-> Version 0.5 — 21/09/2026 — statut : **validé par Donnovan** (recalibrage, option 1 : ratio 0,67)
+> Version 0.6 — 23/09/2026 — statut : **validé par Donnovan** (M3.5, choix du jeu : *Rando*)
+>
+> v0.6 : **le jeu est choisi** ([page de game design](JEU.md)). Il ajoute 9,5 h : un dépôt séparé pour le jeu
+> (M3.6), l'animation squelettique (M4.5, sortie des candidats v2), le terrain (M5.6, M7.6), l'eau et l'herbe
+> (M5.7), la caméra à la troisième personne (M6.4), la nage et le planeur (M6.5), la collision du terrain
+> (M6.2) et le gameplay de santé (M8.2). Donnovan a arbitré chaque ajout. Total : **47 h → 56,5 h** ; la v1
+> finit vers le 16/05/2027 au lieu du 21/03. Les échéances à partir de M3.6 sont recalculées à 1,5 h par
+> semaine depuis celle de M3.5 (01/11/2026), arrondies au dimanche suivant.
 >
 > v0.5 : **recalibrage après la phase 1** (ratio 0,67) : les estimations des phases 2 à 8 sont multipliées par
 > 0,67, arrondies au quart d'heure, et les échéances recalculées. Total : **68 h → 47 h** (5,0 h et 3,0 h réelles
@@ -33,21 +40,21 @@
 | 0 | Fondations | 5,0 (réel) | 4 | fini le 20/09/2026 |
 | 1 | Fenêtre et premier triangle | 3,0 (réel, 4,5 estimées) | 3 | fini le 21/09/2026 |
 | 2 | 3D de base | 3,75 | 4 | 11/10/2026 |
-| 3 | Scène et ECS | 4,0 | 4 | 01/11/2026 |
-| 4 | Assets | 6,0 | 7 | 29/11/2026 |
-| 5 | Rendu PBR | 7,5 | 8 | 03/01/2027 |
-| 6 | Physique | 4,25 | 4 | 17/01/2027 |
-| 7 | Éditeur | 6,25 | 7 | 21/02/2027 |
-| 8 | Audio et le jeu | 7,25 | 8 | 21/03/2027 |
-| **Total** | | **47,0** | **49** | |
+| 3 | Scène et ECS | 4,5 | 5 | 08/11/2026 |
+| 4 | Assets | 8,0 | 9 | 13/12/2026 |
+| 5 | Rendu PBR et monde | 10,25 | 12 | 31/01/2027 |
+| 6 | Physique et traversée | 6,75 | 6 | 28/02/2027 |
+| 7 | Éditeur | 7,25 | 8 | 04/04/2027 |
+| 8 | Audio et le jeu | 8,0 | 8 | 16/05/2027 |
+| **Total** | | **56,5** | **59** | |
 
 Les sessions Claude Code ne sont pas recalibrées : le ratio mesure le temps de Donnovan, pas le quota.
 
-Durée restante (39 h) selon le rythme : **2 h/sem. → 20 semaines** (début février 2027) · **1,5 h/sem. →
-26 semaines** (fin mars 2027) · **1 h/sem. → 39 semaines** (juin 2027).
+Durée restante après M3.5 (40,75 h) selon le rythme : **2 h/sem. → 21 semaines** · **1,5 h/sem. →
+28 semaines** (mi-mai 2027) · **1 h/sem. → 41 semaines** (août 2027).
 
 Jalons visibles : **premier triangle** atteint le 21/09/2026 (prévu le 01/11/2026) · **choix du jeu** le
-01/11/2026 · **le jeu jouable** le 21/03/2027.
+23/09/2026 (prévu le 01/11/2026) · **le jeu jouable** le 09/05/2027.
 
 ### Pourquoi 68 h et pas 60
 
@@ -160,6 +167,7 @@ variantes de shaders d'Unity.
 | M3.3 Boucle à pas fixe | 1,0 | 1 | 25/10/2026 |
 | M3.4 Input par actions et caméra libre | 1,0 | 1 | 25/10/2026 |
 | M3.5 Choix du jeu | 0,25 | 0 | 01/11/2026 |
+| M3.6 Dépôt du jeu | 0,5 | 1 | 08/11/2026 |
 
 **M3.1 — Intégration de flecs et explorer.** Monde flecs, composants de base, systèmes rangés par phases,
 modules flecs ; le renderer dessine ce que contient le monde ; explorer web activé en Debug.
@@ -182,7 +190,13 @@ fichier, caméra libre.
 
 **M3.5 — Choix du jeu.** Une page de game design : genre, boucle de jeu, contenu minimal, ce que le moteur doit
 savoir faire. Les phases 4 à 8 sont ensuite ajustées pour servir ce jeu.
-*Critère* : la page est validée et la roadmap mise à jour en conséquence.
+*Critère* : la page est validée et la roadmap mise à jour en conséquence. → [JEU.md](JEU.md)
+
+**M3.6 — Dépôt du jeu.** Un ADR fixe la frontière entre moteur, plugins moteur (level design) et plugins
+gameplay, et comment un plugin se lie (à la compilation en v1). Le dépôt du jeu, public, récupère le moteur par
+`FetchContent` à un commit figé, surchargeable par un clone local ; il affiche une scène, avec sa CI.
+*Critère* : la CI du jeu compile contre un commit figé du moteur, et une modification locale du moteur se voit
+dans le jeu sans rien publier.
 
 **Étude E3 — Modèles objets** : archetypes (flecs, Unity DOTS, Unreal Mass, Bevy) contre sparse sets (EnTT),
 Actors/Components d'Unreal, GameObject d'Unity, Nodes de Godot.
@@ -191,10 +205,11 @@ Actors/Components d'Unreal, GameObject d'Unity, Nodes de Godot.
 
 | Milestone | Heures D. | Sessions | Échéance |
 |---|---:|---:|---|
-| M4.1 Import glTF | 1,25 | 2 | 01/11/2026 |
-| M4.2 Base d'assets | 1,75 | 2 | 15/11/2026 |
-| M4.3 Cuisson des assets | 2,0 | 2 | 22/11/2026 |
-| M4.4 Hot-reload des assets | 1,0 | 1 | 29/11/2026 |
+| M4.1 Import glTF | 1,25 | 2 | 15/11/2026 |
+| M4.2 Base d'assets | 1,75 | 2 | 22/11/2026 |
+| M4.3 Cuisson des assets | 2,0 | 2 | 29/11/2026 |
+| M4.4 Hot-reload des assets | 1,0 | 1 | 06/12/2026 |
+| M4.5 Animation squelettique | 2,0 | 2 | 13/12/2026 |
 
 **M4.1 — Import glTF.** fastgltf : meshes, matériaux, textures et hiérarchie convertis en entités flecs.
 *Critères* : la scène Sponza (Khronos glTF Sample Assets) s'affiche ; temps de chargement mesuré.
@@ -210,18 +225,25 @@ avant et après.
 **M4.4 — Hot-reload des assets.**
 *Critère* : une texture modifiée dans un logiciel externe est visible en moins de 2 s.
 
+**M4.5 — Animation squelettique.** Skinning des meshes glTF, lecture de clips, fondus entre clips, machine à
+états simple (repos, marche, course, saut, chute, nage, vol plané). Bibliothèque ou code maison : **ADR à
+écrire**.
+*Critère* : le personnage Quaternius passe du repos à la course selon sa vitesse, sans saut visible.
+
 **Étude E4 — Pipelines d'assets** : `.uasset` et Derived Data Cache d'Unreal, `.meta` et `Library/` d'Unity,
 `.import` et UID de Godot.
 
-## Phase 5 — Rendu PBR
+## Phase 5 — Rendu PBR et monde
 
 | Milestone | Heures D. | Sessions | Échéance |
 |---|---:|---:|---|
-| M5.1 PBR direct | 1,75 | 2 | 06/12/2026 |
-| M5.2 HDR et tonemapping | 1,0 | 1 | 06/12/2026 |
-| M5.3 Ombres en cascades | 1,75 | 2 | 20/12/2026 |
-| M5.4 Éclairage d'environnement (IBL) | 1,75 | 2 | 27/12/2026 |
-| M5.5 Culling et statistiques | 1,25 | 1 | 03/01/2027 |
+| M5.1 PBR direct | 1,75 | 2 | 20/12/2026 |
+| M5.2 HDR et tonemapping | 1,0 | 1 | 27/12/2026 |
+| M5.3 Ombres en cascades | 1,75 | 2 | 03/01/2027 |
+| M5.4 Éclairage d'environnement (IBL) | 1,75 | 2 | 10/01/2027 |
+| M5.5 Culling et statistiques | 1,25 | 1 | 17/01/2027 |
+| M5.6 Terrain | 1,25 | 2 | 24/01/2027 |
+| M5.7 Eau et herbe | 1,5 | 2 | 31/01/2027 |
 
 **M5.1 — PBR direct.** Modèle metallic-roughness (Cook-Torrance), lumières directionnelle et ponctuelles ;
 choix forward ou forward+ (**ADR à écrire**). Les passes de Donut servent de référence.
@@ -241,27 +263,47 @@ visionneuse de référence.
 triangles.
 *Critère* : Sponza en PBR avec ombres et IBL à plus de 60 images/s en 1080p sur la machine de référence.
 
+**M5.6 — Terrain.** Plugin moteur : terrain par heightmap, niveaux de détail, mélange de textures par une
+carte de poids.
+*Critère* : une vallée de 500 m à 1 m de résolution, rendue en moins de 2 ms GPU.
+
+**M5.7 — Eau et herbe.** Plugin moteur : un lac calme (surface animée par normal maps, Fresnel, couleur selon la
+profondeur) ; de l'herbe dense instanciée sur GPU, répartie par une carte de densité, animée par le vent.
+*Critère* : la vallée avec son lac et son herbe à plus de 60 images/s en 1080p sur la machine de référence.
+
 **Étude E5 — Forward, deferred, forward+** : les choix d'Unreal (deferred), d'Unity (URP et HDRP) et de Godot
 (Forward+, Mobile, Compatibility).
 
-## Phase 6 — Physique
+## Phase 6 — Physique et traversée
 
 | Milestone | Heures D. | Sessions | Échéance |
 |---|---:|---:|---|
-| M6.1 Intégration Jolt | 1,75 | 2 | 10/01/2027 |
-| M6.2 Colliders, requêtes, debug draw | 1,25 | 1 | 17/01/2027 |
-| M6.3 Character controller | 1,25 | 1 | 17/01/2027 |
+| M6.1 Intégration Jolt | 1,75 | 2 | 07/02/2027 |
+| M6.2 Colliders, requêtes, debug draw | 1,5 | 1 | 14/02/2027 |
+| M6.3 Character controller | 1,25 | 1 | 21/02/2027 |
+| M6.4 Caméra à la troisième personne | 1,0 | 1 | 28/02/2027 |
+| M6.5 Nage, planeur et endurance | 1,25 | 1 | 28/02/2027 |
 
 **M6.1 — Intégration Jolt.** Monde physique, corps statiques et dynamiques, synchronisation flecs ↔ Jolt au pas
 fixe.
 *Critère* : 1 000 caisses en chute libre, pas de simulation sous 4 ms.
 
 **M6.2 — Colliders, requêtes, debug draw.** Boîtes, sphères, capsules, meshes ; raycasts ; couches de
-collision ; affichage de debug.
+collision ; affichage de debug ; collision du terrain (heightfield Jolt) ; volumes déclencheurs.
 *Critère* : sélection d'un objet à la souris par raycast.
 
 **M6.3 — Character controller.** `CharacterVirtual` de Jolt : pentes, marches.
 *Critère* : se déplacer dans Sponza, escaliers compris.
+
+**M6.4 — Caméra à la troisième personne.** Plugin gameplay, dans le dépôt du jeu : orbite autour du joueur,
+collision avec le décor par sphere cast (le « spring arm » d'Unreal), recentrage automatique derrière lui,
+cadrage propre au vol plané.
+*Critère* : la caméra ne traverse jamais la roche en longeant une paroi de la vallée.
+
+**M6.5 — Nage, planeur et endurance.** Plugin gameplay, dans le dépôt du jeu : états du joueur au-dessus du
+character controller, volume d'eau, jauge d'endurance.
+*Critère* : descendre du promontoire en planant, traverser le lac à la nage, et se noyer si l'endurance
+s'épuise.
 
 **Étude E6 — La physique dans les moteurs** : Chaos (Unreal), PhysX (Unity), Jolt (Godot 4.4 et plus) ;
 pourquoi c'est presque toujours une bibliothèque.
@@ -270,11 +312,12 @@ pourquoi c'est presque toujours une bibliothèque.
 
 | Milestone | Heures D. | Sessions | Échéance |
 |---|---:|---:|---|
-| M7.1 ImGui et panneaux de debug | 1,0 | 1 | 24/01/2027 |
-| M7.2 Réflexion et inspecteur | 1,25 | 1 | 31/01/2027 |
-| M7.3 Sérialisation et undo/redo | 1,25 | 2 | 07/02/2027 |
-| M7.4 Gizmos et picking | 1,75 | 2 | 14/02/2027 |
-| M7.5 Play/Stop dans l'éditeur | 1,0 | 1 | 21/02/2027 |
+| M7.1 ImGui et panneaux de debug | 1,0 | 1 | 07/03/2027 |
+| M7.2 Réflexion et inspecteur | 1,25 | 1 | 14/03/2027 |
+| M7.3 Sérialisation et undo/redo | 1,25 | 2 | 21/03/2027 |
+| M7.4 Gizmos et picking | 1,75 | 2 | 28/03/2027 |
+| M7.5 Play/Stop dans l'éditeur | 1,0 | 1 | 04/04/2027 |
+| M7.6 Outils de terrain | 1,0 | 1 | 04/04/2027 |
 
 **M7.1 — ImGui et panneaux de debug.** Renderer ImGui pour NVRHI (adapté de Donut), backend SDL3, panneaux de
 statistiques et de profiling.
@@ -293,6 +336,11 @@ hiérarchie, inspecteur de composants.
 **M7.5 — Play/Stop.** Sauvegarde de la scène, simulation, restauration.
 *Critère* : après Stop, la scène est identique à l'état d'avant Play (test).
 
+**M7.6 — Outils de terrain.** Plugin moteur : sculpt de la heightmap, peinture des textures, placement au
+pinceau des arbres, des rochers et de la densité d'herbe.
+*Critère* : la vallée du jeu est faite entièrement dans l'éditeur, et survit à une sauvegarde puis un
+chargement.
+
 **Étude E7 — Réflexion et éditeurs** : Unreal Header Tool, sérialisation d'Unity, `ClassDB` de Godot, addon meta
 de flecs.
 
@@ -300,14 +348,16 @@ de flecs.
 
 | Milestone | Heures D. | Sessions | Échéance |
 |---|---:|---:|---|
-| M8.1 Audio | 1,0 | 1 | 21/02/2027 |
-| M8.2 Le jeu (vertical slice) | 5,25 | 6 | 21/03/2027 |
-| M8.3 Bilan v1 | 1,0 | 1 | 21/03/2027 |
+| M8.1 Audio | 1,0 | 1 | 11/04/2027 |
+| M8.2 Le jeu (vertical slice) | 6,0 | 6 | 09/05/2027 |
+| M8.3 Bilan v1 | 1,0 | 1 | 16/05/2027 |
 
 **M8.1 — Audio.** miniaudio, composants AudioSource et AudioListener, spatialisation 3D.
 *Critère* : 32 sons 3D simultanés sans coupure.
 
-**M8.2 — Le jeu (vertical slice).** Le jeu choisi en M3.5, fait uniquement avec le moteur et l'éditeur.
+**M8.2 — Le jeu (vertical slice).** Le jeu choisi en M3.5 ([JEU.md](JEU.md)), dans son propre dépôt, fait
+uniquement avec le moteur et l'éditeur. Il comprend le gameplay de santé (cœurs, pièges, pommes, points de
+contrôle) et les énigmes câblées par composants.
 *Critères* : 5 à 10 minutes de jeu ; binaires Windows et Linux produits par la CI et publiés en Release.
 
 **M8.3 — Bilan v1.** Mesures finales, rétrospective estimé vs réel, roadmap v2.
@@ -318,9 +368,13 @@ de flecs.
 
 ## Candidats v2
 
-Render graph (frame graph de Frostbite, RDG d'Unreal) · job system multithread · animation squelettique
-(ozz-animation) · GPU-driven rendering (draw indirect, mesh shaders, que NVRHI prend en charge) · ray tracing (aussi
-pris en charge par NVRHI) · scripting (Lua, C# ou WebAssembly) · réseau · streaming de monde.
+Render graph (frame graph de Frostbite, RDG d'Unreal) · job system multithread · GPU-driven rendering (draw
+indirect, mesh shaders, que NVRHI prend en charge) · ray tracing (aussi pris en charge par NVRHI) · scripting
+(Lua, C# ou WebAssembly) · réseau · streaming de monde · chargement dynamique des plugins · moteur installé comme
+paquet (`find_package`).
+
+Écartés du jeu pendant son choix ([JEU.md](JEU.md)) : escalade · ennemis et combat · cycle jour/nuit et ciel
+procédural · rivière · réflexions sur l'eau · inventaire et cuisine · vraie UI de jeu.
 
 ## ADR à venir
 
