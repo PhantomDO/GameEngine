@@ -67,7 +67,7 @@ Le temps de Donnovan est la ressource rare du projet. Trois règles en découlen
 - **Audio** : sons 2D et 3D.
 - **Outils** : éditeur (hiérarchie, inspecteur, gizmos, picking), sérialisation de scènes, undo/redo, mode Play.
 - **Monde** (pour le jeu) : animation squelettique, terrain, eau, herbe dense.
-- **Le jeu** : un petit jeu 3D, choisi en M3.5 ([JEU.md](JEU.md)), dans son propre dépôt, construit uniquement
+- **Le jeu** : un petit jeu 3D, choisi en M3.5 ([JEU.md](https://github.com/PhantomDO/Rando/blob/main/docs/JEU.md)), dans son propre dépôt, construit uniquement
   avec le moteur et son éditeur.
 
 ### Hors périmètre v1 (candidats pour la v2)
@@ -239,4 +239,4 @@ logiciel, comme WARP en CI.
 
 ## 11. Questions ouvertes
 
-- Le jeu : choisi en M3.5, voir [JEU.md](JEU.md).
+- Le jeu : choisi en M3.5, voir [JEU.md](https://github.com/PhantomDO/Rando/blob/main/docs/JEU.md).

@@ -6,7 +6,7 @@
 
 ## Contexte
 
-En choisissant *Rando* (M3.5, [JEU.md](../JEU.md)), Donnovan a demandé que **le jeu vive dans un autre dépôt
+En choisissant *Rando* (M3.5, [JEU.md](https://github.com/PhantomDO/Rando/blob/main/docs/JEU.md)), Donnovan a demandé que **le jeu vive dans un autre dépôt
 que le moteur**, pour distinguer nettement Engine et Game, et que les fonctionnalités se rangent en plugins
 « à la manière d'Unreal ». Il a fixé la règle :
 

@@ -2,7 +2,7 @@
 
 > Version 0.6 — 23/09/2026 — statut : **validé par Donnovan** (M3.5, choix du jeu : *Rando*)
 >
-> v0.6 : **le jeu est choisi** ([page de game design](JEU.md)). Il ajoute 9,5 h : un dépôt séparé pour le jeu
+> v0.6 : **le jeu est choisi** ([page de game design](https://github.com/PhantomDO/Rando/blob/main/docs/JEU.md)). Il ajoute 9,5 h : un dépôt séparé pour le jeu
 > (M3.6), l'animation squelettique (M4.5, sortie des candidats v2), le terrain (M5.6, M7.6), l'eau et l'herbe
 > (M5.7), la caméra à la troisième personne (M6.4), la nage et le planeur (M6.5), la collision du terrain
 > (M6.2) et le gameplay de santé (M8.2). Donnovan a arbitré chaque ajout. Total : **47 h → 56,5 h** ; la v1
@@ -40,7 +40,7 @@
 | 0 | Fondations | 5,0 (réel) | 4 | fini le 20/09/2026 |
 | 1 | Fenêtre et premier triangle | 3,0 (réel, 4,5 estimées) | 3 | fini le 21/09/2026 |
 | 2 | 3D de base | 3,75 | 4 | 11/10/2026 |
-| 3 | Scène et ECS | 4,5 | 5 | 08/11/2026 |
+| 3 | Scène et ECS | 5,25 (réel, 4,5 estimées) | 5 | fini le 23/09/2026 |
 | 4 | Assets | 8,0 | 9 | 13/12/2026 |
 | 5 | Rendu PBR et monde | 10,25 | 12 | 31/01/2027 |
 | 6 | Physique et traversée | 6,75 | 6 | 28/02/2027 |
@@ -190,7 +190,7 @@ fichier, caméra libre.
 
 **M3.5 — Choix du jeu.** Une page de game design : genre, boucle de jeu, contenu minimal, ce que le moteur doit
 savoir faire. Les phases 4 à 8 sont ensuite ajustées pour servir ce jeu.
-*Critère* : la page est validée et la roadmap mise à jour en conséquence. → [JEU.md](JEU.md)
+*Critère* : la page est validée et la roadmap mise à jour en conséquence. → [JEU.md](https://github.com/PhantomDO/Rando/blob/main/docs/JEU.md)
 
 **M3.6 — Dépôt du jeu.** Un ADR fixe la frontière entre moteur, plugins moteur (level design) et plugins
 gameplay, et comment un plugin se lie (à la compilation en v1). Le dépôt du jeu, public, récupère le moteur par
@@ -355,7 +355,7 @@ de flecs.
 **M8.1 — Audio.** miniaudio, composants AudioSource et AudioListener, spatialisation 3D.
 *Critère* : 32 sons 3D simultanés sans coupure.
 
-**M8.2 — Le jeu (vertical slice).** Le jeu choisi en M3.5 ([JEU.md](JEU.md)), dans son propre dépôt, fait
+**M8.2 — Le jeu (vertical slice).** Le jeu choisi en M3.5 ([JEU.md](https://github.com/PhantomDO/Rando/blob/main/docs/JEU.md)), dans son propre dépôt, fait
 uniquement avec le moteur et l'éditeur. Il comprend le gameplay de santé (cœurs, pièges, pommes, points de
 contrôle) et les énigmes câblées par composants.
 *Critères* : 5 à 10 minutes de jeu ; binaires Windows et Linux produits par la CI et publiés en Release.
@@ -373,7 +373,7 @@ indirect, mesh shaders, que NVRHI prend en charge) · ray tracing (aussi pris en
 (Lua, C# ou WebAssembly) · réseau · streaming de monde · chargement dynamique des plugins · moteur installé comme
 paquet (`find_package`).
 
-Écartés du jeu pendant son choix ([JEU.md](JEU.md)) : escalade · ennemis et combat · cycle jour/nuit et ciel
+Écartés du jeu pendant son choix ([JEU.md](https://github.com/PhantomDO/Rando/blob/main/docs/JEU.md)) : escalade · ennemis et combat · cycle jour/nuit et ciel
 procédural · rivière · réflexions sur l'eau · inventaire et cuisine · vraie UI de jeu.
 
 ## ADR à venir
@@ -406,6 +406,22 @@ dans le journal, puis :
 décisions en font partie (voir la définition des « Heures Donnovan » plus haut). La phase 0 l'a appris à ses
 dépens — mesurée d'abord à 3,0 h en ne comptant que les relectures, contre **4,9 h réelles**. Le ratio erroné de
 0,50 aurait amputé la roadmap de 30 % sans raison.
+
+### Phase 3 — ratio 1,17, aucun recalibrage
+
+| Milestone | Estimé | Passé |
+|---|---:|---:|
+| M3.1 Intégration de flecs et explorer | 1,0 h | 0,50 h |
+| M3.2 Transforms et hiérarchie | 0,75 h | 0,42 h |
+| M3.3 Boucle à pas fixe | 1,0 h | 1,33 h |
+| M3.4 Input par actions et caméra libre | 1,0 h | 1,00 h |
+| M3.5 Choix du jeu | 0,25 h | 1,50 h |
+| M3.6 Dépôt du jeu | 0,5 h | 0,50 h |
+| **Phase 3** | **4,5 h** | **5,25 h** — ratio **1,17** |
+
+Dans la fourchette 0,8–1,25 : les estimations des phases 4 à 8 sont conservées. Sans M3.5, le ratio serait de
+0,88 : le dépassement vient du choix du jeu, qui a cadré toute la v1 au lieu de choisir un genre, et non d'une
+sous-estimation du travail de moteur. Le ratio cumulé des phases 0 à 3 est de **0,93** (17,5 h pour 18,75).
 
 ### Phase 2 — ratio 1,13, aucun recalibrage
 
