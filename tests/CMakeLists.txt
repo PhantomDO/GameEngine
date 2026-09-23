@@ -66,3 +66,24 @@ foreach(scene triangle cube)
     add_test(NAME smoke.${scene} COMMAND levain_smoke_render ${scene})
     set_tests_properties(smoke.${scene} PROPERTIES ENVIRONMENT "SDL_VIDEO_DRIVER=offscreen")
 endforeach()
+
+# ADR-0018 : le moteur vu d'un jeu. La frontière des plugins, sur un moteur miniature qu'on
+# configure trois fois ; les deux scénarios interdits doivent échouer avec le bon message, et non
+# pour une autre raison.
+foreach(case allowed engine-links-plugin undeclared-dependency)
+    add_test(NAME cmake.plugins.${case}
+             COMMAND ${CMAKE_COMMAND} -S ${CMAKE_CURRENT_SOURCE_DIR}/cmake/plugin_boundaries
+                     -B ${CMAKE_CURRENT_BINARY_DIR}/plugin_boundaries/${case} -G Ninja
+                     -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER} -DCASE=${case}
+                     -DLEVAIN_CMAKE_DIR=${PROJECT_SOURCE_DIR}/cmake)
+endforeach()
+set_tests_properties(cmake.plugins.engine-links-plugin PROPERTIES
+    PASS_REGULAR_EXPRESSION "la cible du moteur fixture_core lie le plugin terrain")
+set_tests_properties(cmake.plugins.undeclared-dependency PROPERTIES
+    PASS_REGULAR_EXPRESSION "le plugin grass lie fixture_core sans l'avoir déclaré")
+
+# Le manifeste vcpkg d'un jeu doit contenir celui du moteur.
+add_test(NAME cmake.vcpkg-manifest
+         COMMAND ${CMAKE_COMMAND} -DROOT=${PROJECT_SOURCE_DIR}
+                 -DWORK=${CMAKE_CURRENT_BINARY_DIR}/vcpkg_manifest
+                 -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_vcpkg_manifest_test.cmake)
