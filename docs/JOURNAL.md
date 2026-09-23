@@ -26,6 +26,66 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-23 — M3.5 — Clôture : le jeu s'appelle *Rando*
+
+- **Temps Donnovan pour M3.5 : 1,50 h**, le total de la journée annoncé à la fin (« 1 h 30 en tout »), dont
+  1 h déjà déclarée pour #68. Estimé : 0,25 h, soit **un ratio de 6,0**. Le chiffre est juste ; c'est le
+  périmètre qui a changé (voir plus bas).
+- Définition de « terminé » (SPECS §9) : page de game design validée par Donnovan ; ROADMAP v0.6 et SPECS à
+  jour ; étude E3 écrite et relue ; board renseigné ; tag `m3.5`. Pas de code, donc pas de démo.
+- **Le jeu** ([JEU.md](JEU.md)) : *Rando*, un vertical slice de 5 à 10 minutes dans l'esprit de *Breath of the
+  Wild*. Une vallée de 500 m, un sanctuaire visible dès le départ ; planer, nager, marcher en gérant une
+  endurance ; des cœurs perdus par la chute, la noyade et les pièges ; des énigmes d'objets physiques ; pas
+  d'ennemis.
+- **Décisions** : prises en six tours de sondages, consignées une par une en bas de `JEU.md`. Les plus
+  lourdes :
+  - l'animation squelettique entre en v1 ;
+  - un vrai système de terrain ;
+  - de l'herbe dense ;
+  - **le jeu vit dans son propre dépôt**, avec des plugins moteur (level design) et des plugins gameplay
+    (dans le dépôt du jeu).
+
+### Critères du milestone
+
+| Critère (ROADMAP) | Résultat | Où |
+|---|---|---|
+| La page est validée par Donnovan | validée le 23/09, titre *Rando* choisi par lui | [JEU.md](JEU.md), #113 |
+| La ROADMAP est mise à jour en conséquence | v0.6 : 7 milestones créés, 2 étendus, échéances recalées, milestones et issues GitHub créés (#114 à #118) | [ROADMAP.md](ROADMAP.md) |
+| Étude E3 | écrite et relue | [E3](etudes/E3-modeles-objets.md), #119 |
+
+### Temps
+
+| Issue | Estimé | Passé |
+|---|---:|---:|
+| #68 Page de game design et roadmap (#113) | 0,35 h | 1,00 h |
+| #69 Étude E3 (#119) | 0,15 h | 0,50 h |
+| **M3.5** (ROADMAP) | **0,25 h** | **1,50 h** (ratio 6,0) |
+
+Les estimations des deux issues (0,50 h) ne concordent pas avec celle de la ROADMAP (0,25 h) ; le ratio se
+calcule sur la ROADMAP, comme pour les autres milestones.
+
+Phase 3 à ce stade : **4,75 h passées pour 4,0 h estimées** (M3.1 à M3.5), **ratio 1,19**, encore dans la
+fourchette 0,8–1,25. **Chiffre provisoire** : la phase compte désormais M3.6 (0,5 h), qui la clôturera.
+
+### Ce que M3.5 a appris
+
+- **« Choisir le jeu » était en fait « cadrer toute la v1 ».** L'estimation (0,25 h) supposait un choix de
+  genre. En six tours de questions, le choix a fait entrer dans la v1 l'animation, le terrain, l'eau, l'herbe,
+  une caméra à la troisième personne et un deuxième dépôt. Soit +9,5 h, et une fin reportée du 21/03 au
+  16/05/2027. Ce temps est bien placé : chaque ajout a été arbitré au moment où il coûtait le moins cher, avant
+  d'écrire du code.
+- **Les sondages font gagner du temps à Donnovan** (sa demande, au premier tour) : une décision par clic, et
+  « Other » pour les réponses qui sortent des cases. Trois de ses réponses en sont sorties, et ce sont elles
+  qui ont le plus changé la roadmap (deux dépôts, les plugins, le paquet installé à terme).
+- **Annoncer un coût cumulé à chaque tour** a évité une surprise à la fin, mais pas une erreur : 8,75 h
+  annoncées pendant les questions, 9,5 h une fois tout compté (le dépôt du jeu et les pièges). L'écart est
+  signalé dans #113.
+
+**Prochaine étape** : M3.6 — l'ADR moteur, jeu et plugins (#114), puis la coquille du dépôt *Rando* (#115),
+qui clôture la phase 3.
+
+---
+
 ## 2026-09-22 — M3.4 — Clôture
 
 - **Temps Donnovan pour M3.4 : 1,00 h** (ratio 1,00), réconcilié sur le total de la journée : 4 h 30
