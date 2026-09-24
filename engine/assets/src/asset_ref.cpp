@@ -91,12 +91,38 @@ core::Result<const Model*> loadModel(ModelCache& cache, const AssetRegistry& reg
                         "et modifié à la fois (ADR-0019)",
                         toString(asset)));
     }
-    auto model = loadGltf(*path);
+    auto model = loadGltf(*path, asset, registry);
     if (!model)
     {
         return std::unexpected(model.error());
     }
     return &cache.models.emplace(asset, std::move(*model)).first->second;
+}
+
+core::Result<Image> loadTexture(const AssetRegistry& registry, const ModelCache& models,
+                                AssetRef texture)
+{
+    // Une image embarquée : dans le modèle qui la porte, déjà chargé.
+    if (const auto model = models.models.find(texture.asset); model != models.models.end())
+    {
+        const auto image = model->second.embeddedImages.find(texture.sub);
+        if (image == model->second.embeddedImages.end())
+        {
+            return core::makeError(core::ErrorCode::InvalidData,
+                                   std::format("modèle {} : pas d'image embarquée {}",
+                                               toString(texture.asset), texture.sub));
+        }
+        return image->second;
+    }
+    // Un fichier image du registre.
+    const auto path = pathOf(registry, texture.asset);
+    if (!path)
+    {
+        return core::makeError(
+            core::ErrorCode::FileNotFound,
+            std::format("texture {} inconnue du registre (ADR-0019)", toString(texture.asset)));
+    }
+    return loadImage(*path);
 }
 
 } // namespace levain::assets

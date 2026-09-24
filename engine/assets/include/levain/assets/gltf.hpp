@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <map>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -12,6 +13,7 @@
 
 #include "levain/assets/asset_id.hpp"
 #include "levain/assets/image.hpp"
+#include "levain/assets/registry.hpp"
 #include "levain/core/error.hpp"
 #include "levain/scene/components.hpp"
 
@@ -41,7 +43,9 @@ struct MeshPrimitive
 struct ModelMaterial
 {
     glm::vec4 baseColorFactor{1.0f}; ///< Multiplie la texture ; seul, si elle est absente.
-    std::optional<std::uint32_t> baseColorImage; ///< Indice dans `Model::images`.
+    /// La texture, par référence (ADR-0020) : le GUID de son fichier image, ou `{GUID du modèle,
+    /// indice}` si elle est embarquée dans le glTF. Elle se charge à part (`loadTexture`).
+    std::optional<AssetRef> baseColorTexture;
 };
 
 struct ModelMesh
@@ -66,15 +70,20 @@ struct Model
     std::vector<ModelMesh> meshes;
     std::vector<ModelNode> nodes;
     std::vector<ModelMaterial> materials;
-    /// Les images de couleur de base, décodées en RGBA. Seules celles qu'un matériau utilise :
-    /// les normal maps de Sponza, par exemple, ne servent qu'à partir de M5.1.
-    std::vector<Image> images;
+    /// Les images de couleur de base **embarquées** (base64, `.glb`), décodées, par leur indice
+    /// glTF : leur référence est `{GUID du modèle, indice}`. Une image qui a son propre fichier est
+    /// un asset à part, chargé par son GUID. Seules les images de couleur de base sont gardées :
+    /// les normal maps de Sponza ne servent qu'à partir de M5.1.
+    std::map<std::uint32_t, Image> embeddedImages;
 };
 
-/// Lit un `.gltf` (et ses `.bin` et images) ou un `.glb`, avec fastgltf. Seule la scène par défaut
+/// Lit un `.gltf` (et ses `.bin`) ou un `.glb`, avec fastgltf. `self` est le GUID du modèle, et
+/// `registry` donne celui des images qu'il désigne par leur chemin : une image hors du registre
+/// (hors de toute racine d'assets) est un échec. Seule la scène par défaut
 /// est gardée ; seuls les triangles sont acceptés. Un fichier illisible ou incomplet est un échec
 /// récupérable (ADR-0008).
-[[nodiscard]] core::Result<Model> loadGltf(const std::filesystem::path& path);
+[[nodiscard]] core::Result<Model> loadGltf(const std::filesystem::path& path, AssetId self,
+                                           const AssetRegistry& registry);
 
 /// Crée une entité par nœud, avec son `Transform` et sa hiérarchie (`flecs::Parent`, ADR-0015),
 /// sous une entité racine nommée `rootName`, que l'on déplace pour déplacer tout le modèle. Un

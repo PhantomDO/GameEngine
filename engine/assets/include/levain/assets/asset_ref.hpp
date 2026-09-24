@@ -15,17 +15,6 @@
 namespace levain::assets
 {
 
-/// Une référence à un asset, la seule chose qu'un composant en garde (ADR-0019) : son GUID, et
-/// l'indice d'un sous-asset (un mesh d'un glTF). Jamais de chemin.
-struct AssetRef
-{
-    AssetId asset;
-    std::uint32_t sub = 0;
-
-    /// Une référence par défaut ne désigne rien : un GUID nul n'est jamais tiré.
-    [[nodiscard]] bool isSet() const { return asset != AssetId{}; }
-};
-
 /// Le mesh que dessine une entité : le mesh `sub` du glTF `asset`. Il se pose par `set`, jamais par
 /// `get_mut` ; une entité qui en porte un ne se `clone()` pas (voir `AssetsModule`).
 struct MeshRef
@@ -70,5 +59,10 @@ struct ModelCache
 /// échec : son `.meta` est orphelin, ou l'asset a disparu.
 [[nodiscard]] core::Result<const Model*> loadModel(ModelCache& cache, const AssetRegistry& registry,
                                                    AssetId asset);
+
+/// Une texture de couleur de base, depuis sa source : un fichier image du registre, ou une image
+/// embarquée dans un modèle déjà chargé (`{GUID du modèle, indice}`). Décodée en RGBA, sans mips.
+[[nodiscard]] core::Result<Image> loadTexture(const AssetRegistry& registry,
+                                              const ModelCache& models, AssetRef texture);
 
 } // namespace levain::assets

@@ -155,7 +155,10 @@ struct ModelPrimitiveGpu
 struct ModelGpu
 {
     std::vector<std::vector<ModelPrimitiveGpu>> meshes;
-    std::vector<nvrhi::TextureHandle> textures; ///< Une par image, plus le blanc en dernier.
+    /// Une par texture distincte, par sa référence (ADR-0020) : une texture partagée par deux
+    /// matériaux n'est chargée qu'une fois.
+    std::map<levain::assets::AssetRef, nvrhi::TextureHandle> textures;
+    nvrhi::TextureHandle white; ///< Pour un matériau sans texture, que sa couleur de base colore.
     std::vector<nvrhi::BindingSetHandle> materials;
 };
 
@@ -343,8 +346,10 @@ nvrhi::FramebufferInfo sceneTargetOf(levain::gpu::GpuDevice& gpu)
 /// Envoie meshes et textures, et enregistre l'envoi dans `commandList`. La couleur d'un sommet est
 /// la couleur de base de son matériau ; sans matériau, c'est sa normale ramenée dans [0, 1], qui
 /// rend les formes lisibles sans éclairage (M5.1).
-ModelGpu uploadModel(nvrhi::IDevice& device, nvrhi::ICommandList& commandList,
-                     const levain::assets::Model& model)
+levain::core::Result<ModelGpu> uploadModel(nvrhi::IDevice& device, nvrhi::ICommandList& commandList,
+                                           const levain::assets::Model& model,
+                                           const levain::assets::AssetRegistry& registry,
+                                           const levain::assets::ModelCache& models)
 {
     ModelGpu gpu;
     std::vector<levain::render::MeshVertex> vertices;
@@ -369,15 +374,26 @@ ModelGpu uploadModel(nvrhi::IDevice& device, nvrhi::ICommandList& commandList,
                                   .material = primitive.material});
         }
     }
-    for (const levain::assets::Image& image : model.images)
+    for (const levain::assets::ModelMaterial& material : model.materials)
     {
-        gpu.textures.push_back(levain::render::createTexture(
-            device, commandList, textureLevelsOf(levain::assets::buildMipChain(image)), "glTF"));
+        if (!material.baseColorTexture || gpu.textures.contains(*material.baseColorTexture))
+        {
+            continue;
+        }
+        auto image = levain::assets::loadTexture(registry, models, *material.baseColorTexture);
+        if (!image)
+        {
+            return std::unexpected(image.error());
+        }
+        gpu.textures.emplace(*material.baseColorTexture,
+                             levain::render::createTexture(
+                                 device, commandList,
+                                 textureLevelsOf(levain::assets::buildMipChain(std::move(*image))),
+                                 "glTF"));
     }
-    // Un matériau sans texture : un texel blanc, que la couleur de base colore.
     const levain::assets::Image white{.width = 1, .height = 1, .rgba = {255, 255, 255, 255}};
-    gpu.textures.push_back(
-        levain::render::createTexture(device, commandList, textureLevelsOf({white}), "blanc"));
+    gpu.white =
+        levain::render::createTexture(device, commandList, textureLevelsOf({white}), "blanc");
     return gpu;
 }
 
@@ -387,8 +403,8 @@ void bindModelMaterials(nvrhi::IDevice& device, const levain::render::MeshPass& 
 {
     for (const levain::assets::ModelMaterial& material : model.materials)
     {
-        nvrhi::ITexture& albedo = *gpu.textures[material.baseColorImage.value_or(
-            static_cast<std::uint32_t>(gpu.textures.size() - 1))];
+        nvrhi::ITexture& albedo =
+            material.baseColorTexture ? *gpu.textures.at(*material.baseColorTexture) : *gpu.white;
         gpu.materials.push_back(
             levain::render::createMaterialBindings(device, pass, albedo, sampler));
     }
@@ -531,7 +547,12 @@ createDemoScene(levain::gpu::GpuDevice& gpu, const levain::render::SamplerSettin
     std::map<levain::assets::AssetId, ModelGpu> models;
     if (model != nullptr)
     {
-        models.emplace(modelId, uploadModel(*gpu.nvrhi, *upload, *model));
+        auto uploaded = uploadModel(*gpu.nvrhi, *upload, *model, registry, modelCache);
+        if (!uploaded)
+        {
+            return std::unexpected(uploaded.error());
+        }
+        models.emplace(modelId, std::move(*uploaded));
     }
     const std::array<glm::vec3, 1> origin{glm::vec3{0.0f}};
     levain::render::Instances modelInstance =
@@ -544,13 +565,13 @@ createDemoScene(levain::gpu::GpuDevice& gpu, const levain::render::SamplerSettin
     if (model != nullptr)
     {
         bindModelMaterials(*gpu.nvrhi, *meshPass, *samplerHandle, *model, models.at(modelId));
-        // Le critère de #88 : le temps de chargement. Lecture et décodage d'un côté (fastgltf,
-        // stb_image), mips et envoi au GPU de l'autre, pour savoir quoi cuire en M4.3.
+        // Le temps de chargement (#88, puis le critère de M4.3) : le glTF lu d'un côté (fastgltf),
+        // les textures décodées, leurs mips et l'envoi au GPU de l'autre.
         levain::core::log(
             "sandbox", levain::core::LogLevel::Info,
-            "modèle : {} meshes, {} matériaux, {} textures ; lu en {:.0f} ms, mips et envoi en "
-            "{:.0f} ms",
-            model->meshes.size(), model->materials.size(), model->images.size(),
+            "modèle : {} meshes, {} matériaux, {} textures ; lu en {:.0f} ms, textures, mips et "
+            "envoi en {:.0f} ms",
+            model->meshes.size(), model->materials.size(), models.at(modelId).textures.size(),
             secondsBetween(loadStart, uploadStart) * 1000.0,
             secondsBetween(uploadStart, Clock::now()) * 1000.0);
     }
