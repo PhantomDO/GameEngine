@@ -27,6 +27,60 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-24 — M4.1 — Clôture : Sponza s'affiche
+
+- **Temps Donnovan pour M4.1 : 1,25 h**, le total de la journée (« 1 h 15 en tout »). Relectures déclarées :
+  0,83 h. Réparti au prorata des estimations : #140 à 0,21 h, #87 à 0,62 h, #88 à 0,42 h. **Ratio 0,83.**
+- Définition de « terminé » (SPECS §9) : démo lançable sous Linux (`--model`) ; critères mesurés et consignés ;
+  CI verte, sans erreur de validation (Sponza en Debug dans la CI) ; README d'`assets` à jour ; board
+  renseigné ; tag `m4.1` et release.
+- **Ce que M4.1 a livré** :
+  - **les captures** (#140) : `--capture` écrit la dernière image rendue, pour que Donnovan voie les rendus
+    sur sa tablette ; le rendu WebGPU est noté en candidat v2, à sa demande ;
+  - **l'import glTF** (#87) : fastgltf, invisible hors d'`engine/assets`, lit meshes, nœuds et matériaux ; un
+    nœud devient une entité, avec sa hiérarchie ;
+  - **les assets de test** : téléchargés par `tools/fetch-assets.sh` à un commit figé, vérifiés par SHA-256,
+    jamais versionnés. Sponza, sous licence non permissive, ne sert qu'aux tests (décision de Donnovan).
+- **Décision** : le lien entre une entité et son mesh reste un **indice provisoire** (`MeshInstance`), jusqu'à
+  l'ADR de M4.2 (choix de Donnovan, sur sondage).
+
+### Critères du milestone
+
+| Critère (ROADMAP) | Mesuré | Commande |
+|---|---|---|
+| La scène Sponza s'affiche | oui, avec ses 25 textures de couleur de base ; capture envoyée à Donnovan | `./tools/fetch-assets.sh`, puis `levain_sandbox --model assets-cache/Models/Sponza/glTF/Sponza.gltf --capture sponza.png` |
+| Temps de chargement mesuré | Release : **215 ms** de lecture et décodage, **252 à 268 ms** de mips et d'envoi au GPU (3 lancements) ; Debug : 936 ms et 2 308 ms | idem, preset `linux-release` puis `linux-debug` |
+| En plus : un glTF simple avec sa hiérarchie (#87) | le Cesium Milk Truck : 6 nœuds, les roues (nœuds enfants) dans leurs passages de roue | `levain_sandbox --model assets-cache/Models/CesiumMilkTruck/glTF/CesiumMilkTruck.gltf` |
+| En plus : fastgltf invisible hors d'`assets` | `deps.fastgltf-visibility`, qui échoue quand on le viole | `ctest -R fastgltf` |
+| Tests | 85, trois presets, ASan et UBSan compris | `ctest` |
+
+### Temps
+
+| Issue | Estimé | Déclaré | Réconcilié |
+|---|---:|---:|---:|
+| #140 Capture PNG (#141) | 0,25 h | — | 0,21 h |
+| #87 Import glTF (#142, #143) | 0,75 h | 0,5 h | 0,62 h |
+| #88 Matériaux et Sponza (#144) | 0,5 h | 0,33 h | 0,42 h |
+| **M4.1** (ROADMAP, capture comprise) | **1,5 h** | | **1,25 h** (ratio 0,83) |
+
+### Ce que M4.1 a appris
+
+- **Une grosse scène trouve ce qu'une petite ne voit pas, et seulement en Debug.** Les 105 dessins de Sponza
+  dépassaient les 16 versions du buffer des constantes ; la validation de NVRHI, éteinte en Release, était la
+  seule à le voir. La limite est nommée (`MaxMeshDrawsPerCommandList`), la CI lance Sponza en Debug, et le
+  piège est au GOTCHA du build.
+- **Montrer vaut mieux que décrire** : la première capture du camion n'avait pas de roues visibles. Il a
+  suffi de le tourner de trois quarts pour voir qu'elles étaient là, cachées par la carrosserie : un doute
+  levé en une image plutôt qu'en un test de plus.
+- **Le Debug coûte cher au chargement** : 4 à 9 fois plus lent qu'en Release (stb_image et les mips sans
+  optimisation). C'est le point de départ chiffré de la cuisson (M4.3), qui doit charger Sponza au moins 5 fois
+  plus vite.
+
+**Prochaine étape** : M4.2 — la base d'assets, en commençant par l'ADR des identifiants et du format `.meta`
+(#89).
+
+---
+
 ## 2026-09-23 — Phase 3 — Clôture (M3.6 compris) : le jeu a son dépôt
 
 - **Temps Donnovan pour M3.6 : 0,50 h**, soit le total de la journée (« 2 h en tout ») moins les 1,50 h de
