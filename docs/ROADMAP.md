@@ -373,7 +373,8 @@ contrôle) et les énigmes câblées par composants.
 Render graph (frame graph de Frostbite, RDG d'Unreal) · job system multithread · GPU-driven rendering (draw
 indirect, mesh shaders, que NVRHI prend en charge) · ray tracing (aussi pris en charge par NVRHI) · scripting
 (Lua, C# ou WebAssembly) · réseau · streaming de monde · chargement dynamique des plugins · moteur installé comme
-paquet (`find_package`).
+paquet (`find_package`) · **rendu WebGPU, pour tester dans le navigateur** (demandé par Donnovan le 24/09 ;
+NVRHI n'a pas de backend WebGPU : un backend à écrire, ou un portage à évaluer, par un ADR).
 
 Écartés du jeu pendant son choix ([JEU.md](https://github.com/PhantomDO/Rando/blob/main/docs/JEU.md)) : escalade · ennemis et combat · cycle jour/nuit et ciel
 procédural · rivière · réflexions sur l'eau · inventaire et cuisine · vraie UI de jeu.
