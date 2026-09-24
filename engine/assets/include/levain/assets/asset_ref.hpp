@@ -1,0 +1,72 @@
+#pragma once
+
+#include <cstdint>
+#include <map>
+#include <set>
+#include <vector>
+
+#include <flecs.h>
+
+#include "levain/assets/asset_id.hpp"
+#include "levain/assets/gltf.hpp"
+#include "levain/assets/registry.hpp"
+#include "levain/core/error.hpp"
+
+namespace levain::assets
+{
+
+/// Une référence à un asset, la seule chose qu'un composant en garde (ADR-0019) : son GUID, et
+/// l'indice d'un sous-asset (un mesh d'un glTF). Jamais de chemin.
+struct AssetRef
+{
+    AssetId asset;
+    std::uint32_t sub = 0;
+
+    /// Une référence par défaut ne désigne rien : un GUID nul n'est jamais tiré.
+    [[nodiscard]] bool isSet() const { return asset != AssetId{}; }
+};
+
+/// Le mesh que dessine une entité : le mesh `sub` du glTF `asset`. Il se pose par `set`, jamais par
+/// `get_mut` ; une entité qui en porte un ne se `clone()` pas (voir `AssetsModule`).
+struct MeshRef
+{
+    AssetRef mesh;
+};
+
+/// Combien d'entités utilisent chaque asset, tenu à jour par les hooks du module ; et ceux qui sont
+/// tombés à zéro depuis le dernier `takeUnusedAssets`.
+struct AssetUsage
+{
+    std::map<AssetId, int> counts;
+    std::set<AssetId> unused;
+};
+
+/// Le module flecs des assets : il pose le singleton `AssetUsage` et compte les références de
+/// `MeshRef`. S'installe par `world.import<levain::assets::AssetsModule>()`.
+///
+/// Le comptage suit les **changements**, jamais la taille du monde (choix de Donnovan, 24/09, pour
+/// viser un jour la Switch 2 ou le mobile) : aucun parcours par image.
+struct AssetsModule
+{
+    explicit AssetsModule(flecs::world& world);
+};
+
+/// Le nombre d'entités qui utilisent `asset`.
+[[nodiscard]] int referenceCount(const flecs::world& world, AssetId asset);
+
+/// Les assets tombés à zéro depuis l'appel précédent, et qui y sont encore : à décharger. S'appelle
+/// en fin d'image, jamais au milieu d'un parcours (ADR-0019).
+[[nodiscard]] std::vector<AssetId> takeUnusedAssets(flecs::world& world);
+
+/// Les modèles chargés en mémoire, par GUID.
+struct ModelCache
+{
+    std::map<AssetId, Model> models;
+};
+
+/// Le modèle `asset`, chargé depuis le disque au premier appel. Un GUID inconnu du registre est un
+/// échec : son `.meta` est orphelin, ou l'asset a disparu.
+[[nodiscard]] core::Result<const Model*> loadModel(ModelCache& cache, const AssetRegistry& registry,
+                                                   AssetId asset);
+
+} // namespace levain::assets

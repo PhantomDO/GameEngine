@@ -11,6 +11,8 @@
 #include <fastgltf/tools.hpp>
 #include <fastgltf/types.hpp>
 
+#include "levain/assets/asset_ref.hpp"
+
 namespace levain::assets
 {
 
@@ -245,7 +247,8 @@ core::Result<Model> loadGltf(const std::filesystem::path& path)
     return model;
 }
 
-flecs::entity instantiateModel(flecs::world& world, const Model& model, std::string_view rootName)
+flecs::entity instantiateModel(flecs::world& world, const Model& model, AssetId asset,
+                               std::string_view rootName)
 {
     const flecs::entity root = world.entity(std::string{rootName}.c_str()).set(scene::Transform{});
     std::vector<flecs::entity> entities;
@@ -258,7 +261,7 @@ flecs::entity instantiateModel(flecs::world& world, const Model& model, std::str
         flecs::entity entity = world.entity(flecs::Parent{parent}).set(node.local);
         if (node.mesh)
         {
-            entity.set(MeshInstance{.mesh = *node.mesh});
+            entity.set(MeshRef{.mesh = {.asset = asset, .sub = *node.mesh}});
         }
         entities.push_back(entity);
     }

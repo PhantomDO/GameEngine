@@ -10,6 +10,7 @@
 #include <flecs.h>
 #include <glm/glm.hpp>
 
+#include "levain/assets/asset_id.hpp"
 #include "levain/assets/image.hpp"
 #include "levain/core/error.hpp"
 #include "levain/scene/components.hpp"
@@ -75,19 +76,13 @@ struct Model
 /// récupérable (ADR-0008).
 [[nodiscard]] core::Result<Model> loadGltf(const std::filesystem::path& path);
 
-/// Le mesh que dessine une entité importée.
-///
-/// **Provisoire** (choix de Donnovan, M4.1) : `mesh` est l'indice dans `Model::meshes` du modèle
-/// importé, et c'est l'application qui garde les meshes GPU dans le même ordre. La base d'assets de
-/// M4.2 le remplacera par un handle, par un ADR.
-struct MeshInstance
-{
-    std::uint32_t mesh = 0;
-};
-
 /// Crée une entité par nœud, avec son `Transform` et sa hiérarchie (`flecs::Parent`, ADR-0015),
 /// sous une entité racine nommée `rootName`, que l'on déplace pour déplacer tout le modèle. Un
-/// nœud qui porte un mesh reçoit un `MeshInstance`.
-flecs::entity instantiateModel(flecs::world& world, const Model& model, std::string_view rootName);
+/// nœud qui porte un mesh reçoit un `MeshRef` vers le mesh de l'asset `asset` (ADR-0019) : le
+/// modèle compte alors une référence de plus, et reste chargé tant qu'il en a.
+///
+/// Le monde doit avoir importé `AssetsModule` (`asset_ref.hpp`).
+flecs::entity instantiateModel(flecs::world& world, const Model& model, AssetId asset,
+                               std::string_view rootName);
 
 } // namespace levain::assets

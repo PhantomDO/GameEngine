@@ -3,6 +3,7 @@ find_package(fastgltf CONFIG REQUIRED)
 
 add_library(levain_assets STATIC
     src/asset_id.cpp
+    src/asset_ref.cpp
     src/gltf.cpp
     src/image.cpp
     src/registry.cpp)
