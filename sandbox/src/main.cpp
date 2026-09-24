@@ -404,6 +404,27 @@ levain::scene::Transform modelPlacement()
             .scale = glm::vec3{2.0f}};
 }
 
+/// Ce que le scan des assets a changé sur le disque (ADR-0019) : les .meta créés et rattachés sont
+/// à versionner, les orphelins à regarder.
+void logScanReport(const levain::assets::ScanReport& report)
+{
+    for (const auto& created : report.created)
+    {
+        levain::core::log("assets", levain::core::LogLevel::Info, "nouveau .meta : {}",
+                          created.string());
+    }
+    for (const auto& reattached : report.reattached)
+    {
+        levain::core::log("assets", levain::core::LogLevel::Info,
+                          "renommé hors du moteur, GUID conservé : {}", reattached.string());
+    }
+    for (const auto& orphan : report.orphans)
+    {
+        levain::core::log("assets", levain::core::LogLevel::Warning,
+                          ".meta orphelin, asset disparu : {}", orphan.string());
+    }
+}
+
 /// Crée la passe des meshes et envoie au GPU le cube, la grille, le sol, la texture du damier, et
 /// le modèle de `--model`.
 levain::core::Result<DemoScene>
@@ -417,6 +438,14 @@ createDemoScene(levain::gpu::GpuDevice& gpu, const levain::render::SamplerSettin
     const levain::assets::Model* model = nullptr;
     levain::assets::AssetId modelId;
     const Clock::time_point loadStart = Clock::now();
+    // La racine d'assets du sandbox, versionnée : ses .meta se commitent avec les fichiers, et la
+    // CI refuse un asset qui n'a pas le sien (tests/check_asset_metas.cmake).
+    auto dataReport = levain::assets::scanAssets(LEVAIN_DATA_DIR, registry);
+    if (!dataReport)
+    {
+        return std::unexpected(dataReport.error());
+    }
+    logScanReport(*dataReport);
     if (modelPath)
     {
         auto report = levain::assets::scanAssets(modelPath->parent_path(), registry);
@@ -424,22 +453,7 @@ createDemoScene(levain::gpu::GpuDevice& gpu, const levain::render::SamplerSettin
         {
             return std::unexpected(report.error());
         }
-        // Les .meta créés et rattachés sont à versionner, les orphelins à regarder (ADR-0019).
-        for (const auto& created : report->created)
-        {
-            levain::core::log("assets", levain::core::LogLevel::Info, "nouveau .meta : {}",
-                              created.string());
-        }
-        for (const auto& reattached : report->reattached)
-        {
-            levain::core::log("assets", levain::core::LogLevel::Info,
-                              "renommé hors du moteur, GUID conservé : {}", reattached.string());
-        }
-        for (const auto& orphan : report->orphans)
-        {
-            levain::core::log("assets", levain::core::LogLevel::Warning,
-                              ".meta orphelin, asset disparu : {}", orphan.string());
-        }
+        logScanReport(*report);
         const auto id = levain::assets::idOf(registry, *modelPath);
         if (!id)
         {
