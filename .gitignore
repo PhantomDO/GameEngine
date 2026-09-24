@@ -23,3 +23,6 @@ CMakeUserPresets.json
 /vcpkg/
 /vcpkg-cache/
 /vcpkg-downloads/
+
+# Assets de test tiers, téléchargés par tools/fetch-assets.sh (ADR-0018)
+/assets-cache/

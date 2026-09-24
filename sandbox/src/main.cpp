@@ -24,6 +24,7 @@
 
 #include "shader_reload.hpp"
 
+#include "levain/assets/gltf.hpp"
 #include "levain/assets/image.hpp"
 #include "levain/core/assert.hpp"
 #include "levain/core/frame_time.hpp"
@@ -153,6 +154,12 @@ struct DemoScene
     levain::render::Instances grid;
     levain::render::Mesh ground;
     levain::render::Instances groundInstance; ///< Une seule, sous les cubes.
+    /// Le modèle glTF de `--model` (M4.1) : ses meshes GPU dans l'ordre de `Model::meshes`, une
+    /// entrée par primitive, et une instance à l'origine, la matrice monde plaçant chaque nœud.
+    std::vector<std::vector<levain::render::Mesh>> modelMeshes;
+    levain::render::Instances modelInstance;
+    flecs::query<const levain::assets::MeshInstance, const levain::scene::WorldTransform>
+        modelParts;
     nvrhi::TextureHandle checker;
     nvrhi::BindingSetHandle material;
     flecs::entity cameraEntity; ///< Transform + FpsController : la caméra libre (M3.4).
@@ -314,9 +321,59 @@ nvrhi::FramebufferInfo sceneTargetOf(levain::gpu::GpuDevice& gpu)
 }
 
 /// Crée la passe des meshes et envoie au GPU le cube, la grille, le sol et la texture du damier.
-levain::core::Result<DemoScene> createDemoScene(levain::gpu::GpuDevice& gpu,
-                                                const levain::render::SamplerSettings& sampler)
+/// Les meshes GPU d'un modèle importé, dans l'ordre de `Model::meshes` : c'est ce qui donne un sens
+/// à l'indice provisoire de `MeshInstance`. La couleur d'un sommet est sa normale ramenée dans
+/// [0, 1] : sans éclairage (M5.1), c'est ce qui rend les formes lisibles.
+std::vector<std::vector<levain::render::Mesh>> uploadModel(nvrhi::IDevice& device,
+                                                           nvrhi::ICommandList& commandList,
+                                                           const levain::assets::Model& model)
 {
+    std::vector<std::vector<levain::render::Mesh>> meshes;
+    std::vector<levain::render::MeshVertex> vertices;
+    for (const levain::assets::ModelMesh& mesh : model.meshes)
+    {
+        std::vector<levain::render::Mesh>& primitives = meshes.emplace_back();
+        for (const levain::assets::MeshPrimitive& primitive : mesh.primitives)
+        {
+            vertices.clear();
+            for (const levain::assets::ModelVertex& vertex : primitive.vertices)
+            {
+                vertices.push_back({.position = vertex.position,
+                                    .color = vertex.normal * 0.5f + 0.5f,
+                                    .uv = vertex.uv});
+            }
+            primitives.push_back(
+                levain::render::createMesh(device, commandList, vertices, primitive.indices));
+        }
+    }
+    return meshes;
+}
+
+/// Où poser le modèle de `--model` : devant la caméra de départ, sur le sol, tourné de trois quarts
+/// pour montrer deux faces, et deux fois plus grand que nature pour qu'un objet de quelques mètres
+/// se voie de loin.
+levain::scene::Transform modelPlacement()
+{
+    return {.position = {96.0f, -1.0f, 104.0f},
+            .rotation = glm::angleAxis(glm::radians(-50.0f), glm::vec3{0.0f, 1.0f, 0.0f}),
+            .scale = glm::vec3{2.0f}};
+}
+
+levain::core::Result<DemoScene>
+createDemoScene(levain::gpu::GpuDevice& gpu, const levain::render::SamplerSettings& sampler,
+                const std::optional<std::filesystem::path>& modelPath)
+{
+    std::optional<levain::assets::Model> model;
+    if (modelPath)
+    {
+        auto loaded = levain::assets::loadGltf(*modelPath);
+        if (!loaded)
+        {
+            return std::unexpected(loaded.error());
+        }
+        model = std::move(*loaded);
+    }
+
     auto image = levain::assets::loadImage(LEVAIN_DATA_DIR "/textures/checker.png");
     if (!image)
     {
@@ -337,6 +394,10 @@ levain::core::Result<DemoScene> createDemoScene(levain::gpu::GpuDevice& gpu,
     enableExplorerOnLoopback(world);
 #endif
     spawnCubeGrid(world);
+    if (model)
+    {
+        levain::assets::instantiateModel(world, *model, "model").set(modelPlacement());
+    }
     // La caméra est une entité comme les autres : basse, sur le côté de la grille, et visant loin
     // devant. Elle porte son état précédent pour que le rendu l'interpole entre deux pas de
     // simulation (ADR-0016) — sans quoi le regard avancerait par saccades de 16 ms.
@@ -369,6 +430,12 @@ levain::core::Result<DemoScene> createDemoScene(levain::gpu::GpuDevice& gpu,
         levain::render::createInstances(*gpu.nvrhi, *upload, groundOffset);
     nvrhi::TextureHandle checker =
         levain::render::createTexture(*gpu.nvrhi, *upload, textureLevelsOf(mips), "checker");
+    std::vector<std::vector<levain::render::Mesh>> modelMeshes =
+        model ? uploadModel(*gpu.nvrhi, *upload, *model)
+              : std::vector<std::vector<levain::render::Mesh>>{};
+    const std::array<glm::vec3, 1> origin{glm::vec3{0.0f}};
+    levain::render::Instances modelInstance =
+        levain::render::createInstances(*gpu.nvrhi, *upload, origin);
     upload->close();
     gpu.nvrhi->executeCommandList(upload);
     const nvrhi::SamplerHandle samplerHandle = levain::render::createSampler(*gpu.nvrhi, sampler);
@@ -383,6 +450,10 @@ levain::core::Result<DemoScene> createDemoScene(levain::gpu::GpuDevice& gpu,
                                         .verticalFovRadians = glm::radians(60.0f),
                                         .nearPlane = 0.5f,
                                         .farPlane = 1000.0f};
+    // Avant le return : `.world = std::move(world)` vide `world` avant les champs suivants.
+    flecs::query<const levain::assets::MeshInstance, const levain::scene::WorldTransform>
+        modelParts =
+            world.query<const levain::assets::MeshInstance, const levain::scene::WorldTransform>();
     return DemoScene{.world = std::move(world),
                      .fixedStep = fixedStep,
                      .cubes = std::move(cubes),
@@ -392,6 +463,9 @@ levain::core::Result<DemoScene> createDemoScene(levain::gpu::GpuDevice& gpu,
                      .grid = std::move(grid),
                      .ground = std::move(ground),
                      .groundInstance = std::move(groundInstance),
+                     .modelMeshes = std::move(modelMeshes),
+                     .modelInstance = std::move(modelInstance),
+                     .modelParts = std::move(modelParts),
                      .checker = std::move(checker),
                      .material = std::move(material),
                      .cameraEntity = cameraEntity,
@@ -463,6 +537,19 @@ std::optional<double> renderFrame(levain::gpu::GpuDevice& gpu,
             commandList, scene.meshPass, *framebuffer, scene.ground, scene.groundInstance,
             *scene.material,
             {.viewProjection = constants.viewProjection, .model = glm::mat4{1.0f}});
+        // Le modèle glTF, nœud par nœud : chaque primitive, placée par la matrice monde du nœud.
+        scene.modelParts.each(
+            [&](const levain::assets::MeshInstance& part,
+                const levain::scene::WorldTransform& world)
+            {
+                for (const levain::render::Mesh& primitive : scene.modelMeshes[part.mesh])
+                {
+                    levain::render::drawMesh(
+                        commandList, scene.meshPass, *framebuffer, primitive, scene.modelInstance,
+                        *scene.material,
+                        {.viewProjection = constants.viewProjection, .model = world.matrix});
+                }
+            });
         if (capture != nullptr)
         {
             *capture = levain::render::copyForReadback(*gpu.nvrhi, commandList, *backBuffer);
@@ -485,6 +572,8 @@ struct SandboxOptions
     double loopSeconds = std::numeric_limits<double>::infinity();
     /// Le filtrage anisotrope du damier ; 1 le désactive (trilinéaire seul).
     float maxAnisotropy = 16.0f;
+    /// Un glTF à afficher devant la caméra (M4.1).
+    std::optional<std::filesystem::path> modelPath;
     /// Où écrire une capture de la dernière image, en PNG. Avec `--seconds`, c'est ce qui montre un
     /// rendu à distance, sans écran ni capture du bureau.
     std::optional<std::filesystem::path> capturePath;
@@ -502,8 +591,8 @@ std::optional<double> parsePositive(std::string_view text)
     return value;
 }
 
-/// `[--seconds N] [--anisotropy N] [--capture fichier.png]`, dans n'importe quel ordre. Vide si
-/// les arguments sont invalides.
+/// `[--seconds N] [--anisotropy N] [--capture fichier.png] [--model fichier.gltf]`, dans n'importe
+/// quel ordre. Vide si les arguments sont invalides.
 std::optional<SandboxOptions> parseOptions(std::span<char* const> arguments)
 {
     SandboxOptions options;
@@ -514,9 +603,10 @@ std::optional<SandboxOptions> parseOptions(std::span<char* const> arguments)
         {
             return std::nullopt;
         }
-        if (name == "--capture")
+        if (name == "--capture" || name == "--model")
         {
-            options.capturePath = std::filesystem::path{arguments[i + 1]};
+            (name == "--capture" ? options.capturePath : options.modelPath) =
+                std::filesystem::path{arguments[i + 1]};
             continue;
         }
         const std::optional<double> value = parsePositive(arguments[i + 1]);
@@ -697,9 +787,8 @@ int main(int argc, char** argv)
             parseOptions(std::span{argv, static_cast<std::size_t>(argc)});
         if (!options)
         {
-            std::println(
-                stderr,
-                "usage : levain_sandbox [--seconds N] [--anisotropy N] [--capture fichier.png]");
+            std::println(stderr, "usage : levain_sandbox [--seconds N] [--anisotropy N] [--capture "
+                                 "fichier.png] [--model fichier.gltf]");
             return 2;
         }
 
@@ -732,7 +821,7 @@ int main(int argc, char** argv)
         const levain::render::SamplerSettings sampler{.maxAnisotropy = options->maxAnisotropy};
         levain::core::log("sandbox", levain::core::LogLevel::Info, "filtrage anisotrope : {}",
                           levain::render::clampAnisotropy(sampler.maxAnisotropy));
-        auto scene = createDemoScene(*gpu, sampler);
+        auto scene = createDemoScene(*gpu, sampler, options->modelPath);
         if (!scene)
         {
             levain::core::log("sandbox", levain::core::LogLevel::Critical, "{}",

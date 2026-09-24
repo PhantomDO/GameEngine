@@ -157,6 +157,17 @@ jobs:
       - name: Tests
         run: ctest --test-dir build/${{ matrix.preset }} --output-on-failure
 
+      # Les assets de test tiers (tools/assets.lock), jamais versionnés : téléchargés et vérifiés
+      # par SHA-256, en cache tant que la liste ne change pas.
+      - name: Cache des assets de test
+        uses: actions/cache@v4
+        with:
+          path: assets-cache
+          key: assets-${{ hashFiles('tools/assets.lock') }}
+
+      - name: Assets de test
+        run: ./tools/fetch-assets.sh
+
       # Le runner n'a pas d'écran : SDL passe par son pilote « offscreen ».
       #
       # --seconds 3 : la boucle s'arrête d'elle-même 3 s après son premier tour, puis le programme sort
@@ -180,6 +191,7 @@ jobs:
           set -euo pipefail
           timeout --foreground --preserve-status -k 10 60 \
             ./build/${{ matrix.preset }}/sandbox/levain_sandbox --seconds 3 --capture capture.png \
+            --model assets-cache/Models/CesiumMilkTruck/glTF/CesiumMilkTruck.gltf \
             | tee sandbox.log
           grep -Eq "boucle arrêtée après ([1-9]|[0-9]{2,})\.[0-9] s" sandbox.log \
             || { echo "::error::la boucle du sandbox a tourné moins d'une seconde"; exit 1; }

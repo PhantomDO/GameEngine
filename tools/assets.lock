@@ -1,0 +1,7 @@
+# Assets de test tiers, jamais versionnés (ADR-0018) : tools/fetch-assets.sh les télécharge depuis
+# KhronosGroup/glTF-Sample-Assets, au commit ci-dessous, et vérifie chaque fichier par son SHA-256.
+# CesiumMilkTruck : CC-BY 4.0 (Cesium).
+commit c6a6bd13ab2b3c685c7903d03561b8a9392f38b8
+28cb3b0da68a88aa8c5852e616a3feb4983f0a7e96c3f291a585d0698e34f2d4 Models/CesiumMilkTruck/glTF/CesiumMilkTruck.gltf
+5041b9dcdc5c1587648d829fee1f2e4df373befb29aaf15742d39f83d64e7e2e Models/CesiumMilkTruck/glTF/CesiumMilkTruck.jpg
+6783d6e3151b9ca72c64cf694cdb6964de3a2cffcf62015c1d91e358df434046 Models/CesiumMilkTruck/glTF/CesiumMilkTruck_data.bin

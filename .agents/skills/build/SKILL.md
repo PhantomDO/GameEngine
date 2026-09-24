@@ -84,6 +84,9 @@ Donnovan suit souvent à distance, sur tablette, sans voir l'écran de la machin
 SDL_VIDEO_DRIVER=offscreen ./build/linux-release/sandbox/levain_sandbox --seconds 2 --capture <scratchpad>/rendu.png
 ```
 
+Avec un modèle glTF devant la caméra : `--model assets-cache/Models/CesiumMilkTruck/glTF/CesiumMilkTruck.gltf`,
+après `./tools/fetch-assets.sh` (assets de test tiers, vérifiés par SHA-256, jamais versionnés).
+
 Regarder l'image soi-même d'abord (outil de lecture d'images), puis l'envoyer avec `SendUserFile` : elle
 s'affiche dans l'application Claude. Pour un avant/après, deux captures dans le même envoi. La capture est une
 dernière image rendue après la boucle, relue par `render::readBack` et écrite par `assets::savePng`.
