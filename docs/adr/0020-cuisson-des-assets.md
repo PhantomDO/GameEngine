@@ -79,7 +79,8 @@ transcodées en **BC7** si le GPU le prend en charge, en RGBA8 sinon.
 - **Nouvelles dépendances** : `ktx` (Apache 2.0) et `zstd` (BSD). *Rando* devra les recopier dans son manifeste,
   et le contrôle de #122 le lui rappellera.
 - **L'encodage UASTC est lent** : de l'ordre de la seconde par texture selon mon estimation, non mesurée. Cuire
-  Sponza prendra donc sans doute plus longtemps que la charger depuis ses sources. C'est le prix d'un chargement rapide, payé une fois par modification.
+  Sponza prendra donc sans doute plus longtemps que la charger depuis ses sources. C'est le prix d'un chargement
+  rapide, payé une fois par modification.
 - **Pour la Switch 2 et le mobile** : le transcodage vers l'ASTC est déjà dans libktx, et le champ `encoding` des
   meshes attend une compression. Rien n'est à refaire, seulement à ajouter.
 
