@@ -50,7 +50,8 @@ rend −1 alors que l'énumération s'appelle `SDL_GAMEPAD_BUTTON_SOUTH`. Les fi
 protocole ne le lui dit pas. Le compositeur peut seulement la déclarer « suspendue », ce que SDL traduit en
 `OCCLUDED`. Nos événements s'appellent donc `Hidden` et `Shown`, et répondent à la seule question qui compte pour
 le moteur : **y a-t-il quelque chose à dessiner ?** Quand la réponse est non, la boucle appelle `waitEvents` et
-dort. Mesuré avec `tools/kwin-window-smoke.sh` : **0 ms de CPU en 2 s minimisée, contre 2 010 ms visible**.
+dort, au plus jusqu'à son échéance (`--seconds` du sandbox) : bureau verrouillé, une fenêtre masquée peut ne plus
+rien recevoir. Mesuré avec `tools/kwin-window-smoke.sh` : **0 ms de CPU en 2 s minimisée, contre 2 010 ms visible**.
 
 **Sous Wayland, pas d'image, pas de fenêtre.** Une surface Wayland n'apparaît à l'écran qu'après avoir reçu son
 premier buffer. Jusqu'à M1.2, le moteur ne présentait rien et la fenêtre restait invisible ; depuis la swapchain

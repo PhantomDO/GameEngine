@@ -19,7 +19,8 @@ add_executable(levain_tests
     registry_test.cpp
     scene_test.cpp
     texture_test.cpp
-    version_test.cpp)
+    version_test.cpp
+    window_test.cpp)
 target_link_libraries(levain_tests PRIVATE
     levain::assets levain::core levain::input levain::platform levain::render levain::scene
     doctest::doctest)
@@ -42,7 +43,8 @@ target_compile_definitions(levain_tests PRIVATE
 # déclare un par TEST_CASE à ctest. Une régression pointe donc le cas précis plutôt qu'un
 # « levain_tests a échoué ». Fourni par le port vcpkg de doctest.
 include(doctest)
-doctest_discover_tests(levain_tests)
+# SDL_VIDEO_DRIVER=offscreen : window_test.cpp ouvre une vraie fenêtre, sans écran en CI.
+doctest_discover_tests(levain_tests PROPERTIES ENVIRONMENT "SDL_VIDEO_DRIVER=offscreen")
 
 # Benchmark : compilé par la CI pour qu'il ne pourrisse pas, mais pas lancé par ctest.
 # Un chiffre de performance dépend de la machine ; il se mesure à la main sur la machine

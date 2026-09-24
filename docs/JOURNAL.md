@@ -27,6 +27,20 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-24 — Hors milestone — `--seconds` tenu fenêtre masquée
+
+- Temps Donnovan : relecture à venir (estimé 0,1 h)
+- Sessions Claude Code : 1
+- Fait : `platform::waitEvents` prend une durée maximale (`SDL_WaitEventTimeout`) ; la boucle du sandbox, fenêtre
+  masquée, n'attend plus au-delà de `--seconds`. Test `waitEvents rend la main à l'échéance…` (offscreen).
+- Mesures : minimisé par KWin, `--seconds 6` → arrêt à **6,0 s** (avant : toujours vivant à 11,5 s, arrêté par
+  SIGTERM ; lu dans le log « boucle arrêtée après … », minimisation par KWin, script non versionné, dans la PR) ;
+  CPU minimisée **0 ms** sur 2 s (`tools/kwin-window-smoke.sh`, inchangé).
+- Écarts et problèmes : le SIGTERM ignoré sous RenderDoc, bureau verrouillé, n'est pas reproduit : minimisée,
+  SIGTERM réveille l'attente (code 0), et sous RenderDoc SDL l'intercepte bien (`SigCgt`). Hypothèse non
+  vérifiée : blocage dans la présentation X11. Détail au GOTCHA du skill `build`, section RenderDoc.
+- Prochaine étape : reprendre M4.3.
+
 ## 2026-09-24 — M4.2 — Clôture : les assets ont une identité
 
 - **Temps Donnovan pour M4.2 : 0,75 h**, soit le total de la journée (« 2 h ») moins les 1,25 h de M4.1.

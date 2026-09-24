@@ -838,7 +838,10 @@ bool runMainLoop(levain::platform::Window& window, levain::gpu::GpuDevice& gpu, 
     {
         if (!state.isVisible)
         {
-            for (const auto& event : levain::platform::waitEvents(window).window)
+            // Pas au-delà de --seconds : masquée sans événement (bureau verrouillé), la boucle
+            // dormirait sinon indéfiniment. L'infini par défaut attend sans limite.
+            const double remainingSeconds = loopSeconds - secondsBetween(loopStart, Clock::now());
+            for (const auto& event : levain::platform::waitEvents(window, remainingSeconds).window)
             {
                 applyWindowEvent(state, event);
             }
