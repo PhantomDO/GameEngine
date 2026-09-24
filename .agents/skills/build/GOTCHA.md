@@ -177,6 +177,13 @@ dans `engine/platform/README.md`, ceux de flecs dans `engine/scene/README.md`, s
 - **RenderDoc 1.45 masque `VK_KHR_wayland_surface`** : sous RenderDoc, `SDL_CreateWindow` échoue sous Wayland.
   Lancer le programme capturé avec `SDL_VIDEO_DRIVER=x11` (XWayland). `renderdoccmd capture -w …` montre la
   sortie du programme capturé, que `ExecuteAndInject` cache.
+- **Capturer exige un bureau visible et déverrouillé** (2026-09-24) : `tools/renderdoc_capture.py` impose
+  X11. Bureau verrouillé, trois sandbox `--seconds 6` ne se sont jamais arrêtés, ni sur SIGTERM (il a fallu
+  `kill -9`). L'échéance ignorée fenêtre masquée est corrigée (`waitEvents` borné) ; le SIGTERM ignoré n'a pas
+  été reproduit : minimisée, SIGTERM réveille bien l'attente (code 0). Cause supposée, non vérifiée : un blocage
+  dans la présentation X11 plutôt que dans l'attente d'événements. En `SDL_VIDEO_DRIVER=offscreen`, le sandbox
+  a aussi semblé bloquer sous RenderDoc ; piste non vérifiée, la couche Vulkan implicite de l'utilisateur
+  `liblsfg-vk-layer.so` (« Failed to find vkGetInstanceProcAddr »). Ne pas toucher aux couches de l'utilisateur.
 - **Mesurer une image de capture avec ImageMagick** (2026-09-21) : les PNG de RenderDoc ont un canal alpha,
   compté par `fx:standard_deviation` avec une variance nulle : le contraste mesuré est divisé par deux. Toujours
   `-alpha off`. Et `-gravity` persiste d'une option à l'autre : un `-splice` après `-gravity center` insère ses

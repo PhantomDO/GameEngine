@@ -1,7 +1,9 @@
 #include "levain/platform/window.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <format>
+#include <limits>
 #include <optional>
 #include <string>
 #include <utility>
@@ -86,6 +88,23 @@ void appendEvent(Events& events, const SDL_Event& event, SDL_WindowID windowId)
     appendInputEvent(events.input, event);
 }
 
+/// SDL compte en millisecondes sur 32 bits, -1 pour « sans limite ». Une durée finie au-delà (24
+/// jours) est tronquée : l'appelant qui a une échéance rappelle. Arrondi au-dessus : 0,4 ms
+/// deviendrait sinon une attente nulle, et la boucle tournerait à vide jusqu'à l'échéance.
+Sint32 waitTimeoutMs(double seconds)
+{
+    if (!(seconds > 0.0)) // négatif ou NaN
+    {
+        return 0;
+    }
+    if (seconds == std::numeric_limits<double>::infinity())
+    {
+        return -1;
+    }
+    return static_cast<Sint32>(
+        std::min(std::ceil(seconds * 1000.0), double{std::numeric_limits<Sint32>::max()}));
+}
+
 void appendPendingEvents(Events& events, SDL_WindowID windowId)
 {
     SDL_Event event{};
@@ -146,19 +165,22 @@ Events pollEvents(const Window& window)
     return events;
 }
 
-Events waitEvents(const Window& window)
+Events waitEvents(const Window& window, double maxSeconds)
 {
     const SDL_WindowID windowId = SDL_GetWindowID(window.handle.get());
+    const Sint32 timeoutMs = waitTimeoutMs(maxSeconds);
     Events events;
 
+    // SDL rend false à l'échéance comme en cas d'erreur : seule une attente sans limite qui
+    // revient sans événement est une erreur.
     SDL_Event event{};
-    if (!SDL_WaitEvent(&event))
-    {
-        core::log("platform", core::LogLevel::Warning, "SDL_WaitEvent : {}", SDL_GetError());
-    }
-    else
+    if (SDL_WaitEventTimeout(&event, timeoutMs))
     {
         appendEvent(events, event, windowId);
+    }
+    else if (timeoutMs < 0)
+    {
+        core::log("platform", core::LogLevel::Warning, "SDL_WaitEventTimeout : {}", SDL_GetError());
     }
 
     appendPendingEvents(events, windowId);

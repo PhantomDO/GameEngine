@@ -154,8 +154,10 @@ jobs:
               || { echo "::error::$symbol absent : le sandbox n'est pas instrumenté"; exit 1; }
           done
 
+      # --timeout 120 : un test bloqué échoue en 2 min plutôt qu'au délai par défaut de ctest (1 500 s).
+      # Le plus lent mesure 5,75 s (smoke.triangle, démarrage de lavapipe), qui varie de 1 à plus de 10 s.
       - name: Tests
-        run: ctest --test-dir build/${{ matrix.preset }} --output-on-failure
+        run: ctest --test-dir build/${{ matrix.preset }} --output-on-failure --timeout 120
 
       # Les assets de test tiers (tools/assets.lock), jamais versionnés : téléchargés et vérifiés
       # par SHA-256, en cache tant que la liste ne change pas.
