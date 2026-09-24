@@ -27,6 +27,59 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-24 — M4.2 — Clôture : les assets ont une identité
+
+- **Temps Donnovan pour M4.2 : 0,75 h**, soit le total de la journée (« 2 h ») moins les 1,25 h de M4.1.
+  Relectures déclarées : 0,67 h (10 + 15 + 15 min, et la dernière sans chiffre). Réparti au prorata des
+  estimations : #89 à 0,21 h, #90 à 0,54 h. **Ratio 0,43** (1,75 h estimées).
+- Définition de « terminé » (SPECS §9) : le sandbox lancé sous Linux scanne ses racines d'assets ; critères
+  mesurés et consignés ; CI verte, sans erreur de validation ; README d'`assets` et de `data` à jour, pièges de
+  flecs au README de `scene` ; board renseigné ; tag `m4.2` et release.
+- **Décisions** : l'[ADR-0019](adr/0019-identifiants-d-assets.md), six choix sur sondage (un GUID dans un
+  `.meta`, le rattachement par le hash, des sous-assets par indice, le format « clé = valeur », le comptage par
+  le monde, les `.meta` créés par le moteur). Puis un septième, à l'implémentation : **des hooks flecs plutôt
+  qu'un recomptage par image**, sur mesures (27 µs pour 10 000 entités, 273 µs pour 100 000), en pensant à la
+  Switch 2 et au mobile.
+
+### Critères du milestone
+
+| Critère (ROADMAP) | Mesuré | Commande |
+|---|---|---|
+| Renommer ou déplacer un fichier ne casse aucune référence | un fichier renommé et déplacé hors du moteur, sans son `.meta`, garde son GUID, retrouvé par son hash ; renommé **et** modifié, il est signalé | `levain_tests` (tests du registre) |
+| Aucun chemin absolu dans les scènes | une entité ne garde qu'un `MeshRef` (GUID et indice) ; les chemins ne vivent que dans le registre | lecture d'`asset_ref.hpp` |
+| En plus : chaque chemin de comptage | pose, remplacement, même valeur, copie, retrait, destruction ; déchargement en fin d'image, pas si l'asset est repris | `levain_tests` |
+| En plus : un `.meta` oublié est refusé | `assets.metas-committed` | `ctest -R metas` |
+| Tests | 95, trois presets, ASan et UBSan compris, en parallèle | `ctest -j8` |
+
+### Temps
+
+| Issue | Estimé | Réconcilié |
+|---|---:|---:|
+| #89 ADR-0019 (#146) | 0,5 h | 0,21 h |
+| #90 Registre, références, contrôle (#147, #148, #149) | 1,25 h | 0,54 h |
+| **M4.2** (ROADMAP) | **1,75 h** | **0,75 h** (ratio 0,43) |
+
+Phase 4 à ce stade : 2,0 h passées pour 3,25 h estimées (M4.1 et M4.2), ratio 0,62. **Chiffre provisoire**, sur
+deux milestones d'une seule journée : la phase en compte encore trois, dont la cuisson, estimée la plus chère.
+Pas de conclusion avant sa clôture (leçon de M3.4).
+
+### Ce que M4.2 a appris
+
+- **Mesurer tranche mieux qu'argumenter.** À la question « quelle solution pour la Switch 2 ? », trois mesures
+  de deux minutes ont répondu, là où les arguments se valaient.
+- **ASan trouve ce que le Debug laisse passer** : `b.set(a.get<T>())` lisait de la mémoire libérée quand `b`
+  rejoignait la table de `a`. Le test était vert en Debug.
+- **Une contrainte de bibliothèque se découvre au test, pas à la lecture** : les hooks `on_replace` interdisent
+  `clone()`, ce que la documentation de flecs ne dit qu'à propos de `get_mut`. Les deux pièges sont au README de
+  `scene`.
+- **Une identité d'asset ne répare pas les références internes des fichiers sources** : un `.gltf` cherche
+  sa texture par son nom. C'est la limite de Unity avec un FBX ; la cuisson (M4.3), qui convertira les glTF en
+  format moteur, pourra y substituer des GUID.
+
+**Prochaine étape** : M4.3 — la cuisson des assets (#91, #92).
+
+---
+
 ## 2026-09-24 — M4.1 — Clôture : Sponza s'affiche
 
 - **Temps Donnovan pour M4.1 : 1,25 h**, le total de la journée (« 1 h 15 en tout »). Relectures déclarées :
