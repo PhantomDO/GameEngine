@@ -42,6 +42,63 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
   vérifiée : blocage dans la présentation X11. Détail au GOTCHA du skill `build`, section RenderDoc.
 - Prochaine étape : reprendre M4.3.
 
+## 2026-09-24 — M4.3 — Clôture : Sponza cuite charge 23 fois plus vite
+
+- **Temps Donnovan pour M4.3 : 2,00 h**, soit le total de la journée (« environ 4 h en tout ») moins les 1,25 h
+  de M4.1 et les 0,75 h de M4.2. Relectures déclarées : 1,83 h (ADR 10 min, puis 15, 25, 10, 25 et 25 min, et
+  les 10 min de la clôture de M4.2). Ce total comprend aussi le pilotage de deux sessions parallèles, que
+  Donnovan a lancées depuis des propositions de tâches : #155 (`--seconds` respecté quand la fenêtre est
+  masquée) et #156 (le `.pyc` suivi par erreur). Elles n'ont pas d'issue, et leur temps n'est pas isolé.
+  Réparti au prorata : #91 à 1,0 h, #92 à 1,0 h. **Ratio 1,00.**
+- Définition de « terminé » (SPECS §9) : démo lançable sous Linux (`--model`, version cuite) ; critères mesurés
+  et consignés ; CI verte, sans erreur de validation (Sponza cuite vérifiée en local en Debug et sous ASan) ;
+  README d'`assets`, skill `build` et son GOTCHA à jour ; board renseigné ; tag `m4.3` et release.
+- **Décisions** : l'[ADR-0020](adr/0020-cuisson-des-assets.md), quatre choix sur sondage (UASTC transcodé au
+  chargement, meshes en binaire brut avec un champ `encoding` réservé à la demande de Donnovan, un cuiseur
+  explicite avec repli sur la source, un dossier `.cooked/`). Puis **son amendement**, sur mesures : le
+  transcodage coûtait 9,4 ms par texture, et le cuiseur écrit aussi un cache BC7 pour la plateforme.
+
+### Critères du milestone
+
+| Critère (ROADMAP et issues) | Mesuré | Commande |
+|---|---|---|
+| Sponza cuite charge au moins 5 fois plus vite que le glTF brut | **19 ms au lieu de 442** (modèle 3,5 ms au lieu de 7,2 ; textures 15 ms au lieu de 435) : **×23**, et ×7,9 en comptant le scan des racines (42 ms) | `./build/linux-release/tools/cook/levain_cook assets-cache`, puis `levain_sandbox --model assets-cache/Models/Sponza/glTF/Sponza.gltf` (Release, 3 lancements), avec puis sans `assets-cache/.cooked` |
+| L'outil tourne sans GPU | `levain_cook` ne lie qu'`assets` et `core` | `tools/cook/CMakeLists.txt` |
+| Mémoire vidéo des textures avant et après | **128 Mo en RGBA8, 32 Mo en BC7** | idem, ligne « Mo en mémoire vidéo » |
+| Niveaux de mip vérifiés dans une capture RenderDoc | `9288698199695299068.jpg` : BC7_SRGB, 1024 × 1024, 11 niveaux jusqu'à 1 × 1 | `LEVAIN_MIPS_TEXTURE=9288698199695299068.jpg LEVAIN_MIPS_PREFIX=m4.3 LEVAIN_MIPS_ARGS="--seconds 8 --model assets-cache/Models/Sponza/glTF/Sponza.gltf" QT_QPA_PLATFORM=offscreen qrenderdoc --python tools/renderdoc-mips.py` |
+| En plus : l'image ne souffre pas | 0,64 niveau sur 255 d'écart moyen avec le rendu depuis les sources ; PSNR de 48 dB | captures `--capture`, comparées |
+| En plus : durée de cuisson | 42 s pour 72 assets sur 12 cœurs ; 3 min 30 en CI (4 cœurs, Release) | `levain_cook assets-cache` |
+| Tests | 103, trois presets, ASan et UBSan compris | `ctest -j8` |
+
+### Temps
+
+| Issue | Estimé | Réconcilié |
+|---|---:|---:|
+| #91 Outil de cuisson et format des meshes (ADR-0020, #152, #153, #154) | 1,0 h | 1,0 h |
+| #92 Textures KTX2 et BC7 (#157, #158) | 1,0 h | 1,0 h |
+| **M4.3** (ROADMAP) | **2,0 h** | **2,00 h** (ratio 1,00) |
+
+Phase 4 à ce stade : 4,0 h passées pour 5,25 h estimées (M4.1 à M4.3), ratio 0,76. **Chiffre provisoire** : il reste
+M4.4 (hot-reload des assets) et M4.5 (animation squelettique), la plus chère.
+
+### Ce que M4.3 a appris
+
+- **Écrire le risque et sa parade avant de coder fait gagner le moment où il se réalise.** Le transcodage était
+  le risque nommé dans l'ADR ; mesuré à 9,4 ms par texture, il a été traité en une heure, par un amendement et
+  non par une nouvelle décision.
+- **Une mesure qui mélange deux choses cache la réponse** : « lu en 60 ms » comptait le scan des racines et la
+  lecture du modèle. Séparés, ils ont montré que le modèle cuit se lisait en 3,6 ms, et que le scan pesait
+  42 ms.
+- **UBSan voit ce qu'aucun test n'avait couvert** : un `memcpy` depuis un pointeur nul, sur un tableau vide. Le
+  test d'aller-retour contient maintenant un nom vide.
+- **Un outil qui dépend de l'écran ne marche pas à distance.** RenderDoc attendait une fenêtre X11 jamais
+  présentée, parce que la session était verrouillée. La capture passe maintenant hors écran, et une tâche
+  parallèle (#155) a corrigé le sandbox qui ne s'arrêtait plus quand sa fenêtre restait masquée.
+
+**Prochaine étape** : M4.4 — le hot-reload des assets (#93, #94 et l'étude E4).
+
+---
+
 ## 2026-09-24 — M4.2 — Clôture : les assets ont une identité
 
 - **Temps Donnovan pour M4.2 : 0,75 h**, soit le total de la journée (« 2 h ») moins les 1,25 h de M4.1.
