@@ -9,6 +9,7 @@ add_executable(levain_tests
     error_test.cpp
     file_test.cpp
     frame_time_test.cpp
+    gltf_test.cpp
     image_test.cpp
     input_test.cpp
     log_test.cpp
@@ -54,6 +55,10 @@ target_link_libraries(levain_scene_bench PRIVATE levain::scene)
 add_test(NAME deps.flecs-visibility
          COMMAND ${CMAKE_COMMAND} -DROOT=${PROJECT_SOURCE_DIR}
                  -P ${CMAKE_CURRENT_SOURCE_DIR}/check_flecs_visibility.cmake)
+
+add_test(NAME deps.fastgltf-visibility
+         COMMAND ${CMAKE_COMMAND} -DROOT=${PROJECT_SOURCE_DIR}
+                 -P ${CMAKE_CURRENT_SOURCE_DIR}/check_fastgltf_visibility.cmake)
 
 # Tests de fumée du rendu (#16, M2.1) : dessinent une scène hors écran et comparent l'image à une
 # référence. SDL_VIDEO_DRIVER=offscreen : pas d'écran en CI, la surface est « headless » (lavapipe).
