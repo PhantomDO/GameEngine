@@ -74,7 +74,7 @@ TEST_CASE("le scan donne un .meta aux nouveaux assets, et seulement à eux")
     const auto report = scanAssets(root.path, registry);
     REQUIRE(report.has_value());
     CHECK(report->created.size() == 2);
-    CHECK(registry.paths.size() == 2);
+    CHECK(registry.entries.size() == 2);
     CHECK(fs::exists(root.path / "a.png.meta"));
     CHECK_FALSE(fs::exists(root.path / "b.bin.meta"));
 

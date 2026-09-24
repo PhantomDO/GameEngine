@@ -28,9 +28,11 @@ core::Result<std::uint64_t> hashOfFile(const fs::path& path)
 }
 
 /// Enregistre `id` pour `path`, ou échoue si un autre fichier le porte déjà (cas 5).
-core::Result<void> registerAsset(AssetRegistry& registry, AssetId id, const fs::path& path)
+core::Result<void> registerAsset(AssetRegistry& registry, AssetId id, const fs::path& path,
+                                 const fs::path& root, std::uint64_t hash)
 {
-    const auto [existing, inserted] = registry.paths.try_emplace(id, path);
+    const auto [existing, inserted] =
+        registry.entries.try_emplace(id, AssetEntry{.file = path, .root = root, .hash = hash});
     if (!inserted)
     {
         return core::makeError(
@@ -38,7 +40,7 @@ core::Result<void> registerAsset(AssetRegistry& registry, AssetId id, const fs::
             std::format(
                 "{} et {} ont le même GUID {} : un fichier copié avec son .meta ? Supprimer "
                 "le .meta de la copie, un nouveau GUID lui sera donné",
-                existing->second.string(), path.string(), toString(id)));
+                existing->second.file.string(), path.string(), toString(id)));
     }
     return {};
 }
@@ -119,7 +121,7 @@ core::Result<ScanReport> scanAssets(const fs::path& root, AssetRegistry& registr
                 return std::unexpected(written.error());
             }
         }
-        if (auto registered = registerAsset(registry, meta->id, asset); !registered)
+        if (auto registered = registerAsset(registry, meta->id, asset, root, *hash); !registered)
         {
             return std::unexpected(registered.error());
         }
@@ -157,7 +159,7 @@ core::Result<ScanReport> scanAssets(const fs::path& root, AssetRegistry& registr
             }
         }
         (reattached ? report.reattached : report.created).push_back(asset);
-        if (auto registered = registerAsset(registry, meta.id, asset); !registered)
+        if (auto registered = registerAsset(registry, meta.id, asset, root, hash); !registered)
         {
             return std::unexpected(registered.error());
         }
@@ -170,9 +172,9 @@ core::Result<ScanReport> scanAssets(const fs::path& root, AssetRegistry& registr
 std::optional<AssetId> idOf(const AssetRegistry& registry, const fs::path& path)
 {
     std::error_code error;
-    for (const auto& [id, candidate] : registry.paths)
+    for (const auto& [id, entry] : registry.entries)
     {
-        if (fs::equivalent(candidate, path, error))
+        if (fs::equivalent(entry.file, path, error))
         {
             return id;
         }
@@ -180,10 +182,21 @@ std::optional<AssetId> idOf(const AssetRegistry& registry, const fs::path& path)
     return std::nullopt;
 }
 
+std::optional<fs::path> cookedPathOf(const AssetRegistry& registry, AssetId id,
+                                     std::string_view extension)
+{
+    const auto found = registry.entries.find(id);
+    if (found == registry.entries.end())
+    {
+        return std::nullopt;
+    }
+    return found->second.root / ".cooked" / (toString(id) + std::string{extension});
+}
+
 std::optional<fs::path> pathOf(const AssetRegistry& registry, AssetId id)
 {
-    const auto found = registry.paths.find(id);
-    return found == registry.paths.end() ? std::nullopt : std::optional{found->second};
+    const auto found = registry.entries.find(id);
+    return found == registry.entries.end() ? std::nullopt : std::optional{found->second.file};
 }
 
 } // namespace levain::assets

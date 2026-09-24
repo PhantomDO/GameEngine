@@ -1,8 +1,10 @@
 #pragma once
 
+#include <cstdint>
 #include <filesystem>
 #include <map>
 #include <optional>
+#include <string_view>
 #include <vector>
 
 #include "levain/assets/asset_id.hpp"
@@ -11,11 +13,20 @@
 namespace levain::assets
 {
 
+/// Ce que le registre sait d'un asset.
+struct AssetEntry
+{
+    std::filesystem::path file;
+    std::filesystem::path
+        root;               ///< Sa racine d'assets : les fichiers cuits vont dans `root/.cooked`.
+    std::uint64_t hash = 0; ///< Celui du `.meta` : un fichier cuit est à jour s'il porte le même.
+};
+
 /// Où se trouve chaque asset connu. C'est le seul endroit du moteur où vivent des chemins : les
 /// composants et les scènes ne gardent que des `AssetId` (ADR-0019).
 struct AssetRegistry
 {
-    std::map<AssetId, std::filesystem::path> paths;
+    std::map<AssetId, AssetEntry> entries;
 };
 
 /// Ce que le scan a changé sur le disque, pour le journal : ces `.meta` sont à versionner.
@@ -45,6 +56,11 @@ struct ScanReport
 /// absolue) le trouvent toutes les deux. Linéaire : pour les outils et le démarrage, pas par image.
 [[nodiscard]] std::optional<AssetId> idOf(const AssetRegistry& registry,
                                           const std::filesystem::path& path);
+
+/// Le fichier cuit d'un asset (ADR-0020) : `<racine>/.cooked/<guid><extension>`, qu'il existe ou
+/// non. Vide si l'asset est inconnu.
+[[nodiscard]] std::optional<std::filesystem::path>
+cookedPathOf(const AssetRegistry& registry, AssetId id, std::string_view extension);
 
 /// Le chemin d'un asset, s'il est connu.
 [[nodiscard]] std::optional<std::filesystem::path> pathOf(const AssetRegistry& registry,
