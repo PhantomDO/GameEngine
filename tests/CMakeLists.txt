@@ -7,6 +7,7 @@ add_executable(levain_tests
     camera_control_test.cpp
     camera_test.cpp
     cooked_test.cpp
+    cooked_texture_test.cpp
     doctest_main.cpp
     error_test.cpp
     file_test.cpp
@@ -61,9 +62,9 @@ add_test(NAME deps.flecs-visibility
          COMMAND ${CMAKE_COMMAND} -DROOT=${PROJECT_SOURCE_DIR}
                  -P ${CMAKE_CURRENT_SOURCE_DIR}/check_flecs_visibility.cmake)
 
-add_test(NAME deps.fastgltf-visibility
+add_test(NAME deps.asset-libraries-visibility
          COMMAND ${CMAKE_COMMAND} -DROOT=${PROJECT_SOURCE_DIR}
-                 -P ${CMAKE_CURRENT_SOURCE_DIR}/check_fastgltf_visibility.cmake)
+                 -P ${CMAKE_CURRENT_SOURCE_DIR}/check_asset_libraries_visibility.cmake)
 
 add_test(NAME assets.metas-committed
          COMMAND ${CMAKE_COMMAND} -DROOT=${PROJECT_SOURCE_DIR}

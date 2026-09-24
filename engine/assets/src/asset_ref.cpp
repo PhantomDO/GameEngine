@@ -148,4 +148,66 @@ core::Result<Image> loadTexture(const AssetRegistry& registry, const ModelCache&
     return loadImage(*path);
 }
 
+std::optional<std::filesystem::path> cookedTextureStem(const AssetRegistry& registry,
+                                                       AssetRef texture)
+{
+    const auto entry = registry.entries.find(texture.asset);
+    if (entry == registry.entries.end())
+    {
+        return std::nullopt;
+    }
+    const std::filesystem::path extension = entry->second.file.extension();
+    const bool embedded = extension == ".gltf" || extension == ".glb";
+    const std::string name = embedded ? std::format("{}.{}", toString(texture.asset), texture.sub)
+                                      : toString(texture.asset);
+    return entry->second.root / ".cooked" / name;
+}
+
+core::Result<TextureData> loadTextureData(const AssetRegistry& registry, const ModelCache& models,
+                                          AssetRef texture, TextureFormat target)
+{
+    const auto stem = cookedTextureStem(registry, texture);
+    if (!stem)
+    {
+        return core::makeError(
+            core::ErrorCode::FileNotFound,
+            std::format("texture {} inconnue du registre (ADR-0019)", toString(texture.asset)));
+    }
+    const std::uint64_t hash = registry.entries.at(texture.asset).hash;
+    const auto suffixed = [&](std::string_view suffix)
+    {
+        std::filesystem::path path = *stem;
+        path += suffix;
+        return path;
+    };
+
+    // Le cache de la plateforme, puis le maître UASTC : le premier qui existe et soit à jour.
+    std::string why = "pas cuite";
+    for (const auto& path :
+         {target == TextureFormat::Bc7Srgb ? suffixed(".bc7.ktx2") : std::filesystem::path{},
+          suffixed(".ktx2")})
+    {
+        if (path.empty() || !std::filesystem::exists(path))
+        {
+            continue;
+        }
+        auto cooked = readCookedTexture(path, hash, target);
+        if (cooked)
+        {
+            return cooked;
+        }
+        why = cooked.error().message;
+    }
+
+    core::log("assets", core::LogLevel::Warning,
+              "texture {} {} : chargée depuis la source (lancer levain_cook)",
+              stem->filename().string(), why);
+    auto image = loadTexture(registry, models, texture);
+    if (!image)
+    {
+        return std::unexpected(image.error());
+    }
+    return textureDataOf(buildMipChain(std::move(*image)));
+}
+
 } // namespace levain::assets

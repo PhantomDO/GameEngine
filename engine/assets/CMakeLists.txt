@@ -1,10 +1,12 @@
 find_package(Stb REQUIRED)
 find_package(fastgltf CONFIG REQUIRED)
+find_package(Ktx CONFIG REQUIRED)
 
 add_library(levain_assets STATIC
     src/asset_id.cpp
     src/asset_ref.cpp
     src/cooked.cpp
+    src/cooked_texture.cpp
     src/gltf.cpp
     src/image.cpp
     src/registry.cpp)
@@ -25,5 +27,7 @@ set_source_files_properties(src/image.cpp
 
 # scene est PUBLIC : l'import crée des entités, et l'en-tête expose leurs composants (SPECS §7 place
 # assets au-dessus de scene). fastgltf est PRIVATE : seul src/gltf.cpp l'inclut, l'API ne rend que
-# nos types (tests/check_fastgltf_visibility.cmake).
-target_link_libraries(levain_assets PUBLIC levain::core levain::scene PRIVATE fastgltf::fastgltf)
+# nos types (tests/check_asset_libraries_visibility.cmake).
+# libktx est PRIVATE comme fastgltf : seul src/cooked_texture.cpp l'inclut (ADR-0020).
+target_link_libraries(levain_assets PUBLIC levain::core levain::scene
+                      PRIVATE fastgltf::fastgltf KTX::ktx)
