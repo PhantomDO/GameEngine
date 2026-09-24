@@ -10,6 +10,7 @@
 #include <flecs.h>
 #include <glm/glm.hpp>
 
+#include "levain/assets/image.hpp"
 #include "levain/core/error.hpp"
 #include "levain/scene/components.hpp"
 
@@ -31,6 +32,15 @@ struct MeshPrimitive
 {
     std::vector<ModelVertex> vertices;
     std::vector<std::uint32_t> indices;
+    std::optional<std::uint32_t> material; ///< Indice dans `Model::materials`.
+};
+
+/// Ce qu'un matériau glTF dit de la couleur de base (M4.1). Le reste du modèle metallic-roughness
+/// (rugosité, métal, normales) viendra avec le PBR, en M5.1.
+struct ModelMaterial
+{
+    glm::vec4 baseColorFactor{1.0f}; ///< Multiplie la texture ; seul, si elle est absente.
+    std::optional<std::uint32_t> baseColorImage; ///< Indice dans `Model::images`.
 };
 
 struct ModelMesh
@@ -54,10 +64,14 @@ struct Model
 {
     std::vector<ModelMesh> meshes;
     std::vector<ModelNode> nodes;
+    std::vector<ModelMaterial> materials;
+    /// Les images de couleur de base, décodées en RGBA. Seules celles qu'un matériau utilise :
+    /// les normal maps de Sponza, par exemple, ne servent qu'à partir de M5.1.
+    std::vector<Image> images;
 };
 
-/// Lit un `.gltf` (et ses `.bin`) ou un `.glb`, avec fastgltf. Seule la scène par défaut est
-/// gardée ; seuls les triangles sont acceptés. Un fichier illisible ou incomplet est un échec
+/// Lit un `.gltf` (et ses `.bin` et images) ou un `.glb`, avec fastgltf. Seule la scène par défaut
+/// est gardée ; seuls les triangles sont acceptés. Un fichier illisible ou incomplet est un échec
 /// récupérable (ADR-0008).
 [[nodiscard]] core::Result<Model> loadGltf(const std::filesystem::path& path);
 

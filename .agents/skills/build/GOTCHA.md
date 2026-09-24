@@ -3,6 +3,16 @@
 Un piège par entrée : symptôme, cause, parade. Le plus récent en haut. Les pièges propres à SDL sont détaillés
 dans `engine/platform/README.md`, ceux de flecs dans `engine/scene/README.md`, section « Pièges connus ».
 
+## Une limite que seule une grosse scène atteint, et que seul le Debug voit (2026-09-24)
+
+- **Symptôme** : le sandbox avec Sponza s'arrête en Debug et sous ASan sur « Volatile constant buffer … has
+  maxVersions = 16, which is insufficient ». En Release, il tourne et l'image paraît juste.
+- **Cause** : chaque `drawMesh` écrit ses constantes dans une nouvelle version du buffer volatil ; 16
+  suffisaient aux quelques dessins de la démo, pas aux 105 de Sponza. La validation de NVRHI, seule à le
+  détecter, est éteinte en Release.
+- **Parade** : `MaxMeshDrawsPerCommandList` (4 096), et la CI lance Sponza en Debug. Toute scène de test
+  lourde doit passer au moins une fois en Debug avant qu'on se fie à une image Release.
+
 ## `cmake -P` : aucune politique par défaut (2026-09-23)
 
 - **Symptôme** : `cmake.vcpkg-manifest` vert en local (CMake 4.4), rouge sur les trois jobs de la CI : « Policy

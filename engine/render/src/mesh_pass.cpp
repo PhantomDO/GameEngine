@@ -98,7 +98,7 @@ core::Result<MeshPass> createMeshPass(nvrhi::IDevice& device, const nvrhi::Frame
                                 .setByteSize(sizeof(SceneConstants))
                                 .setIsConstantBuffer(true)
                                 .setIsVolatile(true)
-                                .setMaxVersions(16)
+                                .setMaxVersions(MaxMeshDrawsPerCommandList)
                                 .setDebugName("constantes de scène"));
     nvrhi::BindingSetHandle frameBindings = device.createBindingSet(
         nvrhi::BindingSetDesc().addItem(nvrhi::BindingSetItem::ConstantBuffer(0, sceneConstants)),
