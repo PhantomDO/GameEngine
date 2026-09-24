@@ -12,7 +12,9 @@ fastgltf) : meshes, nœuds et couleur de base des matériaux lus en mémoire, pu
 
 **En M4.2** : l'identité des assets ([ADR-0019](../../docs/adr/0019-identifiants-d-assets.md)). Chaque fichier
 importable reçoit un GUID, écrit dans un `.meta` voisin avec le hash de son contenu ; `scanAssets` construit le
-registre des chemins, et retrouve un fichier renommé hors du moteur par son hash.
+registre des chemins, et retrouve un fichier renommé hors du moteur par son hash. Les composants ne gardent qu'une
+référence (`MeshRef`, un GUID et un indice), et `AssetsModule` les compte par des hooks flecs : ce qui tombe à
+zéro se décharge en fin d'image (`takeUnusedAssets`).
 
 ## Invariants
 
@@ -26,9 +28,8 @@ registre des chemins, et retrouve un fichier renommé hors du moteur par son has
 5. **fastgltf reste privé** : seul `src/gltf.cpp` l'inclut (`deps.fastgltf-visibility`). L'import rend un
    `Model` fait de nos types, testable sans GPU ni monde flecs.
 6. **Un nœud glTF devient une entité**, sous une racine qui déplace tout le modèle, avec son `Transform` et sa
-   hiérarchie (`flecs::Parent`, ADR-0015). **Le lien vers le mesh est provisoire** : `MeshInstance` porte un
-   indice dans `Model::meshes`, que l'application relie à ses meshes GPU ; la base d'assets de M4.2 le
-   remplacera par un handle.
+   hiérarchie (`flecs::Parent`, ADR-0015). Un nœud qui porte un mesh reçoit un `MeshRef` : le GUID du modèle et
+   l'indice du mesh (ADR-0019).
 7. **Seules les images de couleur de base sont décodées** : les autres (normal maps, rugosité…) attendront le
    PBR (M5.1). Sponza n'en décode ainsi que 25 sur 69. Une image peut venir d'un fichier, d'octets embarqués
    en base64 ou d'un buffer (`.glb`) : `decodeImage` lit la mémoire, `loadImage` un fichier.
@@ -40,7 +41,8 @@ registre des chemins, et retrouve un fichier renommé hors du moteur par son has
 | Fichier | Contenu |
 |---|---|
 | [`include/levain/assets/image.hpp`](include/levain/assets/image.hpp) | `Image`, `loadImage`, `decodeImage`, `mipCountFor`, `buildMipChain`, `savePng` |
-| [`include/levain/assets/gltf.hpp`](include/levain/assets/gltf.hpp) | `Model`, `loadGltf`, `MeshInstance`, `instantiateModel` |
+| [`include/levain/assets/gltf.hpp`](include/levain/assets/gltf.hpp) | `Model`, `loadGltf`, `instantiateModel` |
+| [`include/levain/assets/asset_ref.hpp`](include/levain/assets/asset_ref.hpp) | `AssetRef`, `MeshRef`, `AssetsModule` (le comptage), `takeUnusedAssets`, `ModelCache`, `loadModel` |
 | [`include/levain/assets/asset_id.hpp`](include/levain/assets/asset_id.hpp) | `AssetId`, `contentHash`, `readMeta`, `writeMeta` |
 | [`include/levain/assets/registry.hpp`](include/levain/assets/registry.hpp) | `AssetRegistry`, `scanAssets` (les cinq cas de l'ADR), `pathOf` |
 
