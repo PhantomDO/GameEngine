@@ -16,6 +16,13 @@ registre des chemins, et retrouve un fichier renommé hors du moteur par son has
 référence (`MeshRef`, un GUID et un indice), et `AssetsModule` les compte par des hooks flecs : ce qui tombe à
 zéro se décharge en fin d'image (`takeUnusedAssets`).
 
+**En M4.3** : la cuisson ([ADR-0020](../../docs/adr/0020-cuisson-des-assets.md)). `levain_cook <racine>…`
+écrit dans `<racine>/.cooked/`, sans GPU : chaque glTF en `.lvmesh` (binaire brut, avec un champ `encoding`
+réservé à une compression), chaque image en maître UASTC (`.ktx2`) et en cache BC7 du PC (`.bc7.ktx2`). Au
+chargement, `loadModel` et `loadTextureData` prennent le plus rapide des fichiers à jour, et retombent sur la
+source en le signalant. Sponza charge en 19 ms au lieu de 442, et ses textures tiennent 32 Mo de mémoire vidéo
+au lieu de 128.
+
 ## Invariants
 
 1. **Aucun GPU ici.** Le module rend des pixels en mémoire (`Image`) ; c'est `engine/render` qui les envoie au
@@ -42,9 +49,12 @@ zéro se décharge en fin d'image (`takeUnusedAssets`).
 |---|---|
 | [`include/levain/assets/image.hpp`](include/levain/assets/image.hpp) | `Image`, `loadImage`, `decodeImage`, `mipCountFor`, `buildMipChain`, `savePng` |
 | [`include/levain/assets/gltf.hpp`](include/levain/assets/gltf.hpp) | `Model`, `loadGltf`, `instantiateModel` |
-| [`include/levain/assets/asset_ref.hpp`](include/levain/assets/asset_ref.hpp) | `AssetRef`, `MeshRef`, `AssetsModule` (le comptage), `takeUnusedAssets`, `ModelCache`, `loadModel` |
+| [`include/levain/assets/asset_ref.hpp`](include/levain/assets/asset_ref.hpp) | `MeshRef`, `AssetsModule` (le comptage), `takeUnusedAssets`, `ModelCache`, `loadModel`, `loadTexture`, `loadTextureData` |
 | [`include/levain/assets/asset_id.hpp`](include/levain/assets/asset_id.hpp) | `AssetId`, `contentHash`, `readMeta`, `writeMeta` |
-| [`include/levain/assets/registry.hpp`](include/levain/assets/registry.hpp) | `AssetRegistry`, `scanAssets` (les cinq cas de l'ADR), `pathOf` |
+| [`include/levain/assets/registry.hpp`](include/levain/assets/registry.hpp) | `AssetRegistry` (fichier, racine et hash de chaque asset), `scanAssets` (les cinq cas de l'ADR-0019), `pathOf`, `cookedPathOf` |
+| [`include/levain/assets/cooked.hpp`](include/levain/assets/cooked.hpp) | Le format `.lvmesh` : `writeCookedModel`, `readCookedModel`, `CookerVersion`, `MeshEncoding` |
+| [`include/levain/assets/cooked_texture.hpp`](include/levain/assets/cooked_texture.hpp) | `TextureData`, `writeCookedTexture` (UASTC), `writePlatformTexture` (BC7), `readCookedTexture` |
+| [`../../tools/cook/main.cpp`](../../tools/cook/main.cpp) | `levain_cook`, le cuiseur |
 
 ## Les mipmaps
 

@@ -158,7 +158,8 @@ struct ModelGpu
     /// Une par texture distincte, par sa référence (ADR-0020) : une texture partagée par deux
     /// matériaux n'est chargée qu'une fois.
     std::map<levain::assets::AssetRef, nvrhi::TextureHandle> textures;
-    nvrhi::TextureHandle white; ///< Pour un matériau sans texture, que sa couleur de base colore.
+    nvrhi::TextureHandle white;   ///< Pour un matériau sans texture, que sa couleur de base colore.
+    std::size_t textureBytes = 0; ///< Les octets des textures en mémoire vidéo (critère de #92).
     std::vector<nvrhi::BindingSetHandle> materials;
 };
 
@@ -330,9 +331,29 @@ textureLevelsOf(const std::vector<levain::assets::Image>& mips)
     levels.reserve(mips.size());
     for (const levain::assets::Image& mip : mips)
     {
-        levels.push_back({.width = mip.width, .height = mip.height, .rgba = mip.rgba});
+        levels.push_back({.width = mip.width,
+                          .height = mip.height,
+                          .bytes = std::as_bytes(std::span{mip.rgba})});
     }
     return levels;
+}
+
+/// Les niveaux d'une texture chargée par `assets`, cuite ou non, pour `render`.
+std::vector<levain::render::TextureLevel> textureLevelsOf(const levain::assets::TextureData& data)
+{
+    std::vector<levain::render::TextureLevel> levels;
+    levels.reserve(data.mips.size());
+    for (const levain::assets::TextureMip& mip : data.mips)
+    {
+        levels.push_back({.width = mip.width, .height = mip.height, .bytes = mip.bytes});
+    }
+    return levels;
+}
+
+nvrhi::Format nvrhiFormatOf(levain::assets::TextureFormat format)
+{
+    return format == levain::assets::TextureFormat::Bc7Srgb ? nvrhi::Format::BC7_UNORM_SRGB
+                                                            : nvrhi::Format::SRGBA8_UNORM;
 }
 
 /// Le format des images où dessine la passe des meshes : la swapchain et le depth buffer.
@@ -351,6 +372,11 @@ levain::core::Result<ModelGpu> uploadModel(nvrhi::IDevice& device, nvrhi::IComma
                                            const levain::assets::AssetRegistry& registry,
                                            const levain::assets::ModelCache& models)
 {
+    // Le BC7 si le GPU l'échantillonne (tous les GPU de PC), le RGBA8 sinon.
+    const levain::assets::TextureFormat target =
+        levain::render::supportsSampledFormat(device, nvrhi::Format::BC7_UNORM_SRGB)
+            ? levain::assets::TextureFormat::Bc7Srgb
+            : levain::assets::TextureFormat::Rgba8Srgb;
     ModelGpu gpu;
     std::vector<levain::render::MeshVertex> vertices;
     for (const levain::assets::ModelMesh& mesh : model.meshes)
@@ -380,16 +406,27 @@ levain::core::Result<ModelGpu> uploadModel(nvrhi::IDevice& device, nvrhi::IComma
         {
             continue;
         }
-        auto image = levain::assets::loadTexture(registry, models, *material.baseColorTexture);
-        if (!image)
+        // Cuite si possible (ADR-0020) : le cache BC7 se copie tel quel, sinon la source.
+        auto data =
+            levain::assets::loadTextureData(registry, models, *material.baseColorTexture, target);
+        if (!data)
         {
-            return std::unexpected(image.error());
+            return std::unexpected(data.error());
         }
+        // Le nom du fichier source, pour retrouver la texture dans une capture RenderDoc
+        // (tools/renderdoc-mips.py). NVRHI le recopie.
+        const std::string name = levain::assets::pathOf(registry, material.baseColorTexture->asset)
+                                     .value_or("glTF")
+                                     .filename()
+                                     .string();
         gpu.textures.emplace(*material.baseColorTexture,
-                             levain::render::createTexture(
-                                 device, commandList,
-                                 textureLevelsOf(levain::assets::buildMipChain(std::move(*image))),
-                                 "glTF"));
+                             levain::render::createTexture(device, commandList,
+                                                           textureLevelsOf(*data), name.c_str(),
+                                                           nvrhiFormatOf(data->format)));
+        for (const levain::assets::TextureMip& mip : data->mips)
+        {
+            gpu.textureBytes += mip.bytes.size();
+        }
     }
     const levain::assets::Image white{.width = 1, .height = 1, .rgba = {255, 255, 255, 255}};
     gpu.white =
@@ -581,9 +618,10 @@ createDemoScene(levain::gpu::GpuDevice& gpu, const levain::render::SamplerSettin
         bindModelMaterials(*gpu.nvrhi, *meshPass, *samplerHandle, *model, models.at(modelId));
         levain::core::log(
             "sandbox", levain::core::LogLevel::Info,
-            "modèle : {} meshes, {} matériaux, {} textures ; scan {:.0f} ms, modèle {:.1f} ms, "
-            "textures, mips et envoi {:.0f} ms",
+            "modèle : {} meshes, {} matériaux, {} textures ({:.1f} Mo en mémoire vidéo) ; scan "
+            "{:.0f} ms, modèle {:.1f} ms, textures, mips et envoi {:.0f} ms",
             model->meshes.size(), model->materials.size(), models.at(modelId).textures.size(),
+            static_cast<double>(models.at(modelId).textureBytes) / (1024.0 * 1024.0),
             secondsBetween(loadStart, modelStart) * 1000.0,
             secondsBetween(modelStart, modelEnd) * 1000.0,
             secondsBetween(uploadStart, Clock::now()) * 1000.0);

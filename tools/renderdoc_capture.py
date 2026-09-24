@@ -46,10 +46,17 @@ def capture_frame(arguments, capture_name):
     if not os.path.exists(SANDBOX):
         fail(f"{SANDBOX} absent : compiler d'abord avec cmake --build --preset linux-debug")
 
-    # X11 (XWayland) : RenderDoc 1.45 masque VK_KHR_wayland_surface, et SDL ne pourrait pas créer la
-    # fenêtre sous Wayland.
-    x11 = rd.EnvironmentModification(rd.EnvMod.Set, rd.EnvSep.NoSep, "SDL_VIDEO_DRIVER", "x11")
-    launched = rd.ExecuteAndInject(SANDBOX, ROOT, arguments, [x11], os.path.join(OUTPUT, capture_name),
+    # Hors écran : RenderDoc 1.45 masque VK_KHR_wayland_surface, et une fenêtre X11 (XWayland) n'est
+    # jamais présentée quand la session est verrouillée ; le sandbox attend alors indéfiniment
+    # (constaté le 24/09, Donnovan à distance). La surface « headless » ne dépend d'aucun écran.
+    #
+    # Les couches Vulkan implicites de la machine de référence (Lossless Scaling, MAKO) sont
+    # désactivées pour ce seul processus, par les variables que prévoient leurs manifestes : le
+    # chargeur Vulkan signalait une erreur pour la première à chaque lancement.
+    environment = [rd.EnvironmentModification(rd.EnvMod.Set, rd.EnvSep.NoSep, name, value)
+                   for name, value in (("SDL_VIDEO_DRIVER", "offscreen"), ("DISABLE_LSFGVK", "1"),
+                                       ("DISABLE_MAKO", "1"))]
+    launched = rd.ExecuteAndInject(SANDBOX, ROOT, arguments, environment, os.path.join(OUTPUT, capture_name),
                                    rd.GetDefaultCaptureOptions(), False)
     if launched.result.code != rd.ResultCode.Succeeded:
         fail(f"lancement sous RenderDoc : {launched.result.Message()}")

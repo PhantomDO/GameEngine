@@ -84,6 +84,9 @@ Donnovan suit souvent à distance, sur tablette, sans voir l'écran de la machin
 SDL_VIDEO_DRIVER=offscreen ./build/linux-release/sandbox/levain_sandbox --seconds 2 --capture <scratchpad>/rendu.png
 ```
 
+Pour charger les versions cuites (ADR-0020), cuire d'abord : `./build/linux-release/tools/cook/levain_cook
+assets-cache` (Release : l'encodage UASTC y est 5 fois plus rapide qu'en Debug ; environ 40 s pour Sponza).
+
 Avec un modèle glTF devant la caméra : `--model assets-cache/Models/CesiumMilkTruck/glTF/CesiumMilkTruck.gltf`
 (ou `Sponza/glTF/Sponza.gltf`, vue de l'intérieur),
 après `./tools/fetch-assets.sh` (assets de test tiers, vérifiés par SHA-256, jamais versionnés).

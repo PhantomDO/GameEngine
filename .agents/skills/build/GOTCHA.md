@@ -3,6 +3,20 @@
 Un piège par entrée : symptôme, cause, parade. Le plus récent en haut. Les pièges propres à SDL sont détaillés
 dans `engine/platform/README.md`, ceux de flecs dans `engine/scene/README.md`, section « Pièges connus ».
 
+## RenderDoc ne capture rien quand la session est verrouillée (2026-09-24)
+
+- **Symptôme** : `tools/renderdoc-mips.py` échoue sur « aucune capture reçue en 30 s », et des sandbox restent en
+  vie bien après leur `--seconds`, en attente dans `poll`.
+- **Cause** : le script forçait une fenêtre X11 (RenderDoc 1.45 masque la surface Wayland). Session verrouillée
+  (Donnovan à distance), la fenêtre n'est jamais présentée : le sandbox attend un événement, et RenderDoc, qui
+  capture à la présentation, ne reçoit rien. `gdb` ne peut pas s'attacher (`ptrace_scope = 1`) : l'état des
+  threads se lit dans `/proc/<pid>/task/*/wchan`.
+- **Parade** : `tools/renderdoc_capture.py` lance le sandbox **hors écran** (surface « headless », indépendante
+  de tout écran), et désactive pour ce seul processus les couches Vulkan implicites de la machine
+  (`DISABLE_LSFGVK`, `DISABLE_MAKO`, prévues par leurs manifestes). Ne pas toucher aux réglages du système.
+  Arrêter un sandbox bloqué par son PID (`kill -9 <pid>`), jamais par `pkill -f` : le motif se retrouve dans
+  la ligne de commande du shell qui le lance, et le tue.
+
 ## Une limite que seule une grosse scène atteint, et que seul le Debug voit (2026-09-24)
 
 - **Symptôme** : le sandbox avec Sponza s'arrête en Debug et sous ASan sur « Volatile constant buffer … has
