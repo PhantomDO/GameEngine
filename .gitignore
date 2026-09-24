@@ -14,6 +14,10 @@ CMakeUserPresets.json
 # Lien clangd vers le compile_commands.json du preset courant
 /compile_commands.json
 
+# Bytecode Python, régénéré à chaque lancement des scripts de tools/
+__pycache__/
+*.pyc
+
 # Captures et sorties locales
 *.rdc
 *.tracy
