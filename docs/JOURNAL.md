@@ -29,7 +29,7 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ## 2026-09-24 — Hors milestone — `--seconds` tenu fenêtre masquée
 
-- Temps Donnovan : relecture à venir (estimé 0,1 h)
+- Temps Donnovan : 0,17 h de relecture déclarées, 10 min (estimé 0,1 h)
 - Sessions Claude Code : 1
 - Fait : `platform::waitEvents` prend une durée maximale (`SDL_WaitEventTimeout`) ; la boucle du sandbox, fenêtre
   masquée, n'attend plus au-delà de `--seconds`. Test `waitEvents rend la main à l'échéance…` (offscreen).
