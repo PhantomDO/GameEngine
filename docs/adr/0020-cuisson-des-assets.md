@@ -84,6 +84,21 @@ transcodées en **BC7** si le GPU le prend en charge, en RGBA8 sinon.
 - **Pour la Switch 2 et le mobile** : le transcodage vers l'ASTC est déjà dans libktx, et le champ `encoding` des
   meshes attend une compression. Rien n'est à refaire, seulement à ajouter.
 
+## Amendement du 24/09/2026 : un cache par plateforme
+
+Le risque de la première conséquence s'est réalisé, et sa parade a été appliquée. Mesuré sur une texture de Sponza
+de 1024 × 1024 avec ses mips (Release) : **9,4 ms de transcodage** UASTC vers BC7, pour 1,5 ms de lecture
+(zstd compris), contre 26 ms depuis la source. Sur 25 textures, le « 5 fois plus vite » aurait été manqué.
+
+Le cuiseur écrit donc **deux fichiers par texture** : le maître UASTC (`<guid>.ktx2`), universel, d'où partira
+l'ASTC de la Switch 2 ou du mobile ; et **le cache de la plateforme** (`<guid>.bc7.ktx2`), transcodé une fois à la
+cuisson, sans supercompression, et qui se charge en **0,57 ms**. Au chargement, le moteur essaie le cache, puis
+le maître (transcodé), puis la source. Une image embarquée dans un glTF prend le nom `<guid>.<indice>`.
+
+Résultat sur Sponza (Release) : **19 ms au lieu de 442** (×23 ; ×7,9 en comptant le scan des racines), et **32 Mo
+de mémoire vidéo au lieu de 128**. L'image rendue s'écarte de celle des sources de 0,64 niveau sur 255 en moyenne
+(PSNR de 48 dB, imperceptible).
+
 ## Ce que font les autres moteurs
 
 - **Unreal** (documenté, [E2](../etudes/E2-ressources-gpu.md)) : les données dérivées vont dans le *Derived Data

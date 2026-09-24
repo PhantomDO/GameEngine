@@ -149,7 +149,9 @@ levain::core::Result<void> drawScene(nvrhi::IDevice& device, nvrhi::ICommandList
     levels.reserve(mips.size());
     for (const levain::assets::Image& mip : mips)
     {
-        levels.push_back({.width = mip.width, .height = mip.height, .rgba = mip.rgba});
+        levels.push_back({.width = mip.width,
+                          .height = mip.height,
+                          .bytes = std::as_bytes(std::span{mip.rgba})});
     }
     const nvrhi::TextureHandle checker =
         levain::render::createTexture(device, commandList, levels, "rgbw");

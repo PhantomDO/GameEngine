@@ -204,10 +204,6 @@ jobs:
           # La capture relit l'image de la swapchain : elle doit exister et ne pas être vide.
           test -s capture.png || { echo "::error::capture.png absente ou vide"; exit 1; }
 
-      # Le cuiseur, sans GPU (ADR-0020). Le camion vient d'être chargé depuis sa source ; Sponza
-      # le sera depuis sa version cuite.
-      - name: Cuire les assets de test
-        run: ./build/${{ matrix.preset }}/tools/cook/levain_cook assets-cache
 
       # Sponza : 105 dessins par image. En Debug seulement, où la validation de NVRHI est active :
       # c'est elle qui a montré que le buffer des constantes manquait de versions (M4.1).
@@ -222,8 +218,28 @@ jobs:
             --model assets-cache/Models/Sponza/glTF/Sponza.gltf | tee sponza.log
           grep -Eq "boucle arrêtée après ([1-9]|[0-9]{2,})\.[0-9] s" sponza.log \
             || { echo "::error::la boucle avec Sponza a tourné moins d'une seconde"; exit 1; }
-          if grep -q "n'est pas cuit" sponza.log; then
-            echo "::error::Sponza chargée depuis sa source : la version cuite n'a pas servi"; exit 1
+
+
+      # Le cuiseur, sans GPU (ADR-0020), en Release seulement : l'encodage UASTC y est 5 fois plus
+      # rapide qu'en Debug (1,0 s contre 5,1 s pour la texture du camion), et cuire Sponza en Debug
+      # prendrait une dizaine de minutes. Debug et ASan chargent donc les sources, Release le cuit :
+      # les deux chemins restent vivants.
+      - name: Cuire les assets de test
+        if: matrix.preset == 'linux-release'
+        run: ./build/${{ matrix.preset }}/tools/cook/levain_cook assets-cache
+
+      - name: Lancer le sandbox avec Sponza cuite
+        if: matrix.preset == 'linux-release'
+        env:
+          SDL_VIDEO_DRIVER: offscreen
+        run: |
+          set -euo pipefail
+          timeout --foreground --preserve-status -k 10 120 \
+            ./build/${{ matrix.preset }}/sandbox/levain_sandbox --seconds 2 \
+            --model assets-cache/Models/Sponza/glTF/Sponza.gltf | tee sponza-cooked.log
+          if grep -q "depuis la source" sponza-cooked.log; then
+            echo "::error::un asset de Sponza chargé depuis sa source : la cuisson n'a pas servi"
+            exit 1
           fi
 
       # Format et analyse statique une seule fois : ce sont des propriétés des sources, pas

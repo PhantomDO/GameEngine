@@ -220,8 +220,8 @@ distance (ajouté à sa demande le 24/09, +0,25 h, échéances inchangées).
 références comptées par le monde ([ADR-0019](adr/0019-identifiants-d-assets.md)).
 *Critères* : renommer ou déplacer un fichier ne casse aucune référence ; aucun chemin absolu dans les scènes.
 
-**M4.3 — Cuisson des assets.** Outil hors ligne qui convertit vers un format binaire, textures KTX2 en UASTC,
-transcodées en BC7 au chargement ([ADR-0020](adr/0020-cuisson-des-assets.md)).
+**M4.3 — Cuisson des assets.** Outil hors ligne qui convertit vers un format binaire, textures KTX2 en UASTC
+et leur cache BC7 par plateforme ([ADR-0020](adr/0020-cuisson-des-assets.md)).
 *Critères* : Sponza cuite charge au moins 5 fois plus vite que le glTF brut ; mémoire vidéo des textures mesurée
 avant et après.
 
