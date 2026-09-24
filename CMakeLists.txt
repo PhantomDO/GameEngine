@@ -59,6 +59,7 @@ add_subdirectory(engine/render)
 add_subdirectory(engine/assets)
 add_subdirectory(engine/scene)
 add_subdirectory(engine/input)
+add_subdirectory(tools/cook)
 
 # La démo et les tests ne concernent que le moteur : un jeu qui l'inclut n'en paie pas la
 # compilation.

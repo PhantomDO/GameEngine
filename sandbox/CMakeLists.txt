@@ -9,6 +9,10 @@ target_compile_definitions(levain_sandbox PRIVATE $<$<CONFIG:Debug>:LEVAIN_ENABL
 # Les textures sont lues dans le dépôt, comme les shaders compilés dans le build : pas de copie à
 # tenir à jour.
 target_compile_definitions(levain_sandbox PRIVATE LEVAIN_DATA_DIR="${PROJECT_SOURCE_DIR}/data")
+# Les assets de test tiers, téléchargés par tools/fetch-assets.sh et jamais versionnés (ADR-0018) :
+# une seconde racine d'assets, facultative.
+target_compile_definitions(levain_sandbox PRIVATE
+    LEVAIN_TEST_ASSETS_DIR="${PROJECT_SOURCE_DIR}/assets-cache")
 
 # Le hot-reload des shaders relance le build qui a produit ce binaire (ADR-0014) : le CMake qui l'a
 # configuré, son dossier de build, et les sources à surveiller.

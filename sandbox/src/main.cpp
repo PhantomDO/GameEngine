@@ -453,7 +453,11 @@ createDemoScene(levain::gpu::GpuDevice& gpu, const levain::render::SamplerSettin
     levain::assets::ModelCache modelCache;
     const levain::assets::Model* model = nullptr;
     levain::assets::AssetId modelId;
+    // Les trois temps du chargement (le critère de M4.3) : le scan des racines, qui hache tous les
+    // assets ; la lecture du modèle, cuit ou source ; ses textures, leurs mips et l'envoi au GPU.
     const Clock::time_point loadStart = Clock::now();
+    Clock::time_point modelStart = loadStart;
+    Clock::time_point modelEnd = loadStart;
     // La racine d'assets du sandbox, versionnée : ses .meta se commitent avec les fichiers, et la
     // CI refuse un asset qui n'a pas le sien (tests/check_asset_metas.cmake).
     auto dataReport = levain::assets::scanAssets(LEVAIN_DATA_DIR, registry);
@@ -462,21 +466,30 @@ createDemoScene(levain::gpu::GpuDevice& gpu, const levain::render::SamplerSettin
         return std::unexpected(dataReport.error());
     }
     logScanReport(*dataReport);
-    if (modelPath)
+    // La seconde racine : les assets de test téléchargés (tools/fetch-assets.sh), s'ils sont là.
+    // Les fichiers cuits de chaque racine sont dans son `.cooked/` (ADR-0020), là où levain_cook
+    // les écrit.
+    const std::filesystem::path testAssets{LEVAIN_TEST_ASSETS_DIR};
+    if (std::filesystem::is_directory(testAssets))
     {
-        auto report = levain::assets::scanAssets(modelPath->parent_path(), registry);
+        auto report = levain::assets::scanAssets(testAssets, registry);
         if (!report)
         {
             return std::unexpected(report.error());
         }
         logScanReport(*report);
+    }
+    if (modelPath)
+    {
         const auto id = levain::assets::idOf(registry, *modelPath);
         if (!id)
         {
             return levain::core::makeError(
                 levain::core::ErrorCode::InvalidData,
-                std::format("{} : pas un asset importable", modelPath->string()));
+                std::format("{} : pas un asset d'une racine connue (data/, assets-cache/)",
+                            modelPath->string()));
         }
+        modelStart = Clock::now();
         auto loaded = levain::assets::loadModel(modelCache, registry, *id);
         if (!loaded)
         {
@@ -484,6 +497,7 @@ createDemoScene(levain::gpu::GpuDevice& gpu, const levain::render::SamplerSettin
         }
         model = *loaded;
         modelId = *id;
+        modelEnd = Clock::now();
     }
 
     auto image = levain::assets::loadImage(LEVAIN_DATA_DIR "/textures/checker.png");
@@ -565,14 +579,13 @@ createDemoScene(levain::gpu::GpuDevice& gpu, const levain::render::SamplerSettin
     if (model != nullptr)
     {
         bindModelMaterials(*gpu.nvrhi, *meshPass, *samplerHandle, *model, models.at(modelId));
-        // Le temps de chargement (#88, puis le critère de M4.3) : le glTF lu d'un côté (fastgltf),
-        // les textures décodées, leurs mips et l'envoi au GPU de l'autre.
         levain::core::log(
             "sandbox", levain::core::LogLevel::Info,
-            "modèle : {} meshes, {} matériaux, {} textures ; lu en {:.0f} ms, textures, mips et "
-            "envoi en {:.0f} ms",
+            "modèle : {} meshes, {} matériaux, {} textures ; scan {:.0f} ms, modèle {:.1f} ms, "
+            "textures, mips et envoi {:.0f} ms",
             model->meshes.size(), model->materials.size(), models.at(modelId).textures.size(),
-            secondsBetween(loadStart, uploadStart) * 1000.0,
+            secondsBetween(loadStart, modelStart) * 1000.0,
+            secondsBetween(modelStart, modelEnd) * 1000.0,
             secondsBetween(uploadStart, Clock::now()) * 1000.0);
     }
 
