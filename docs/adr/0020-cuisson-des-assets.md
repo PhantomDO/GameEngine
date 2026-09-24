@@ -1,6 +1,6 @@
 # ADR-0020 — Cuisson des assets : UASTC transcodé au chargement, meshes en binaire brut
 
-- **Statut** : proposé
+- **Statut** : accepté le 2026-09-24 (validé par Donnovan)
 - **Date** : 2026-09-24
 - **Milestone** : M4.3
 
