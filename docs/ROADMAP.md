@@ -41,12 +41,12 @@
 | 1 | Fenêtre et premier triangle | 3,0 (réel, 4,5 estimées) | 3 | fini le 21/09/2026 |
 | 2 | 3D de base | 3,75 | 4 | 11/10/2026 |
 | 3 | Scène et ECS | 5,25 (réel, 4,5 estimées) | 5 | fini le 23/09/2026 |
-| 4 | Assets | 8,0 | 9 | 13/12/2026 |
+| 4 | Assets | 8,25 | 9 | 13/12/2026 |
 | 5 | Rendu PBR et monde | 10,25 | 12 | 31/01/2027 |
 | 6 | Physique et traversée | 6,75 | 6 | 28/02/2027 |
 | 7 | Éditeur | 7,25 | 8 | 04/04/2027 |
 | 8 | Audio et le jeu | 8,0 | 8 | 16/05/2027 |
-| **Total** | | **56,5** | **59** | |
+| **Total** | | **56,75** | **59** | |
 
 Les sessions Claude Code ne sont pas recalibrées : le ratio mesure le temps de Donnovan, pas le quota.
 
@@ -205,13 +205,15 @@ Actors/Components d'Unreal, GameObject d'Unity, Nodes de Godot.
 
 | Milestone | Heures D. | Sessions | Échéance |
 |---|---:|---:|---|
-| M4.1 Import glTF | 1,25 | 2 | 15/11/2026 |
+| M4.1 Import glTF | 1,5 | 2 | 15/11/2026 |
 | M4.2 Base d'assets | 1,75 | 2 | 22/11/2026 |
 | M4.3 Cuisson des assets | 2,0 | 2 | 29/11/2026 |
 | M4.4 Hot-reload des assets | 1,0 | 1 | 06/12/2026 |
 | M4.5 Animation squelettique | 2,0 | 2 | 13/12/2026 |
 
-**M4.1 — Import glTF.** fastgltf : meshes, matériaux, textures et hiérarchie convertis en entités flecs.
+**M4.1 — Import glTF.** fastgltf : meshes, matériaux, textures et hiérarchie convertis en entités flecs. En
+préalable, le sandbox capture sa dernière image en PNG (`--capture`), pour que Donnovan voie les rendus à
+distance (ajouté à sa demande le 24/09, +0,25 h, échéances inchangées).
 *Critères* : la scène Sponza (Khronos glTF Sample Assets) s'affiche ; temps de chargement mesuré.
 
 **M4.2 — Base d'assets.** GUID, fichiers `.meta`, registre, handles, comptage de références (**ADR à écrire**).
@@ -371,7 +373,8 @@ contrôle) et les énigmes câblées par composants.
 Render graph (frame graph de Frostbite, RDG d'Unreal) · job system multithread · GPU-driven rendering (draw
 indirect, mesh shaders, que NVRHI prend en charge) · ray tracing (aussi pris en charge par NVRHI) · scripting
 (Lua, C# ou WebAssembly) · réseau · streaming de monde · chargement dynamique des plugins · moteur installé comme
-paquet (`find_package`).
+paquet (`find_package`) · **rendu WebGPU, pour tester dans le navigateur** (demandé par Donnovan le 24/09 ;
+NVRHI n'a pas de backend WebGPU : un backend à écrire, ou un portage à évaluer, par un ADR).
 
 Écartés du jeu pendant son choix ([JEU.md](https://github.com/PhantomDO/Rando/blob/main/docs/JEU.md)) : escalade · ennemis et combat · cycle jour/nuit et ciel
 procédural · rivière · réflexions sur l'eau · inventaire et cuisine · vraie UI de jeu.

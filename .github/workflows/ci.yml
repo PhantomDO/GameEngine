@@ -179,9 +179,12 @@ jobs:
         run: |
           set -euo pipefail
           timeout --foreground --preserve-status -k 10 60 \
-            ./build/${{ matrix.preset }}/sandbox/levain_sandbox --seconds 3 | tee sandbox.log
+            ./build/${{ matrix.preset }}/sandbox/levain_sandbox --seconds 3 --capture capture.png \
+            | tee sandbox.log
           grep -Eq "boucle arrêtée après ([1-9]|[0-9]{2,})\.[0-9] s" sandbox.log \
             || { echo "::error::la boucle du sandbox a tourné moins d'une seconde"; exit 1; }
+          # La capture relit l'image de la swapchain : elle doit exister et ne pas être vide.
+          test -s capture.png || { echo "::error::capture.png absente ou vide"; exit 1; }
 
       # Format et analyse statique une seule fois : ce sont des propriétés des sources, pas
       # de la configuration de build.

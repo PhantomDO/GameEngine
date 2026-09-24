@@ -75,6 +75,19 @@ Comme la CI, avec les sanitizers (code 0 = ni fuite ni comportement indéfini) :
 SDL_VIDEO_DRIVER=offscreen ./build/linux-asan/sandbox/levain_sandbox --seconds 3
 ```
 
+## Montrer un rendu à Donnovan
+
+Donnovan suit souvent à distance, sur tablette, sans voir l'écran de la machine. Pour lui montrer un rendu,
+**le moteur capture sa propre image** (jamais le bureau) :
+
+```bash
+SDL_VIDEO_DRIVER=offscreen ./build/linux-release/sandbox/levain_sandbox --seconds 2 --capture <scratchpad>/rendu.png
+```
+
+Regarder l'image soi-même d'abord (outil de lecture d'images), puis l'envoyer avec `SendUserFile` : elle
+s'affiche dans l'application Claude. Pour un avant/après, deux captures dans le même envoi. La capture est une
+dernière image rendue après la boucle, relue par `render::readBack` et écrite par `assets::savePng`.
+
 ## Tester la fenêtre comme un utilisateur
 
 Sandbox lancé sous X11, puis `./tools/kwin-window-smoke.sh` (Plasma uniquement) : KWin redimensionne, minimise et
