@@ -10,6 +10,10 @@ cuisson, cache et hot-reload (SPECS §7).
 fastgltf) : meshes, nœuds et couleur de base des matériaux lus en mémoire, puis instanciés en entités
 (`instantiateModel`).
 
+**En M4.2** : l'identité des assets ([ADR-0019](../../docs/adr/0019-identifiants-d-assets.md)). Chaque fichier
+importable reçoit un GUID, écrit dans un `.meta` voisin avec le hash de son contenu ; `scanAssets` construit le
+registre des chemins, et retrouve un fichier renommé hors du moteur par son hash.
+
 ## Invariants
 
 1. **Aucun GPU ici.** Le module rend des pixels en mémoire (`Image`) ; c'est `engine/render` qui les envoie au
@@ -28,6 +32,8 @@ fastgltf) : meshes, nœuds et couleur de base des matériaux lus en mémoire, pu
 7. **Seules les images de couleur de base sont décodées** : les autres (normal maps, rugosité…) attendront le
    PBR (M5.1). Sponza n'en décode ainsi que 25 sur 69. Une image peut venir d'un fichier, d'octets embarqués
    en base64 ou d'un buffer (`.glb`) : `decodeImage` lit la mémoire, `loadImage` un fichier.
+8. **Les chemins ne vivent que dans le registre** (`AssetRegistry`). Tout le reste du moteur désigne un asset
+   par son `AssetId` (ADR-0019).
 
 ## Points d'entrée
 
@@ -35,6 +41,8 @@ fastgltf) : meshes, nœuds et couleur de base des matériaux lus en mémoire, pu
 |---|---|
 | [`include/levain/assets/image.hpp`](include/levain/assets/image.hpp) | `Image`, `loadImage`, `decodeImage`, `mipCountFor`, `buildMipChain`, `savePng` |
 | [`include/levain/assets/gltf.hpp`](include/levain/assets/gltf.hpp) | `Model`, `loadGltf`, `MeshInstance`, `instantiateModel` |
+| [`include/levain/assets/asset_id.hpp`](include/levain/assets/asset_id.hpp) | `AssetId`, `contentHash`, `readMeta`, `writeMeta` |
+| [`include/levain/assets/registry.hpp`](include/levain/assets/registry.hpp) | `AssetRegistry`, `scanAssets` (les cinq cas de l'ADR), `pathOf` |
 
 ## Les mipmaps
 
