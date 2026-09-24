@@ -14,6 +14,7 @@ add_executable(levain_tests
     input_test.cpp
     log_test.cpp
     process_test.cpp
+    registry_test.cpp
     scene_test.cpp
     texture_test.cpp
     version_test.cpp)
