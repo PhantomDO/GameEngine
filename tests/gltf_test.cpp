@@ -49,6 +49,21 @@ TEST_CASE("loadGltf lit les meshes et les nœuds, parent avant enfant")
     CHECK(model->nodes[1].local.scale.x == doctest::Approx(2.0f));
 }
 
+TEST_CASE("loadGltf lit la couleur de base des matériaux, texture embarquée comprise")
+{
+    const auto model = loadGltf(twoNodes());
+    REQUIRE(model.has_value());
+
+    CHECK(model->meshes[0].primitives[0].material == 0u);
+    REQUIRE(model->materials.size() == 1);
+    CHECK(model->materials[0].baseColorFactor.g == doctest::Approx(0.5f));
+    REQUIRE(model->materials[0].baseColorImage == 0u);
+    // Un PNG de 2 × 1 en base64 dans le fichier : un pixel rouge, un pixel bleu.
+    REQUIRE(model->images.size() == 1);
+    CHECK(model->images[0].width == 2);
+    CHECK(model->images[0].rgba == std::vector<std::uint8_t>{255, 0, 0, 255, 0, 0, 255, 255});
+}
+
 TEST_CASE("un modèle instancié garde sa hiérarchie : l'enfant suit son parent")
 {
     const auto model = loadGltf(twoNodes());

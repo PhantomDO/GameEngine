@@ -2,6 +2,7 @@
 
 #include <format>
 #include <numeric>
+#include <span>
 #include <string>
 #include <variant>
 
@@ -59,6 +60,9 @@ core::Result<MeshPrimitive> readPrimitive(const fastgltf::Asset& asset,
     }
 
     MeshPrimitive result;
+    result.material = primitive.materialIndex
+                          ? std::optional{static_cast<std::uint32_t>(*primitive.materialIndex)}
+                          : std::nullopt;
     const fastgltf::Accessor& positions = asset.accessors[position->accessorIndex];
     result.vertices.resize(positions.count);
     fastgltf::iterateAccessorWithIndex<glm::vec3>(asset, positions,
@@ -85,6 +89,75 @@ core::Result<MeshPrimitive> readPrimitive(const fastgltf::Asset& asset,
         std::iota(result.indices.begin(), result.indices.end(), 0u);
     }
     return result;
+}
+
+/// Décode une image glTF, où qu'elle soit : un fichier à côté du `.gltf`, des octets embarqués
+/// (base64), ou une portion d'un buffer (le cas des `.glb`).
+core::Result<Image> readImage(const fastgltf::Asset& asset, const fastgltf::Image& image,
+                              const std::filesystem::path& path)
+{
+    const std::string name = std::format("{} : image « {} »", path.string(), image.name);
+    return std::visit(
+        fastgltf::visitor{
+            [&](const fastgltf::sources::URI& uri) -> core::Result<Image>
+            {
+                if (!uri.uri.isLocalPath())
+                {
+                    return gltfError(path, "image hors du disque (URI distante)");
+                }
+                return loadImage(path.parent_path() / uri.uri.fspath());
+            },
+            [&](const fastgltf::sources::Array& array) -> core::Result<Image>
+            { return decodeImage(std::span{array.bytes.data(), array.bytes.size()}, name); },
+            [&](const fastgltf::sources::BufferView& view) -> core::Result<Image>
+            {
+                const fastgltf::BufferView& bufferView = asset.bufferViews[view.bufferViewIndex];
+                const auto* bytes = std::get_if<fastgltf::sources::Array>(
+                    &asset.buffers[bufferView.bufferIndex].data);
+                if (bytes == nullptr)
+                {
+                    return gltfError(path, "image dans un buffer non chargé");
+                }
+                return decodeImage(
+                    std::span{bytes->bytes.data() + bufferView.byteOffset, bufferView.byteLength},
+                    name);
+            },
+            [&](const auto&) -> core::Result<Image>
+            { return gltfError(path, "source d'image non prise en charge"); }},
+        image.data);
+}
+
+/// Les matériaux, et les seules images qu'ils utilisent comme couleur de base, renumérotées dans
+/// l'ordre de première utilisation.
+core::Result<void> readMaterials(const fastgltf::Asset& asset, const std::filesystem::path& path,
+                                 Model& model)
+{
+    std::vector<std::optional<std::uint32_t>> imageSlot(asset.images.size());
+    for (const fastgltf::Material& material : asset.materials)
+    {
+        const auto& factor = material.pbrData.baseColorFactor;
+        ModelMaterial& out = model.materials.emplace_back(
+            ModelMaterial{.baseColorFactor = {factor.x(), factor.y(), factor.z(), factor.w()},
+                          .baseColorImage = std::nullopt});
+        const auto& texture = material.pbrData.baseColorTexture;
+        if (!texture || !asset.textures[texture->textureIndex].imageIndex)
+        {
+            continue;
+        }
+        const std::size_t source = *asset.textures[texture->textureIndex].imageIndex;
+        if (!imageSlot[source])
+        {
+            auto image = readImage(asset, asset.images[source], path);
+            if (!image)
+            {
+                return std::unexpected(image.error());
+            }
+            imageSlot[source] = static_cast<std::uint32_t>(model.images.size());
+            model.images.push_back(std::move(*image));
+        }
+        out.baseColorImage = imageSlot[source];
+    }
+    return {};
 }
 
 /// Le `Transform` d'un nœud. `DecomposeNodeMatrices` garantit la forme TRS : une matrice glTF ne
@@ -140,6 +213,10 @@ core::Result<Model> loadGltf(const std::filesystem::path& path)
     }
 
     Model model;
+    if (auto materials = readMaterials(asset.get(), path, model); !materials)
+    {
+        return std::unexpected(materials.error());
+    }
     for (const fastgltf::Mesh& mesh : asset->meshes)
     {
         ModelMesh& out =

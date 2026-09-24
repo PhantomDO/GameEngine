@@ -112,18 +112,12 @@ Image downsampleInLinearSpace(const Image& source)
 
 } // namespace
 
-core::Result<Image> loadImage(const std::filesystem::path& path)
+core::Result<Image> decodeImage(std::span<const std::byte> bytes, std::string_view name)
 {
-    auto bytes = core::readFile(path);
-    if (!bytes)
+    if (bytes.size() > INT_MAX)
     {
-        return std::unexpected(bytes.error());
-    }
-    if (bytes->size() > INT_MAX)
-    {
-        return core::makeError(
-            core::ErrorCode::Unsupported,
-            std::format("{} : plus de 2 Go, trop gros pour stb_image", path.string()));
+        return core::makeError(core::ErrorCode::Unsupported,
+                               std::format("{} : plus de 2 Go, trop gros pour stb_image", name));
     }
 
     int width = 0;
@@ -132,14 +126,14 @@ core::Result<Image> loadImage(const std::filesystem::path& path)
     // STBI_rgb_alpha : une image en niveaux de gris ou sans alpha arrive quand même en RGBA, le
     // seul format que le GPU recevra.
     const std::unique_ptr<stbi_uc, decltype(&stbi_image_free)> pixels{
-        stbi_load_from_memory(reinterpret_cast<const stbi_uc*>(bytes->data()),
-                              static_cast<int>(bytes->size()), &width, &height, &channelsInFile,
+        stbi_load_from_memory(reinterpret_cast<const stbi_uc*>(bytes.data()),
+                              static_cast<int>(bytes.size()), &width, &height, &channelsInFile,
                               STBI_rgb_alpha),
         &stbi_image_free};
     if (!pixels)
     {
         return core::makeError(core::ErrorCode::InvalidData,
-                               std::format("{} : {}", path.string(), stbi_failure_reason()));
+                               std::format("{} : {}", name, stbi_failure_reason()));
     }
 
     Image image{.width = static_cast<std::uint32_t>(width),
@@ -147,6 +141,16 @@ core::Result<Image> loadImage(const std::filesystem::path& path)
                 .rgba = {}};
     image.rgba.assign(pixels.get(), pixels.get() + rgbaSize(image.width, image.height));
     return image;
+}
+
+core::Result<Image> loadImage(const std::filesystem::path& path)
+{
+    auto bytes = core::readFile(path);
+    if (!bytes)
+    {
+        return std::unexpected(bytes.error());
+    }
+    return decodeImage(*bytes, path.string());
 }
 
 core::Result<void> savePng(const std::filesystem::path& path, std::uint32_t width,

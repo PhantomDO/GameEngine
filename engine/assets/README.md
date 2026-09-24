@@ -7,7 +7,8 @@ cuisson, cache et hot-reload (SPECS §7).
 
 **État en M4.1** : le chargement d'images (`loadImage`, stb_image), le calcul de leurs mipmaps
 (`buildMipChain`), l'écriture de PNG (`savePng`, pour les captures), et l'**import glTF** (`loadGltf`,
-fastgltf) : meshes et nœuds lus en mémoire, puis instanciés en entités (`instantiateModel`).
+fastgltf) : meshes, nœuds et couleur de base des matériaux lus en mémoire, puis instanciés en entités
+(`instantiateModel`).
 
 ## Invariants
 
@@ -24,12 +25,15 @@ fastgltf) : meshes et nœuds lus en mémoire, puis instanciés en entités (`ins
    hiérarchie (`flecs::Parent`, ADR-0015). **Le lien vers le mesh est provisoire** : `MeshInstance` porte un
    indice dans `Model::meshes`, que l'application relie à ses meshes GPU ; la base d'assets de M4.2 le
    remplacera par un handle.
+7. **Seules les images de couleur de base sont décodées** : les autres (normal maps, rugosité…) attendront le
+   PBR (M5.1). Sponza n'en décode ainsi que 25 sur 69. Une image peut venir d'un fichier, d'octets embarqués
+   en base64 ou d'un buffer (`.glb`) : `decodeImage` lit la mémoire, `loadImage` un fichier.
 
 ## Points d'entrée
 
 | Fichier | Contenu |
 |---|---|
-| [`include/levain/assets/image.hpp`](include/levain/assets/image.hpp) | `Image`, `loadImage`, `mipCountFor`, `buildMipChain`, `savePng` |
+| [`include/levain/assets/image.hpp`](include/levain/assets/image.hpp) | `Image`, `loadImage`, `decodeImage`, `mipCountFor`, `buildMipChain`, `savePng` |
 | [`include/levain/assets/gltf.hpp`](include/levain/assets/gltf.hpp) | `Model`, `loadGltf`, `MeshInstance`, `instantiateModel` |
 
 ## Les mipmaps

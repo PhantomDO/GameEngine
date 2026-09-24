@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <span>
+#include <string_view>
 #include <vector>
 
 #include "levain/core/error.hpp"
@@ -22,6 +23,11 @@ struct Image
 /// Charge une image PNG, JPEG, TGA ou BMP (stb_image), convertie en RGBA quel que soit son format
 /// d'origine. Un fichier absent ou illisible est un échec récupérable (ADR-0008).
 [[nodiscard]] core::Result<Image> loadImage(const std::filesystem::path& path);
+
+/// Décode une image déjà en mémoire, comme `loadImage` : une texture embarquée dans un glTF.
+/// `name` ne sert qu'aux messages d'erreur.
+[[nodiscard]] core::Result<Image> decodeImage(std::span<const std::byte> bytes,
+                                              std::string_view name);
 
 /// Écrit une image RGBA en PNG (stb_image_write). Sert aux captures d'écran du moteur, pour
 /// montrer un rendu à qui n'a pas l'écran sous les yeux.

@@ -140,6 +140,22 @@ constexpr float GridSpacing = 1.5f;
 constexpr float GroundSize = 1000.0f;
 constexpr float GroundTextureRepeat = GroundSize / 8.0f;
 
+/// Une primitive d'un modèle importé, prête à dessiner.
+struct ModelPrimitiveGpu
+{
+    levain::render::Mesh mesh;
+    std::optional<std::uint32_t> material; ///< Indice dans `ModelGpu::materials`.
+};
+
+/// Le modèle glTF de `--model` sur le GPU (M4.1). Les meshes sont dans l'ordre de `Model::meshes` :
+/// c'est ce qui donne un sens à l'indice provisoire de `MeshInstance`.
+struct ModelGpu
+{
+    std::vector<std::vector<ModelPrimitiveGpu>> meshes;
+    std::vector<nvrhi::TextureHandle> textures; ///< Une par image, plus le blanc en dernier.
+    std::vector<nvrhi::BindingSetHandle> materials;
+};
+
 /// Ce que dessine le sandbox en M2.2 : une grille de cubes texturés qui tournent, sur un sol qui
 /// file jusqu'à l'horizon, où se voit le filtrage anisotrope.
 struct DemoScene
@@ -154,9 +170,9 @@ struct DemoScene
     levain::render::Instances grid;
     levain::render::Mesh ground;
     levain::render::Instances groundInstance; ///< Une seule, sous les cubes.
-    /// Le modèle glTF de `--model` (M4.1) : ses meshes GPU dans l'ordre de `Model::meshes`, une
-    /// entrée par primitive, et une instance à l'origine, la matrice monde plaçant chaque nœud.
-    std::vector<std::vector<levain::render::Mesh>> modelMeshes;
+    /// Le modèle glTF de `--model` (M4.1), et une instance à l'origine : la matrice monde place
+    /// chaque nœud.
+    ModelGpu model;
     levain::render::Instances modelInstance;
     flecs::query<const levain::assets::MeshInstance, const levain::scene::WorldTransform>
         modelParts;
@@ -320,33 +336,58 @@ nvrhi::FramebufferInfo sceneTargetOf(levain::gpu::GpuDevice& gpu)
         .setDepthFormat(levain::render::DepthFormat);
 }
 
-/// Crée la passe des meshes et envoie au GPU le cube, la grille, le sol et la texture du damier.
-/// Les meshes GPU d'un modèle importé, dans l'ordre de `Model::meshes` : c'est ce qui donne un sens
-/// à l'indice provisoire de `MeshInstance`. La couleur d'un sommet est sa normale ramenée dans
-/// [0, 1] : sans éclairage (M5.1), c'est ce qui rend les formes lisibles.
-std::vector<std::vector<levain::render::Mesh>> uploadModel(nvrhi::IDevice& device,
-                                                           nvrhi::ICommandList& commandList,
-                                                           const levain::assets::Model& model)
+/// Envoie meshes et textures, et enregistre l'envoi dans `commandList`. La couleur d'un sommet est
+/// la couleur de base de son matériau ; sans matériau, c'est sa normale ramenée dans [0, 1], qui
+/// rend les formes lisibles sans éclairage (M5.1).
+ModelGpu uploadModel(nvrhi::IDevice& device, nvrhi::ICommandList& commandList,
+                     const levain::assets::Model& model)
 {
-    std::vector<std::vector<levain::render::Mesh>> meshes;
+    ModelGpu gpu;
     std::vector<levain::render::MeshVertex> vertices;
     for (const levain::assets::ModelMesh& mesh : model.meshes)
     {
-        std::vector<levain::render::Mesh>& primitives = meshes.emplace_back();
+        std::vector<ModelPrimitiveGpu>& primitives = gpu.meshes.emplace_back();
         for (const levain::assets::MeshPrimitive& primitive : mesh.primitives)
         {
+            const std::optional<glm::vec3> baseColor =
+                primitive.material
+                    ? std::optional{glm::vec3(model.materials[*primitive.material].baseColorFactor)}
+                    : std::nullopt;
             vertices.clear();
             for (const levain::assets::ModelVertex& vertex : primitive.vertices)
             {
                 vertices.push_back({.position = vertex.position,
-                                    .color = vertex.normal * 0.5f + 0.5f,
+                                    .color = baseColor.value_or(vertex.normal * 0.5f + 0.5f),
                                     .uv = vertex.uv});
             }
-            primitives.push_back(
-                levain::render::createMesh(device, commandList, vertices, primitive.indices));
+            primitives.push_back({.mesh = levain::render::createMesh(device, commandList, vertices,
+                                                                     primitive.indices),
+                                  .material = primitive.material});
         }
     }
-    return meshes;
+    for (const levain::assets::Image& image : model.images)
+    {
+        gpu.textures.push_back(levain::render::createTexture(
+            device, commandList, textureLevelsOf(levain::assets::buildMipChain(image)), "glTF"));
+    }
+    // Un matériau sans texture : un texel blanc, que la couleur de base colore.
+    const levain::assets::Image white{.width = 1, .height = 1, .rgba = {255, 255, 255, 255}};
+    gpu.textures.push_back(
+        levain::render::createTexture(device, commandList, textureLevelsOf({white}), "blanc"));
+    return gpu;
+}
+
+/// Un binding set par matériau du modèle : sa texture de couleur de base, ou le blanc.
+void bindModelMaterials(nvrhi::IDevice& device, const levain::render::MeshPass& pass,
+                        nvrhi::ISampler& sampler, const levain::assets::Model& model, ModelGpu& gpu)
+{
+    for (const levain::assets::ModelMaterial& material : model.materials)
+    {
+        nvrhi::ITexture& albedo = *gpu.textures[material.baseColorImage.value_or(
+            static_cast<std::uint32_t>(gpu.textures.size() - 1))];
+        gpu.materials.push_back(
+            levain::render::createMaterialBindings(device, pass, albedo, sampler));
+    }
 }
 
 /// Où poser le modèle de `--model` : devant la caméra de départ, sur le sol, tourné de trois quarts
@@ -359,11 +400,14 @@ levain::scene::Transform modelPlacement()
             .scale = glm::vec3{2.0f}};
 }
 
+/// Crée la passe des meshes et envoie au GPU le cube, la grille, le sol, la texture du damier, et
+/// le modèle de `--model`.
 levain::core::Result<DemoScene>
 createDemoScene(levain::gpu::GpuDevice& gpu, const levain::render::SamplerSettings& sampler,
                 const std::optional<std::filesystem::path>& modelPath)
 {
     std::optional<levain::assets::Model> model;
+    const Clock::time_point loadStart = Clock::now();
     if (modelPath)
     {
         auto loaded = levain::assets::loadGltf(*modelPath);
@@ -430,9 +474,8 @@ createDemoScene(levain::gpu::GpuDevice& gpu, const levain::render::SamplerSettin
         levain::render::createInstances(*gpu.nvrhi, *upload, groundOffset);
     nvrhi::TextureHandle checker =
         levain::render::createTexture(*gpu.nvrhi, *upload, textureLevelsOf(mips), "checker");
-    std::vector<std::vector<levain::render::Mesh>> modelMeshes =
-        model ? uploadModel(*gpu.nvrhi, *upload, *model)
-              : std::vector<std::vector<levain::render::Mesh>>{};
+    const Clock::time_point uploadStart = Clock::now();
+    ModelGpu modelGpu = model ? uploadModel(*gpu.nvrhi, *upload, *model) : ModelGpu{};
     const std::array<glm::vec3, 1> origin{glm::vec3{0.0f}};
     levain::render::Instances modelInstance =
         levain::render::createInstances(*gpu.nvrhi, *upload, origin);
@@ -441,6 +484,19 @@ createDemoScene(levain::gpu::GpuDevice& gpu, const levain::render::SamplerSettin
     const nvrhi::SamplerHandle samplerHandle = levain::render::createSampler(*gpu.nvrhi, sampler);
     nvrhi::BindingSetHandle material =
         levain::render::createMaterialBindings(*gpu.nvrhi, *meshPass, *checker, *samplerHandle);
+    if (model)
+    {
+        bindModelMaterials(*gpu.nvrhi, *meshPass, *samplerHandle, *model, modelGpu);
+        // Le critère de #88 : le temps de chargement. Lecture et décodage d'un côté (fastgltf,
+        // stb_image), mips et envoi au GPU de l'autre, pour savoir quoi cuire en M4.3.
+        levain::core::log(
+            "sandbox", levain::core::LogLevel::Info,
+            "modèle : {} meshes, {} matériaux, {} textures ; lu en {:.0f} ms, mips et envoi en "
+            "{:.0f} ms",
+            model->meshes.size(), model->materials.size(), model->images.size(),
+            secondsBetween(loadStart, uploadStart) * 1000.0,
+            secondsBetween(uploadStart, Clock::now()) * 1000.0);
+    }
 
     // La grille occupe la gauche de l'image, le sol file jusqu'à l'horizon à droite, de plus en
     // plus de biais : c'est là que le filtrage trilinéaire seul le rend flou. Position et regard
@@ -463,7 +519,7 @@ createDemoScene(levain::gpu::GpuDevice& gpu, const levain::render::SamplerSettin
                      .grid = std::move(grid),
                      .ground = std::move(ground),
                      .groundInstance = std::move(groundInstance),
-                     .modelMeshes = std::move(modelMeshes),
+                     .model = std::move(modelGpu),
                      .modelInstance = std::move(modelInstance),
                      .modelParts = std::move(modelParts),
                      .checker = std::move(checker),
@@ -542,11 +598,14 @@ std::optional<double> renderFrame(levain::gpu::GpuDevice& gpu,
             [&](const levain::assets::MeshInstance& part,
                 const levain::scene::WorldTransform& world)
             {
-                for (const levain::render::Mesh& primitive : scene.modelMeshes[part.mesh])
+                for (const ModelPrimitiveGpu& primitive : scene.model.meshes[part.mesh])
                 {
+                    nvrhi::IBindingSet& material = primitive.material
+                                                       ? *scene.model.materials[*primitive.material]
+                                                       : *scene.material;
                     levain::render::drawMesh(
-                        commandList, scene.meshPass, *framebuffer, primitive, scene.modelInstance,
-                        *scene.material,
+                        commandList, scene.meshPass, *framebuffer, primitive.mesh,
+                        scene.modelInstance, material,
                         {.viewProjection = constants.viewProjection, .model = world.matrix});
                 }
             });

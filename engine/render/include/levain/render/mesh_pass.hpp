@@ -14,6 +14,14 @@ namespace levain::render
 /// Le format du depth buffer : 32 bits flottants, disponible partout.
 inline constexpr nvrhi::Format DepthFormat = nvrhi::Format::D32;
 
+/// Combien de `drawMesh` une command list peut enregistrer. Chaque dessin écrit ses constantes dans
+/// une nouvelle version du buffer volatil, et NVRHI refuse d'en dépasser le nombre prévu : c'est
+/// Sponza (105 dessins) qui l'a montré, en Debug seulement, la validation de NVRHI étant éteinte en
+/// Release.
+// ponytail: 4 096 versions de 128 octets, 512 Kio réservés. Passer la matrice du modèle en push
+// constants quand la passe sera refaite pour le PBR (M5.1) : plus aucune limite par dessin.
+inline constexpr std::uint32_t MaxMeshDrawsPerCommandList = 4096;
+
 /// Les constantes du shader. Doit correspondre à `SceneConstants` dans `shaders/mesh.slang`.
 struct SceneConstants
 {

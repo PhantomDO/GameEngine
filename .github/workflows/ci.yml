@@ -198,6 +198,20 @@ jobs:
           # La capture relit l'image de la swapchain : elle doit exister et ne pas être vide.
           test -s capture.png || { echo "::error::capture.png absente ou vide"; exit 1; }
 
+      # Sponza : 105 dessins par image. En Debug seulement, où la validation de NVRHI est active :
+      # c'est elle qui a montré que le buffer des constantes manquait de versions (M4.1).
+      - name: Lancer le sandbox avec Sponza
+        if: matrix.preset == 'linux-debug'
+        env:
+          SDL_VIDEO_DRIVER: offscreen
+        run: |
+          set -euo pipefail
+          timeout --foreground --preserve-status -k 10 120 \
+            ./build/${{ matrix.preset }}/sandbox/levain_sandbox --seconds 2 \
+            --model assets-cache/Models/Sponza/glTF/Sponza.gltf | tee sponza.log
+          grep -Eq "boucle arrêtée après ([1-9]|[0-9]{2,})\.[0-9] s" sponza.log \
+            || { echo "::error::la boucle avec Sponza a tourné moins d'une seconde"; exit 1; }
+
       # Format et analyse statique une seule fois : ce sont des propriétés des sources, pas
       # de la configuration de build.
       - name: Format
