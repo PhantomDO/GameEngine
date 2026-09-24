@@ -129,35 +129,62 @@ core::Result<Image> readImage(const fastgltf::Asset& asset, const fastgltf::Imag
         image.data);
 }
 
-/// Les matériaux, et les seules images qu'ils utilisent comme couleur de base, renumérotées dans
-/// l'ordre de première utilisation.
-core::Result<void> readMaterials(const fastgltf::Asset& asset, const std::filesystem::path& path,
-                                 Model& model)
+/// La référence d'une image glTF (ADR-0020) : le GUID de son fichier, s'il en a un, sinon `{GUID du
+/// modèle, indice}`, et l'image est alors décodée dans `Model::embeddedImages`.
+core::Result<AssetRef> imageRef(const fastgltf::Asset& asset, std::size_t index,
+                                const std::filesystem::path& path, AssetId self,
+                                const AssetRegistry& registry, Model& model)
 {
-    std::vector<std::optional<std::uint32_t>> imageSlot(asset.images.size());
+    const fastgltf::Image& image = asset.images[index];
+    if (const auto* uri = std::get_if<fastgltf::sources::URI>(&image.data);
+        uri != nullptr && uri->uri.isLocalPath())
+    {
+        const std::filesystem::path file = path.parent_path() / uri->uri.fspath();
+        const auto id = idOf(registry, file);
+        if (!id)
+        {
+            return gltfError(path,
+                             std::format("image {} hors du registre : est-elle sous une racine "
+                                         "d'assets ?",
+                                         file.string()));
+        }
+        return AssetRef{.asset = *id, .sub = 0};
+    }
+    const auto sub = static_cast<std::uint32_t>(index);
+    if (!model.embeddedImages.contains(sub))
+    {
+        auto decoded = readImage(asset, image, path);
+        if (!decoded)
+        {
+            return std::unexpected(decoded.error());
+        }
+        model.embeddedImages.emplace(sub, std::move(*decoded));
+    }
+    return AssetRef{.asset = self, .sub = sub};
+}
+
+/// Les matériaux : leur couleur de base, et la référence de sa texture.
+core::Result<void> readMaterials(const fastgltf::Asset& asset, const std::filesystem::path& path,
+                                 AssetId self, const AssetRegistry& registry, Model& model)
+{
     for (const fastgltf::Material& material : asset.materials)
     {
         const auto& factor = material.pbrData.baseColorFactor;
         ModelMaterial& out = model.materials.emplace_back(
             ModelMaterial{.baseColorFactor = {factor.x(), factor.y(), factor.z(), factor.w()},
-                          .baseColorImage = std::nullopt});
+                          .baseColorTexture = std::nullopt});
         const auto& texture = material.pbrData.baseColorTexture;
         if (!texture || !asset.textures[texture->textureIndex].imageIndex)
         {
             continue;
         }
-        const std::size_t source = *asset.textures[texture->textureIndex].imageIndex;
-        if (!imageSlot[source])
+        auto ref = imageRef(asset, *asset.textures[texture->textureIndex].imageIndex, path, self,
+                            registry, model);
+        if (!ref)
         {
-            auto image = readImage(asset, asset.images[source], path);
-            if (!image)
-            {
-                return std::unexpected(image.error());
-            }
-            imageSlot[source] = static_cast<std::uint32_t>(model.images.size());
-            model.images.push_back(std::move(*image));
+            return std::unexpected(ref.error());
         }
-        out.baseColorImage = imageSlot[source];
+        out.baseColorTexture = *ref;
     }
     return {};
 }
@@ -195,7 +222,8 @@ void appendNode(const fastgltf::Asset& asset, std::size_t nodeIndex,
 
 } // namespace
 
-core::Result<Model> loadGltf(const std::filesystem::path& path)
+core::Result<Model> loadGltf(const std::filesystem::path& path, AssetId self,
+                             const AssetRegistry& registry)
 {
     auto data = fastgltf::GltfDataBuffer::FromPath(path);
     if (data.error() != fastgltf::Error::None)
@@ -215,7 +243,7 @@ core::Result<Model> loadGltf(const std::filesystem::path& path)
     }
 
     Model model;
-    if (auto materials = readMaterials(asset.get(), path, model); !materials)
+    if (auto materials = readMaterials(asset.get(), path, self, registry, model); !materials)
     {
         return std::unexpected(materials.error());
     }

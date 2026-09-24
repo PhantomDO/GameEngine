@@ -24,6 +24,20 @@ struct AssetId
     friend auto operator<=>(const AssetId&, const AssetId&) = default;
 };
 
+/// Une référence à un asset, la seule chose qu'un composant ou un fichier cuit en garde
+/// (ADR-0019, ADR-0020) : son GUID, et l'indice d'un sous-asset (un mesh d'un glTF, une image
+/// embarquée dans un glTF). Jamais de chemin.
+struct AssetRef
+{
+    AssetId asset;
+    std::uint32_t sub = 0;
+
+    /// Une référence par défaut ne désigne rien : un GUID nul n'est jamais tiré.
+    [[nodiscard]] bool isSet() const { return asset != AssetId{}; }
+
+    friend auto operator<=>(const AssetRef&, const AssetRef&) = default;
+};
+
 /// Un identifiant neuf. Deux tirages ne se rencontrent pas en pratique : 2^64 identifiants avant
 /// une chance sur deux de collision.
 [[nodiscard]] AssetId generateAssetId();

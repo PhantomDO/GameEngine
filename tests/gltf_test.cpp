@@ -5,6 +5,7 @@
 
 #include "levain/assets/asset_ref.hpp"
 #include "levain/assets/gltf.hpp"
+#include "levain/assets/registry.hpp"
 #include "levain/scene/components.hpp"
 #include "levain/scene/fixed_step.hpp"
 #include "levain/scene/scene.hpp"
@@ -17,6 +18,9 @@ using levain::core::ErrorCode;
 namespace
 {
 
+/// Le GUID donné au modèle de test : ses images embarquées se désignent par lui.
+constexpr levain::assets::AssetId TestModelId{.high = 1, .low = 2};
+
 /// Un triangle, et deux nœuds qui le portent : « parent », décalé de 1 en x, et son « enfant »,
 /// donné par une **matrice** (échelle 2, 2 plus haut) pour vérifier la décomposition en TRS. Une
 /// fonction et non une constante : construire un chemin peut lever, et une globale ne le rattrape
@@ -26,11 +30,17 @@ std::filesystem::path twoNodes()
     return std::filesystem::path{LEVAIN_TEST_DATA_DIR} / "two-nodes.gltf";
 }
 
+/// Un modèle de test, sans registre : ses images sont embarquées, il n'en a pas besoin.
+levain::core::Result<levain::assets::Model> loadTestModel(const std::filesystem::path& path)
+{
+    return loadGltf(path, TestModelId, levain::assets::AssetRegistry{});
+}
+
 } // namespace
 
 TEST_CASE("loadGltf lit les meshes et les nœuds, parent avant enfant")
 {
-    const auto model = loadGltf(twoNodes());
+    const auto model = loadTestModel(twoNodes());
     INFO("message d'erreur : " << (model ? std::string{} : model.error().message));
     REQUIRE(model.has_value());
 
@@ -52,29 +62,32 @@ TEST_CASE("loadGltf lit les meshes et les nœuds, parent avant enfant")
 
 TEST_CASE("loadGltf lit la couleur de base des matériaux, texture embarquée comprise")
 {
-    const auto model = loadGltf(twoNodes());
+    const auto model = loadTestModel(twoNodes());
     REQUIRE(model.has_value());
 
     CHECK(model->meshes[0].primitives[0].material == 0u);
     REQUIRE(model->materials.size() == 1);
     CHECK(model->materials[0].baseColorFactor.g == doctest::Approx(0.5f));
-    REQUIRE(model->materials[0].baseColorImage == 0u);
+    // Embarquée, l'image se désigne par le GUID du modèle et son indice (ADR-0020).
+    REQUIRE(model->materials[0].baseColorTexture ==
+            levain::assets::AssetRef{.asset = TestModelId, .sub = 0});
     // Un PNG de 2 × 1 en base64 dans le fichier : un pixel rouge, un pixel bleu.
-    REQUIRE(model->images.size() == 1);
-    CHECK(model->images[0].width == 2);
-    CHECK(model->images[0].rgba == std::vector<std::uint8_t>{255, 0, 0, 255, 0, 0, 255, 255});
+    REQUIRE(model->embeddedImages.contains(0));
+    CHECK(model->embeddedImages.at(0).width == 2);
+    CHECK(model->embeddedImages.at(0).rgba ==
+          std::vector<std::uint8_t>{255, 0, 0, 255, 0, 0, 255, 255});
 }
 
 TEST_CASE("un modèle instancié garde sa hiérarchie : l'enfant suit son parent")
 {
-    const auto model = loadGltf(twoNodes());
+    const auto model = loadTestModel(twoNodes());
     REQUIRE(model.has_value());
     flecs::world world;
     world.import<levain::scene::SceneModule>();
     world.import<levain::assets::AssetsModule>();
 
-    const flecs::entity root = levain::assets::instantiateModel(
-        world, *model, levain::assets::generateAssetId(), "modele");
+    const flecs::entity root =
+        levain::assets::instantiateModel(world, *model, TestModelId, "modele");
     root.set(levain::scene::Transform{.position = {0.0f, 0.0f, 10.0f}});
     levain::scene::FixedStep step;
     levain::scene::advanceWorld(world, step, 0.0f);
@@ -100,11 +113,44 @@ TEST_CASE("un modèle instancié garde sa hiérarchie : l'enfant suit son parent
 
 TEST_CASE("loadGltf signale un fichier absent, et refuse autre chose que des triangles")
 {
-    const auto missing = loadGltf("introuvable.gltf");
+    const auto missing = loadTestModel("introuvable.gltf");
     REQUIRE_FALSE(missing.has_value());
     CHECK(missing.error().code == ErrorCode::FileNotFound);
 
-    const auto lines = loadGltf(std::filesystem::path{LEVAIN_TEST_DATA_DIR} / "lines.gltf");
+    const auto lines = loadTestModel(std::filesystem::path{LEVAIN_TEST_DATA_DIR} / "lines.gltf");
     REQUIRE_FALSE(lines.has_value());
     CHECK(lines.error().code == ErrorCode::InvalidData);
+}
+
+TEST_CASE("une image qui a son propre fichier se désigne par son GUID, et doit être au registre")
+{
+    const std::filesystem::path data{LEVAIN_TEST_DATA_DIR};
+    CHECK_FALSE(loadTestModel(data / "external-image.gltf").has_value()); // image hors registre
+
+    const std::filesystem::path root =
+        std::filesystem::temp_directory_path() /
+        ("levain-gltf-" + levain::assets::toString(levain::assets::generateAssetId()));
+    std::filesystem::create_directories(root);
+    std::filesystem::copy_file(data / "external-image.gltf", root / "external-image.gltf");
+    std::filesystem::copy_file(data / "rgbw-2x2.png", root / "rgbw-2x2.png");
+    levain::assets::AssetRegistry registry;
+    REQUIRE(levain::assets::scanAssets(root, registry).has_value());
+
+    levain::assets::ModelCache cache;
+    const auto modelId = levain::assets::idOf(registry, root / "external-image.gltf");
+    const auto imageId = levain::assets::idOf(registry, root / "rgbw-2x2.png");
+    REQUIRE(modelId.has_value());
+    REQUIRE(imageId.has_value());
+    const auto model = levain::assets::loadModel(cache, registry, modelId.value_or(TestModelId));
+    REQUIRE(model.has_value());
+    REQUIRE((*model)->materials[0].baseColorTexture.has_value());
+    const levain::assets::AssetRef texture =
+        (*model)->materials[0].baseColorTexture.value_or(levain::assets::AssetRef{});
+    CHECK(texture.asset == imageId);
+    CHECK((*model)->embeddedImages.empty());
+
+    const auto image = levain::assets::loadTexture(registry, cache, texture);
+    REQUIRE(image.has_value());
+    CHECK(image->width == 2);
+    std::filesystem::remove_all(root);
 }
