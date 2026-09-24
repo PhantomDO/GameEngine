@@ -8,6 +8,7 @@
 #include <flecs.h>
 
 #include "levain/assets/asset_id.hpp"
+#include "levain/assets/cooked_texture.hpp"
 #include "levain/assets/gltf.hpp"
 #include "levain/assets/registry.hpp"
 #include "levain/core/error.hpp"
@@ -64,5 +65,18 @@ struct ModelCache
 /// embarquée dans un modèle déjà chargé (`{GUID du modèle, indice}`). Décodée en RGBA, sans mips.
 [[nodiscard]] core::Result<Image> loadTexture(const AssetRegistry& registry,
                                               const ModelCache& models, AssetRef texture);
+
+/// Le nom de base des fichiers cuits d'une texture, dans `.cooked/` (ADR-0020) : `<guid>` pour un
+/// fichier image, `<guid>.<indice>` pour une image embarquée dans un modèle. Vide si l'asset est
+/// inconnu.
+[[nodiscard]] std::optional<std::filesystem::path> cookedTextureStem(const AssetRegistry& registry,
+                                                                     AssetRef texture);
+
+/// Une texture prête pour le GPU, au format `target`, par le chemin le plus rapide qui soit à jour
+/// (ADR-0020) : le cache de la plateforme (`.bc7.ktx2`, rien à faire), sinon le maître UASTC
+/// (`.ktx2`, transcodé), sinon la source (décodée, mips calculées), avec un avertissement.
+[[nodiscard]] core::Result<TextureData> loadTextureData(const AssetRegistry& registry,
+                                                        const ModelCache& models, AssetRef texture,
+                                                        TextureFormat target);
 
 } // namespace levain::assets

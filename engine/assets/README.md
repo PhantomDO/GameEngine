@@ -25,7 +25,7 @@ zéro se décharge en fin d'image (`takeUnusedAssets`).
    alpha…) : un seul format à gérer en aval.
 4. Le module dépend de `core` et de `scene` : l'import crée des entités. SPECS §7 le place au-dessus de
    `scene`, jamais l'inverse.
-5. **fastgltf reste privé** : seul `src/gltf.cpp` l'inclut (`deps.fastgltf-visibility`). L'import rend un
+5. **fastgltf reste privé** : seul `src/gltf.cpp` l'inclut (`deps.asset-libraries-visibility`). L'import rend un
    `Model` fait de nos types, testable sans GPU ni monde flecs.
 6. **Un nœud glTF devient une entité**, sous une racine qui déplace tout le modèle, avec son `Transform` et sa
    hiérarchie (`flecs::Parent`, ADR-0015). Un nœud qui porte un mesh reçoit un `MeshRef` : le GUID du modèle et
