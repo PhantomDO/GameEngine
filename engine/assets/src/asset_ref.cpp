@@ -1,6 +1,10 @@
 #include "levain/assets/asset_ref.hpp"
 
+#include <filesystem>
 #include <format>
+
+#include "levain/assets/cooked.hpp"
+#include "levain/core/log.hpp"
 
 namespace levain::assets
 {
@@ -90,6 +94,25 @@ core::Result<const Model*> loadModel(ModelCache& cache, const AssetRegistry& reg
             std::format("asset {} inconnu du registre : son fichier a disparu, ou il a été renommé "
                         "et modifié à la fois (ADR-0019)",
                         toString(asset)));
+    }
+    // La version cuite, si elle est à jour (ADR-0020) ; sinon la source, et on le signale : on a
+    // toujours une image, et le retard de cuisson se voit.
+    const auto cooked = cookedPathOf(registry, asset, ".lvmesh");
+    if (cooked && std::filesystem::exists(*cooked))
+    {
+        auto read = readCookedModel(*cooked, registry.entries.at(asset).hash);
+        if (read)
+        {
+            return &cache.models.emplace(asset, std::move(*read)).first->second;
+        }
+        core::log("assets", core::LogLevel::Warning, "{} ; chargé depuis la source",
+                  read.error().message);
+    }
+    else
+    {
+        core::log("assets", core::LogLevel::Warning,
+                  "{} n'est pas cuit : chargé depuis la source (lancer levain_cook)",
+                  path->string());
     }
     auto model = loadGltf(*path, asset, registry);
     if (!model)

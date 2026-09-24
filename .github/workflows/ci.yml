@@ -159,10 +159,14 @@ jobs:
 
       # Les assets de test tiers (tools/assets.lock), jamais versionnés : téléchargés et vérifiés
       # par SHA-256, en cache tant que la liste ne change pas.
+      # Les fichiers cuits (.cooked) restent hors du cache : le camion doit se charger depuis sa
+      # source, Sponza depuis sa version cuite, et les deux chemins rester vivants (ADR-0020).
       - name: Cache des assets de test
         uses: actions/cache@v4
         with:
-          path: assets-cache
+          path: |
+            assets-cache
+            !assets-cache/.cooked
           key: assets-${{ hashFiles('tools/assets.lock') }}
 
       - name: Assets de test
@@ -198,6 +202,11 @@ jobs:
           # La capture relit l'image de la swapchain : elle doit exister et ne pas être vide.
           test -s capture.png || { echo "::error::capture.png absente ou vide"; exit 1; }
 
+      # Le cuiseur, sans GPU (ADR-0020). Le camion vient d'être chargé depuis sa source ; Sponza
+      # le sera depuis sa version cuite.
+      - name: Cuire les assets de test
+        run: ./build/${{ matrix.preset }}/tools/cook/levain_cook assets-cache
+
       # Sponza : 105 dessins par image. En Debug seulement, où la validation de NVRHI est active :
       # c'est elle qui a montré que le buffer des constantes manquait de versions (M4.1).
       - name: Lancer le sandbox avec Sponza
@@ -211,17 +220,20 @@ jobs:
             --model assets-cache/Models/Sponza/glTF/Sponza.gltf | tee sponza.log
           grep -Eq "boucle arrêtée après ([1-9]|[0-9]{2,})\.[0-9] s" sponza.log \
             || { echo "::error::la boucle avec Sponza a tourné moins d'une seconde"; exit 1; }
+          if grep -q "n'est pas cuit" sponza.log; then
+            echo "::error::Sponza chargée depuis sa source : la version cuite n'a pas servi"; exit 1
+          fi
 
       # Format et analyse statique une seule fois : ce sont des propriétés des sources, pas
       # de la configuration de build.
       - name: Format
         if: matrix.preset == 'linux-debug'
         run: |
-          find engine sandbox tests -name '*.cpp' -o -name '*.hpp' \
+          find engine sandbox tests tools -name '*.cpp' -o -name '*.hpp' \
             | xargs clang-format --dry-run --Werror
 
       - name: Analyse statique
         if: matrix.preset == 'linux-debug'
         run: |
-          find engine sandbox tests -name '*.cpp' \
+          find engine sandbox tests tools -name '*.cpp' \
             | xargs clang-tidy -p build/${{ matrix.preset }} --warnings-as-errors='*'

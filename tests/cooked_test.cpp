@@ -94,3 +94,26 @@ TEST_CASE("un .lvmesh périmé, tronqué ou d'un encodage inconnu est refusé")
     CHECK(reserved.error().message.find("encodage") != std::string::npos);
     fs::remove_all(directory);
 }
+
+TEST_CASE("loadModel prend la version cuite quand elle est à jour")
+{
+    const fs::path root = freshDirectory();
+    fs::copy_file(fs::path{LEVAIN_TEST_DATA_DIR} / "two-nodes.gltf", root / "two-nodes.gltf");
+    levain::assets::AssetRegistry registry;
+    REQUIRE(levain::assets::scanAssets(root, registry).has_value());
+    const auto& [id, entry] = *registry.entries.begin();
+
+    const auto source = levain::assets::loadGltf(entry.file, id, registry);
+    REQUIRE(source.has_value());
+    const auto cooked = levain::assets::cookedPathOf(registry, id, ".lvmesh");
+    REQUIRE(cooked.has_value());
+    REQUIRE(writeCookedModel(cooked.value_or(fs::path{}), *source, entry.hash).has_value());
+
+    // La source effacée : seul le fichier cuit peut encore donner le modèle.
+    fs::remove(entry.file);
+    levain::assets::ModelCache cache;
+    const auto model = levain::assets::loadModel(cache, registry, id);
+    INFO("message d'erreur : " << (model ? std::string{} : model.error().message));
+    CHECK(model.has_value());
+    fs::remove_all(root);
+}
