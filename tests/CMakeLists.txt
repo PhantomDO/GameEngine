@@ -2,6 +2,7 @@ find_package(doctest CONFIG REQUIRED)
 
 add_executable(levain_tests
     allocator_test.cpp
+    asset_ref_test.cpp
     assert_test.cpp
     camera_control_test.cpp
     camera_test.cpp

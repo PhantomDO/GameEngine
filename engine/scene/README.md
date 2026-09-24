@@ -89,6 +89,8 @@ sauvegardées (phase 7), en dépendent. Vérification : `tools/explorer-check.sh
 
 | Piège | Parade |
 |---|---|
+| `b.set(a.get<T>())` : la référence rendue par `get` pointe dans la table de `a` ; si `b` rejoint la même table, l'ajout la réalloue, et `set` lit de la mémoire libérée. Invisible en Debug, trouvé par ASan (M4.2) | Copier la valeur dans une variable locale avant le `set` |
+| Un composant avec un hook `on_replace` (le `MeshRef` d'`assets`) interdit `get_mut`, `ensure`, `emplace`… et `entity.clone()`, qui passe par `get_mut` : assertion de flecs | Poser et copier par `set` ; partager par un prefab (`IsA`) plutôt que cloner |
 | `member<T>(nom, 1, décalage)` fait un **tableau** d'un élément, sérialisé `"x":[2.5]` | `ScalarMember` (0) : c'est 0 qui veut dire scalaire |
 | La surcharge `member(nom, &Type::champ)` calcule son décalage en déréférençant un pointeur nul | `offsetof`, que UBSan ne signale pas |
 | `EcsRest::ipaddr` : flecs en prend la propriété et le **libère** à la destruction du monde | `ecs_os_strdup` ; une chaîne statique finissait en « double free » |

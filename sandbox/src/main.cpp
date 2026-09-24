@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <format>
 #include <limits>
+#include <map>
 #include <memory>
 #include <optional>
 #include <print>
@@ -24,8 +25,10 @@
 
 #include "shader_reload.hpp"
 
+#include "levain/assets/asset_ref.hpp"
 #include "levain/assets/gltf.hpp"
 #include "levain/assets/image.hpp"
+#include "levain/assets/registry.hpp"
 #include "levain/core/assert.hpp"
 #include "levain/core/frame_time.hpp"
 #include "levain/core/log.hpp"
@@ -147,8 +150,8 @@ struct ModelPrimitiveGpu
     std::optional<std::uint32_t> material; ///< Indice dans `ModelGpu::materials`.
 };
 
-/// Le modèle glTF de `--model` sur le GPU (M4.1). Les meshes sont dans l'ordre de `Model::meshes` :
-/// c'est ce qui donne un sens à l'indice provisoire de `MeshInstance`.
+/// Un modèle glTF sur le GPU. Les meshes sont dans l'ordre de `Model::meshes` : c'est ce qui donne
+/// un sens au sous-indice d'un `MeshRef` (ADR-0019).
 struct ModelGpu
 {
     std::vector<std::vector<ModelPrimitiveGpu>> meshes;
@@ -170,12 +173,13 @@ struct DemoScene
     levain::render::Instances grid;
     levain::render::Mesh ground;
     levain::render::Instances groundInstance; ///< Une seule, sous les cubes.
-    /// Le modèle glTF de `--model` (M4.1), et une instance à l'origine : la matrice monde place
-    /// chaque nœud.
-    ModelGpu model;
-    levain::render::Instances modelInstance;
-    flecs::query<const levain::assets::MeshInstance, const levain::scene::WorldTransform>
-        modelParts;
+    /// Les modèles glTF (M4.1), par GUID (ADR-0019) : le registre des chemins, les modèles en
+    /// mémoire, et leur version GPU, déchargée avec eux quand plus aucune entité ne les utilise.
+    levain::assets::AssetRegistry registry;
+    levain::assets::ModelCache modelCache;
+    std::map<levain::assets::AssetId, ModelGpu> models;
+    levain::render::Instances modelInstance; ///< Une seule, à l'origine : la matrice monde place.
+    flecs::query<const levain::assets::MeshRef, const levain::scene::WorldTransform> modelParts;
     nvrhi::TextureHandle checker;
     nvrhi::BindingSetHandle material;
     flecs::entity cameraEntity; ///< Transform + FpsController : la caméra libre (M3.4).
@@ -406,16 +410,50 @@ levain::core::Result<DemoScene>
 createDemoScene(levain::gpu::GpuDevice& gpu, const levain::render::SamplerSettings& sampler,
                 const std::optional<std::filesystem::path>& modelPath)
 {
-    std::optional<levain::assets::Model> model;
+    // Le modèle de `--model`, par son GUID : le dossier qui le contient est scanné (ADR-0019), ce
+    // qui lui donne un .meta s'il n'en avait pas.
+    levain::assets::AssetRegistry registry;
+    levain::assets::ModelCache modelCache;
+    const levain::assets::Model* model = nullptr;
+    levain::assets::AssetId modelId;
     const Clock::time_point loadStart = Clock::now();
     if (modelPath)
     {
-        auto loaded = levain::assets::loadGltf(*modelPath);
+        auto report = levain::assets::scanAssets(modelPath->parent_path(), registry);
+        if (!report)
+        {
+            return std::unexpected(report.error());
+        }
+        // Les .meta créés et rattachés sont à versionner, les orphelins à regarder (ADR-0019).
+        for (const auto& created : report->created)
+        {
+            levain::core::log("assets", levain::core::LogLevel::Info, "nouveau .meta : {}",
+                              created.string());
+        }
+        for (const auto& reattached : report->reattached)
+        {
+            levain::core::log("assets", levain::core::LogLevel::Info,
+                              "renommé hors du moteur, GUID conservé : {}", reattached.string());
+        }
+        for (const auto& orphan : report->orphans)
+        {
+            levain::core::log("assets", levain::core::LogLevel::Warning,
+                              ".meta orphelin, asset disparu : {}", orphan.string());
+        }
+        const auto id = levain::assets::idOf(registry, *modelPath);
+        if (!id)
+        {
+            return levain::core::makeError(
+                levain::core::ErrorCode::InvalidData,
+                std::format("{} : pas un asset importable", modelPath->string()));
+        }
+        auto loaded = levain::assets::loadModel(modelCache, registry, *id);
         if (!loaded)
         {
             return std::unexpected(loaded.error());
         }
-        model = std::move(*loaded);
+        model = *loaded;
+        modelId = *id;
     }
 
     auto image = levain::assets::loadImage(LEVAIN_DATA_DIR "/textures/checker.png");
@@ -434,13 +472,14 @@ createDemoScene(levain::gpu::GpuDevice& gpu, const levain::render::SamplerSettin
 
     flecs::world world;
     world.import<levain::scene::SceneModule>();
+    world.import<levain::assets::AssetsModule>();
 #ifdef LEVAIN_ENABLE_EXPLORER
     enableExplorerOnLoopback(world);
 #endif
     spawnCubeGrid(world);
-    if (model)
+    if (model != nullptr)
     {
-        levain::assets::instantiateModel(world, *model, "model").set(modelPlacement());
+        levain::assets::instantiateModel(world, *model, modelId, "model").set(modelPlacement());
     }
     // La caméra est une entité comme les autres : basse, sur le côté de la grille, et visant loin
     // devant. Elle porte son état précédent pour que le rendu l'interpole entre deux pas de
@@ -475,7 +514,11 @@ createDemoScene(levain::gpu::GpuDevice& gpu, const levain::render::SamplerSettin
     nvrhi::TextureHandle checker =
         levain::render::createTexture(*gpu.nvrhi, *upload, textureLevelsOf(mips), "checker");
     const Clock::time_point uploadStart = Clock::now();
-    ModelGpu modelGpu = model ? uploadModel(*gpu.nvrhi, *upload, *model) : ModelGpu{};
+    std::map<levain::assets::AssetId, ModelGpu> models;
+    if (model != nullptr)
+    {
+        models.emplace(modelId, uploadModel(*gpu.nvrhi, *upload, *model));
+    }
     const std::array<glm::vec3, 1> origin{glm::vec3{0.0f}};
     levain::render::Instances modelInstance =
         levain::render::createInstances(*gpu.nvrhi, *upload, origin);
@@ -484,9 +527,9 @@ createDemoScene(levain::gpu::GpuDevice& gpu, const levain::render::SamplerSettin
     const nvrhi::SamplerHandle samplerHandle = levain::render::createSampler(*gpu.nvrhi, sampler);
     nvrhi::BindingSetHandle material =
         levain::render::createMaterialBindings(*gpu.nvrhi, *meshPass, *checker, *samplerHandle);
-    if (model)
+    if (model != nullptr)
     {
-        bindModelMaterials(*gpu.nvrhi, *meshPass, *samplerHandle, *model, modelGpu);
+        bindModelMaterials(*gpu.nvrhi, *meshPass, *samplerHandle, *model, models.at(modelId));
         // Le critère de #88 : le temps de chargement. Lecture et décodage d'un côté (fastgltf,
         // stb_image), mips et envoi au GPU de l'autre, pour savoir quoi cuire en M4.3.
         levain::core::log(
@@ -507,9 +550,8 @@ createDemoScene(levain::gpu::GpuDevice& gpu, const levain::render::SamplerSettin
                                         .nearPlane = 0.5f,
                                         .farPlane = 1000.0f};
     // Avant le return : `.world = std::move(world)` vide `world` avant les champs suivants.
-    flecs::query<const levain::assets::MeshInstance, const levain::scene::WorldTransform>
-        modelParts =
-            world.query<const levain::assets::MeshInstance, const levain::scene::WorldTransform>();
+    flecs::query<const levain::assets::MeshRef, const levain::scene::WorldTransform> modelParts =
+        world.query<const levain::assets::MeshRef, const levain::scene::WorldTransform>();
     return DemoScene{.world = std::move(world),
                      .fixedStep = fixedStep,
                      .cubes = std::move(cubes),
@@ -519,7 +561,9 @@ createDemoScene(levain::gpu::GpuDevice& gpu, const levain::render::SamplerSettin
                      .grid = std::move(grid),
                      .ground = std::move(ground),
                      .groundInstance = std::move(groundInstance),
-                     .model = std::move(modelGpu),
+                     .registry = std::move(registry),
+                     .modelCache = std::move(modelCache),
+                     .models = std::move(models),
                      .modelInstance = std::move(modelInstance),
                      .modelParts = std::move(modelParts),
                      .checker = std::move(checker),
@@ -595,13 +639,13 @@ std::optional<double> renderFrame(levain::gpu::GpuDevice& gpu,
             {.viewProjection = constants.viewProjection, .model = glm::mat4{1.0f}});
         // Le modèle glTF, nœud par nœud : chaque primitive, placée par la matrice monde du nœud.
         scene.modelParts.each(
-            [&](const levain::assets::MeshInstance& part,
-                const levain::scene::WorldTransform& world)
+            [&](const levain::assets::MeshRef& part, const levain::scene::WorldTransform& world)
             {
-                for (const ModelPrimitiveGpu& primitive : scene.model.meshes[part.mesh])
+                const ModelGpu& model = scene.models.at(part.mesh.asset);
+                for (const ModelPrimitiveGpu& primitive : model.meshes[part.mesh.sub])
                 {
                     nvrhi::IBindingSet& material = primitive.material
-                                                       ? *scene.model.materials[*primitive.material]
+                                                       ? *model.materials[*primitive.material]
                                                        : *scene.material;
                     levain::render::drawMesh(
                         commandList, scene.meshPass, *framebuffer, primitive.mesh,
@@ -803,6 +847,15 @@ bool runMainLoop(levain::platform::Window& window, levain::gpu::GpuDevice& gpu, 
                 totalGpu.totalMs += *gpuMs;
                 ++totalGpu.samples;
             }
+        }
+
+        // Fin d'image : ce que plus aucune entité n'utilise se décharge, du CPU et du GPU
+        // (ADR-0019). NVRHI garde vivantes les ressources qu'une command list en vol utilise
+        // encore.
+        for (const levain::assets::AssetId& unused : levain::assets::takeUnusedAssets(scene.world))
+        {
+            scene.models.erase(unused);
+            scene.modelCache.models.erase(unused);
         }
 
         const Clock::time_point frameEnd = Clock::now();

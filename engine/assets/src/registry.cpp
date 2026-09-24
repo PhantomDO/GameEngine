@@ -167,6 +167,19 @@ core::Result<ScanReport> scanAssets(const fs::path& root, AssetRegistry& registr
     return report;
 }
 
+std::optional<AssetId> idOf(const AssetRegistry& registry, const fs::path& path)
+{
+    std::error_code error;
+    for (const auto& [id, candidate] : registry.paths)
+    {
+        if (fs::equivalent(candidate, path, error))
+        {
+            return id;
+        }
+    }
+    return std::nullopt;
+}
+
 std::optional<fs::path> pathOf(const AssetRegistry& registry, AssetId id)
 {
     const auto found = registry.paths.find(id);

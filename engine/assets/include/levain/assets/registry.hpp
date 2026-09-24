@@ -41,6 +41,11 @@ struct ScanReport
 [[nodiscard]] core::Result<ScanReport> scanAssets(const std::filesystem::path& root,
                                                   AssetRegistry& registry);
 
+/// Le GUID du fichier `path`, s'il est enregistré. Deux écritures du même fichier (relative et
+/// absolue) le trouvent toutes les deux. Linéaire : pour les outils et le démarrage, pas par image.
+[[nodiscard]] std::optional<AssetId> idOf(const AssetRegistry& registry,
+                                          const std::filesystem::path& path);
+
 /// Le chemin d'un asset, s'il est connu.
 [[nodiscard]] std::optional<std::filesystem::path> pathOf(const AssetRegistry& registry,
                                                           AssetId id);

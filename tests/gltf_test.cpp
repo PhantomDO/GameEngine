@@ -3,6 +3,7 @@
 #include <doctest/doctest.h>
 #include <flecs.h>
 
+#include "levain/assets/asset_ref.hpp"
 #include "levain/assets/gltf.hpp"
 #include "levain/scene/components.hpp"
 #include "levain/scene/fixed_step.hpp"
@@ -10,7 +11,7 @@
 #include "levain/scene/transform.hpp"
 
 using levain::assets::loadGltf;
-using levain::assets::MeshInstance;
+using levain::assets::MeshRef;
 using levain::core::ErrorCode;
 
 namespace
@@ -70,8 +71,10 @@ TEST_CASE("un modèle instancié garde sa hiérarchie : l'enfant suit son parent
     REQUIRE(model.has_value());
     flecs::world world;
     world.import<levain::scene::SceneModule>();
+    world.import<levain::assets::AssetsModule>();
 
-    const flecs::entity root = levain::assets::instantiateModel(world, *model, "modele");
+    const flecs::entity root = levain::assets::instantiateModel(
+        world, *model, levain::assets::generateAssetId(), "modele");
     root.set(levain::scene::Transform{.position = {0.0f, 0.0f, 10.0f}});
     levain::scene::FixedStep step;
     levain::scene::advanceWorld(world, step, 0.0f);
@@ -79,7 +82,7 @@ TEST_CASE("un modèle instancié garde sa hiérarchie : l'enfant suit son parent
     int meshes = 0;
     glm::vec3 childPosition{0.0f};
     world.each(
-        [&](const MeshInstance&, const levain::scene::WorldTransform& world,
+        [&](const MeshRef&, const levain::scene::WorldTransform& world,
             const levain::scene::Transform& local)
         {
             ++meshes;
