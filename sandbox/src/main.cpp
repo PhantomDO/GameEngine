@@ -5,8 +5,10 @@
 #include <cstdio>
 #include <exception>
 #include <expected>
+#include <filesystem>
 #include <format>
 #include <limits>
+#include <memory>
 #include <optional>
 #include <print>
 #include <span>
@@ -36,6 +38,7 @@
 #include "levain/render/gpu_timer.hpp"
 #include "levain/render/mesh.hpp"
 #include "levain/render/mesh_pass.hpp"
+#include "levain/render/readback.hpp"
 #include "levain/render/texture.hpp"
 #include "levain/scene/camera_control.hpp"
 #include "levain/scene/components.hpp"
@@ -405,10 +408,12 @@ glm::mat4 cubeRotation(double seconds)
 }
 
 /// Efface l'image de la swapchain et son depth buffer, y dessine la grille, et la présente. Rend le
-/// temps GPU d'une frame précédente, dès qu'il est lisible.
+/// temps GPU d'une frame précédente, dès qu'il est lisible. Avec `capture`, l'image est aussi
+/// copiée pour être relue (`render::readBack`).
 std::optional<double> renderFrame(levain::gpu::GpuDevice& gpu,
                                   const levain::platform::Window& window, DemoScene& scene,
-                                  nvrhi::ICommandList& commandList, double seconds)
+                                  nvrhi::ICommandList& commandList, double seconds,
+                                  nvrhi::StagingTextureHandle* capture = nullptr)
 {
     nvrhi::ITexture* backBuffer = levain::gpu::beginFrame(gpu, window);
     if (backBuffer == nullptr)
@@ -458,6 +463,10 @@ std::optional<double> renderFrame(levain::gpu::GpuDevice& gpu,
             commandList, scene.meshPass, *framebuffer, scene.ground, scene.groundInstance,
             *scene.material,
             {.viewProjection = constants.viewProjection, .model = glm::mat4{1.0f}});
+        if (capture != nullptr)
+        {
+            *capture = levain::render::copyForReadback(*gpu.nvrhi, commandList, *backBuffer);
+        }
         levain::render::endGpuTimer(commandList, scene.gpuTimer);
         commandList.close();
         gpu.nvrhi->executeCommandList(&commandList);
@@ -476,6 +485,9 @@ struct SandboxOptions
     double loopSeconds = std::numeric_limits<double>::infinity();
     /// Le filtrage anisotrope du damier ; 1 le désactive (trilinéaire seul).
     float maxAnisotropy = 16.0f;
+    /// Où écrire une capture de la dernière image, en PNG. Avec `--seconds`, c'est ce qui montre un
+    /// rendu à distance, sans écran ni capture du bureau.
+    std::optional<std::filesystem::path> capturePath;
 };
 
 /// Un nombre strictement positif, écrit en entier. Vide sinon, NaN compris.
@@ -490,16 +502,24 @@ std::optional<double> parsePositive(std::string_view text)
     return value;
 }
 
-/// `[--seconds N] [--anisotropy N]`, dans n'importe quel ordre. Vide si les arguments sont
-/// invalides.
+/// `[--seconds N] [--anisotropy N] [--capture fichier.png]`, dans n'importe quel ordre. Vide si
+/// les arguments sont invalides.
 std::optional<SandboxOptions> parseOptions(std::span<char* const> arguments)
 {
     SandboxOptions options;
     for (std::size_t i = 1; i < arguments.size(); i += 2)
     {
-        const std::optional<double> value =
-            i + 1 < arguments.size() ? parsePositive(arguments[i + 1]) : std::nullopt;
         const std::string_view name{arguments[i]};
+        if (i + 1 >= arguments.size())
+        {
+            return std::nullopt;
+        }
+        if (name == "--capture")
+        {
+            options.capturePath = std::filesystem::path{arguments[i + 1]};
+            continue;
+        }
+        const std::optional<double> value = parsePositive(arguments[i + 1]);
         if (!value)
         {
             return std::nullopt;
@@ -520,9 +540,42 @@ std::optional<SandboxOptions> parseOptions(std::span<char* const> arguments)
     return options;
 }
 
-void runMainLoop(levain::platform::Window& window, levain::gpu::GpuDevice& gpu, DemoScene& scene,
+/// Rend une dernière image et l'écrit en PNG. Un échec est bruyant (règle n°7) : une capture
+/// demandée et absente ferait croire à une image qui n'existe pas.
+bool captureFrame(levain::gpu::GpuDevice& gpu, const levain::platform::Window& window,
+                  DemoScene& scene, nvrhi::ICommandList& commandList, double seconds,
+                  const std::filesystem::path& path)
+{
+    nvrhi::StagingTextureHandle staging;
+    // std::addressof et non « & » : le RefCountPtr de NVRHI surcharge l'opérateur & (il rend
+    // l'adresse du pointeur brut, comme les ComPtr de COM).
+    static_cast<void>(
+        renderFrame(gpu, window, scene, commandList, seconds, std::addressof(staging)));
+    if (!staging)
+    {
+        levain::core::log("sandbox", levain::core::LogLevel::Error,
+                          "capture impossible : aucune image rendue (fenêtre masquée ?)");
+        return false;
+    }
+    auto image = levain::render::readBack(*gpu.nvrhi, *staging);
+    auto saved = image ? levain::assets::savePng(path, image->width, image->height, image->rgba)
+                       : std::unexpected(image.error());
+    if (!saved)
+    {
+        levain::core::log("sandbox", levain::core::LogLevel::Error, "capture : {}",
+                          saved.error().message);
+        return false;
+    }
+    levain::core::log("sandbox", levain::core::LogLevel::Info, "capture : {} ({} × {})",
+                      path.string(), image->width, image->height);
+    return true;
+}
+
+/// La boucle principale ; rend `false` si la capture demandée a échoué.
+bool runMainLoop(levain::platform::Window& window, levain::gpu::GpuDevice& gpu, DemoScene& scene,
                  double loopSeconds, const levain::input::Bindings& bindings,
-                 const CameraActions& actions)
+                 const CameraActions& actions,
+                 const std::optional<std::filesystem::path>& capturePath)
 {
     const nvrhi::CommandListHandle commandList = gpu.nvrhi->createCommandList();
     LoopState state;
@@ -627,6 +680,9 @@ void runMainLoop(levain::platform::Window& window, levain::gpu::GpuDevice& gpu, 
         "sandbox", levain::core::LogLevel::Info,
         "boucle arrêtée après {:.1f} s et {} frames ; GPU : {:.3f} ms en moyenne sur {} mesures",
         secondsBetween(loopStart, Clock::now()), frameCount, averageOf(totalGpu), totalGpu.samples);
+
+    return !capturePath || captureFrame(gpu, window, scene, *commandList,
+                                        secondsBetween(loopStart, Clock::now()), *capturePath);
 }
 
 } // namespace
@@ -641,7 +697,9 @@ int main(int argc, char** argv)
             parseOptions(std::span{argv, static_cast<std::size_t>(argc)});
         if (!options)
         {
-            std::println(stderr, "usage : levain_sandbox [--seconds N] [--anisotropy N]");
+            std::println(
+                stderr,
+                "usage : levain_sandbox [--seconds N] [--anisotropy N] [--capture fichier.png]");
             return 2;
         }
 
@@ -704,7 +762,11 @@ int main(int argc, char** argv)
                           "regarder, ZQSD ou WASD pour avancer",
                           bindings->actions.size(), bindings->axes.size());
 
-        runMainLoop(*window, *gpu, *scene, options->loopSeconds, *bindings, *actions);
+        if (!runMainLoop(*window, *gpu, *scene, options->loopSeconds, *bindings, *actions,
+                         options->capturePath))
+        {
+            return 1;
+        }
         levain::core::log("sandbox", levain::core::LogLevel::Info, "fenêtre fermée");
     }
     catch (const std::exception& e)

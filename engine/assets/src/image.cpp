@@ -10,9 +10,10 @@
 #include <memory>
 #include <utility>
 
-// Le code de stb_image est compilé ici : STB_IMAGE_IMPLEMENTATION est posée sur ce fichier par
-// engine/assets/CMakeLists.txt.
+// Le code de stb_image et de stb_image_write est compilé ici : leurs macros sont posées sur ce
+// fichier par engine/assets/CMakeLists.txt.
 #include <stb_image.h>
+#include <stb_image_write.h>
 
 #include "levain/core/assert.hpp"
 #include "levain/core/file.hpp"
@@ -146,6 +147,20 @@ core::Result<Image> loadImage(const std::filesystem::path& path)
                 .rgba = {}};
     image.rgba.assign(pixels.get(), pixels.get() + rgbaSize(image.width, image.height));
     return image;
+}
+
+core::Result<void> savePng(const std::filesystem::path& path, std::uint32_t width,
+                           std::uint32_t height, std::span<const std::uint8_t> rgba)
+{
+    LEVAIN_ASSERT(rgba.size() == rgbaSize(width, height), "taille des pixels incohérente");
+    const int rowBytes = static_cast<int>(width) * 4;
+    if (stbi_write_png(path.c_str(), static_cast<int>(width), static_cast<int>(height), 4,
+                       rgba.data(), rowBytes) == 0)
+    {
+        return core::makeError(core::ErrorCode::InvalidData,
+                               std::format("{} : écriture du PNG impossible", path.string()));
+    }
+    return {};
 }
 
 std::uint32_t mipCountFor(std::uint32_t width, std::uint32_t height)

@@ -6,6 +6,7 @@ add_library(levain_render STATIC
     src/gpu_timer.cpp
     src/mesh.cpp
     src/mesh_pass.cpp
+    src/readback.cpp
     src/shader.cpp
     src/texture.cpp
     src/triangle.cpp)

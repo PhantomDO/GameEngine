@@ -45,6 +45,23 @@ TEST_CASE("loadImage rend les pixels d'un PNG en RGBA, ligne par ligne")
     CHECK(image->rgba == expected);
 }
 
+TEST_CASE("savePng écrit une image que loadImage relit à l'identique")
+{
+    // Les quatre canaux distincts : un rouge et un bleu échangés, ou un alpha perdu, se verraient.
+    const std::vector<std::uint8_t> pixels{255, 0, 0,   255, 0,  255, 0,  128,
+                                           0,   0, 255, 255, 10, 20,  30, 0};
+    const std::filesystem::path path = std::filesystem::temp_directory_path() / "levain-save.png";
+
+    REQUIRE(levain::assets::savePng(path, 2, 2, pixels).has_value());
+    const auto reloaded = loadImage(path);
+    std::filesystem::remove(path);
+
+    REQUIRE(reloaded.has_value());
+    CHECK(reloaded->width == 2);
+    CHECK(reloaded->height == 2);
+    CHECK(reloaded->rgba == pixels);
+}
+
 TEST_CASE("loadImage signale un fichier absent comme FileNotFound")
 {
     const auto image = loadImage("/chemin/qui/n/existe/pas.png");

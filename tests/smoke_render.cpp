@@ -33,6 +33,7 @@
 #include "levain/render/camera.hpp"
 #include "levain/render/mesh.hpp"
 #include "levain/render/mesh_pass.hpp"
+#include "levain/render/readback.hpp"
 #include "levain/render/texture.hpp"
 #include "levain/render/triangle.hpp"
 
@@ -192,13 +193,6 @@ levain::core::Result<Image> renderScene(nvrhi::IDevice& device, std::string_view
     }
     const nvrhi::FramebufferHandle framebuffer = device.createFramebuffer(framebufferDesc);
 
-    nvrhi::TextureDesc stagingDesc = targetDesc;
-    stagingDesc.isRenderTarget = false;
-    stagingDesc.initialState = nvrhi::ResourceStates::CopyDest;
-    stagingDesc.debugName = "relecture du test de fumée";
-    const nvrhi::StagingTextureHandle staging =
-        device.createStagingTexture(stagingDesc, nvrhi::CpuAccessMode::Read);
-
     const nvrhi::CommandListHandle commandList = device.createCommandList();
     commandList->open();
     commandList->clearTextureFloat(target, nvrhi::AllSubresources,
@@ -211,33 +205,25 @@ levain::core::Result<Image> renderScene(nvrhi::IDevice& device, std::string_view
     {
         return std::unexpected(drawn.error());
     }
-    commandList->copyTexture(staging, nvrhi::TextureSlice{}, target, nvrhi::TextureSlice{});
+    const nvrhi::StagingTextureHandle staging =
+        levain::render::copyForReadback(device, *commandList, *target);
     commandList->close();
     device.executeCommandList(commandList);
-    device.waitForIdle();
-
-    std::size_t rowPitch = 0;
-    const auto* mapped = static_cast<const std::uint8_t*>(device.mapStagingTexture(
-        staging, nvrhi::TextureSlice{}, nvrhi::CpuAccessMode::Read, &rowPitch));
-    if (mapped == nullptr)
+    auto readback = levain::render::readBack(device, *staging);
+    if (!readback)
     {
-        return levain::core::makeError(levain::core::ErrorCode::Unsupported,
-                                       "relecture impossible");
+        return std::unexpected(readback.error());
     }
 
-    // La texture est en RGBA, lignes de rowPitch octets ; l'image garde RGB, lignes contiguës.
+    // La relecture est en RGBA ; l'image de référence garde RGB.
     Image image{.width = ImageSize, .height = ImageSize, .rgb = {}};
     image.rgb.reserve(std::size_t{ImageSize} * ImageSize * 3);
-    for (int y = 0; y < ImageSize; ++y)
+    for (std::size_t texel = 0; texel < readback->rgba.size(); texel += BytesPerTexel)
     {
-        const std::uint8_t* row = mapped + static_cast<std::size_t>(y) * rowPitch;
-        for (std::size_t x = 0; x < ImageSize; ++x)
-        {
-            const std::uint8_t* texel = row + x * BytesPerTexel;
-            image.rgb.insert(image.rgb.end(), texel, texel + 3);
-        }
+        image.rgb.insert(image.rgb.end(),
+                         readback->rgba.begin() + static_cast<std::ptrdiff_t>(texel),
+                         readback->rgba.begin() + static_cast<std::ptrdiff_t>(texel + 3));
     }
-    device.unmapStagingTexture(staging);
     return image;
 }
 

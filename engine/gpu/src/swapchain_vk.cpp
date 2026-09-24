@@ -127,6 +127,7 @@ core::Result<void> rebuildSwapchain(Swapchain& swapchain, platform::PixelSize si
 
     // FIFO : présentation calée sur le rafraîchissement de l'écran, le seul mode que Vulkan
     // garantit partout. TRANSFER_DST : l'effacement de l'image est une copie, pas un rendu.
+    // TRANSFER_SRC : l'image peut être relue, pour la capturer (render/readback.hpp).
     auto rebuilt =
         vkb::SwapchainBuilder{swapchain.device}
             .set_old_swapchain(swapchain.swapchain)
@@ -136,7 +137,8 @@ core::Result<void> rebuildSwapchain(Swapchain& swapchain, platform::PixelSize si
             .add_fallback_format({VK_FORMAT_B8G8R8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR})
             .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
             .set_image_usage_flags(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
-                                   VK_IMAGE_USAGE_TRANSFER_DST_BIT)
+                                   VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+                                   VK_IMAGE_USAGE_TRANSFER_SRC_BIT)
             .build();
     if (!rebuilt)
     {
