@@ -1,0 +1,96 @@
+#include <cstddef>
+#include <filesystem>
+#include <fstream>
+#include <vector>
+
+#include <doctest/doctest.h>
+
+#include "levain/assets/asset_ref.hpp"
+#include "levain/assets/cooked.hpp"
+#include "levain/assets/gltf.hpp"
+#include "levain/assets/registry.hpp"
+#include "levain/core/file.hpp"
+
+using levain::assets::readCookedModel;
+using levain::assets::writeCookedModel;
+
+namespace fs = std::filesystem;
+
+namespace
+{
+
+constexpr std::uint64_t SourceHash = 0x1234;
+
+fs::path freshDirectory()
+{
+    const fs::path directory =
+        fs::temp_directory_path() /
+        ("levain-cooked-" + levain::assets::toString(levain::assets::generateAssetId()));
+    fs::create_directories(directory);
+    return directory;
+}
+
+/// Le modèle de test, avec son image embarquée : tout ce qu'un `.lvmesh` doit transporter.
+levain::assets::Model testModel()
+{
+    auto model = levain::assets::loadGltf(fs::path{LEVAIN_TEST_DATA_DIR} / "two-nodes.gltf",
+                                          levain::assets::AssetId{.high = 1, .low = 2},
+                                          levain::assets::AssetRegistry{});
+    REQUIRE(model.has_value());
+    return std::move(*model);
+}
+
+} // namespace
+
+TEST_CASE("un .lvmesh relu rend le même modèle")
+{
+    const fs::path directory = freshDirectory();
+    levain::assets::Model model = testModel();
+    // Un nom vide : un tableau de taille nulle, que le lecteur doit copier sans memcpy (UBSan).
+    model.nodes[0].name.clear();
+    REQUIRE(writeCookedModel(directory / "m.lvmesh", model, SourceHash).has_value());
+
+    const auto read = readCookedModel(directory / "m.lvmesh", SourceHash);
+    INFO("message d'erreur : " << (read ? std::string{} : read.error().message));
+    REQUIRE(read.has_value());
+    REQUIRE(read->meshes.size() == model.meshes.size());
+    const auto& primitive = read->meshes[0].primitives[0];
+    CHECK(primitive.indices == model.meshes[0].primitives[0].indices);
+    CHECK(primitive.vertices[1].position == model.meshes[0].primitives[0].vertices[1].position);
+    CHECK(primitive.material == model.meshes[0].primitives[0].material);
+    REQUIRE(read->nodes.size() == 2);
+    CHECK(read->nodes[0].name.empty());
+    CHECK(read->nodes[1].parent == 0u);
+    CHECK(read->nodes[1].local.scale == model.nodes[1].local.scale);
+    CHECK(read->materials[0].baseColorTexture == model.materials[0].baseColorTexture);
+    CHECK(read->embeddedImages.at(0).rgba == model.embeddedImages.at(0).rgba);
+    fs::remove_all(directory);
+}
+
+TEST_CASE("un .lvmesh périmé, tronqué ou d'un encodage inconnu est refusé")
+{
+    const fs::path directory = freshDirectory();
+    const fs::path path = directory / "m.lvmesh";
+    REQUIRE(writeCookedModel(path, testModel(), SourceHash).has_value());
+
+    // La source a changé depuis la cuisson.
+    CHECK_FALSE(readCookedModel(path, SourceHash + 1).has_value());
+
+    auto bytes = levain::core::readFile(path);
+    REQUIRE(bytes.has_value());
+    std::vector<std::byte> original = *bytes;
+
+    // Tronqué : le lecteur vérifie chaque borne.
+    std::ofstream{path, std::ios::binary}.write(reinterpret_cast<const char*>(original.data()),
+                                                static_cast<std::streamsize>(original.size() / 2));
+    CHECK_FALSE(readCookedModel(path, SourceHash).has_value());
+
+    // L'encodage suit la signature et la version (4 + 4 octets) : 1 est réservé, donc refusé.
+    original[8] = std::byte{1};
+    std::ofstream{path, std::ios::binary}.write(reinterpret_cast<const char*>(original.data()),
+                                                static_cast<std::streamsize>(original.size()));
+    const auto reserved = readCookedModel(path, SourceHash);
+    REQUIRE_FALSE(reserved.has_value());
+    CHECK(reserved.error().message.find("encodage") != std::string::npos);
+    fs::remove_all(directory);
+}

@@ -100,8 +100,8 @@ TEST_CASE("un modèle se charge par son GUID, et ses entités le référencent")
 
     levain::assets::AssetRegistry registry;
     REQUIRE(levain::assets::scanAssets(root, registry).has_value());
-    REQUIRE(registry.paths.size() == 1);
-    const AssetId asset = registry.paths.begin()->first;
+    REQUIRE(registry.entries.size() == 1);
+    const AssetId asset = registry.entries.begin()->first;
 
     levain::assets::ModelCache cache;
     const auto model = levain::assets::loadModel(cache, registry, asset);

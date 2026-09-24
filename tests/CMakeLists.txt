@@ -6,6 +6,7 @@ add_executable(levain_tests
     assert_test.cpp
     camera_control_test.cpp
     camera_test.cpp
+    cooked_test.cpp
     doctest_main.cpp
     error_test.cpp
     file_test.cpp
