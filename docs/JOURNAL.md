@@ -33,6 +33,7 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 - Sessions Claude Code : 1
 - Fait : `platform::waitEvents` prend une durée maximale (`SDL_WaitEventTimeout`) ; la boucle du sandbox, fenêtre
   masquée, n'attend plus au-delà de `--seconds`. Test `waitEvents rend la main à l'échéance…` (offscreen).
+  CI : `ctest --timeout 120`, un test bloqué échoue en 2 min (le plus lent : 5,75 s).
 - Mesures : minimisé par KWin, `--seconds 6` → arrêt à **6,0 s** (avant : toujours vivant à 11,5 s, arrêté par
   SIGTERM ; lu dans le log « boucle arrêtée après … », minimisation par KWin, script non versionné, dans la PR) ;
   CPU minimisée **0 ms** sur 2 s (`tools/kwin-window-smoke.sh`, inchangé).
