@@ -1,6 +1,6 @@
 # ADR-0019 — Identifier les assets : un GUID dans un `.meta`, rattaché par le hash
 
-- **Statut** : proposé
+- **Statut** : accepté le 2026-09-24 (validé par Donnovan)
 - **Date** : 2026-09-24
 - **Milestone** : M4.2
 
