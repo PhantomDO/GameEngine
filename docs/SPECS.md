@@ -153,6 +153,7 @@ Visibilité des bibliothèques :
 - flecs : c'est l'API du modèle objet, visible dans `scene/` et tout ce qui est au-dessus ; jamais dans `core/`,
   `platform/` ni `gpu/`.
 - Jolt : uniquement dans `physics/`.
+- fastgltf : uniquement dans `assets/src/` (contrôlé par `deps.fastgltf-visibility`).
 
 **Boucle principale (cible)** : simulation à pas fixe (60 Hz par défaut) avec accumulateur, exécutée par un
 pipeline flecs dédié ; rendu à fréquence libre avec interpolation. Détails dans un ADR en M3.3.

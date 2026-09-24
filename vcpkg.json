@@ -12,6 +12,7 @@
       "host": true
     },
     "flecs",
+    "fastgltf",
     "glm",
     "nvrhi",
     {
