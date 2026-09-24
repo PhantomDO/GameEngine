@@ -413,9 +413,15 @@ levain::core::Result<ModelGpu> uploadModel(nvrhi::IDevice& device, nvrhi::IComma
         {
             return std::unexpected(data.error());
         }
+        // Le nom du fichier source, pour retrouver la texture dans une capture RenderDoc
+        // (tools/renderdoc-mips.py). NVRHI le recopie.
+        const std::string name = levain::assets::pathOf(registry, material.baseColorTexture->asset)
+                                     .value_or("glTF")
+                                     .filename()
+                                     .string();
         gpu.textures.emplace(*material.baseColorTexture,
                              levain::render::createTexture(device, commandList,
-                                                           textureLevelsOf(*data), "glTF",
+                                                           textureLevelsOf(*data), name.c_str(),
                                                            nvrhiFormatOf(data->format)));
         for (const levain::assets::TextureMip& mip : data->mips)
         {
