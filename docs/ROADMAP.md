@@ -216,7 +216,8 @@ préalable, le sandbox capture sa dernière image en PNG (`--capture`), pour que
 distance (ajouté à sa demande le 24/09, +0,25 h, échéances inchangées).
 *Critères* : la scène Sponza (Khronos glTF Sample Assets) s'affiche ; temps de chargement mesuré.
 
-**M4.2 — Base d'assets.** GUID, fichiers `.meta`, registre, handles, comptage de références (**ADR à écrire**).
+**M4.2 — Base d'assets.** GUID dans des fichiers `.meta`, rattachés par le hash après un renommage, registre,
+références comptées par le monde ([ADR-0019](adr/0019-identifiants-d-assets.md)).
 *Critères* : renommer ou déplacer un fichier ne casse aucune référence ; aucun chemin absolu dans les scènes.
 
 **M4.3 — Cuisson des assets.** Outil hors ligne qui convertit vers un format binaire, textures KTX2 compressées
