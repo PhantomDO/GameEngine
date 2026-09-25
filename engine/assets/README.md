@@ -42,6 +42,10 @@ au lieu de 128.
    en base64 ou d'un buffer (`.glb`) : `decodeImage` lit la mémoire, `loadImage` un fichier.
 8. **Les chemins ne vivent que dans le registre** (`AssetRegistry`). Tout le reste du moteur désigne un asset
    par son `AssetId` (ADR-0019).
+9. **Le hash du registre suit le fichier** (ADR-0021) : `takeChangedAssets` le recalcule quand la date change,
+   dans le registre et dans le `.meta`. Un fichier cuit est jugé sur ce hash : après une retouche, il est
+   périmé, et `loadTextureData` reprend la source jusqu'au prochain `levain_cook`. Vérifié sur le sandbox en
+   marche par `tools/texture-hot-reload.sh`.
 
 ## Points d'entrée
 
@@ -51,7 +55,7 @@ au lieu de 128.
 | [`include/levain/assets/gltf.hpp`](include/levain/assets/gltf.hpp) | `Model`, `loadGltf`, `instantiateModel` |
 | [`include/levain/assets/asset_ref.hpp`](include/levain/assets/asset_ref.hpp) | `MeshRef`, `AssetsModule` (le comptage), `takeUnusedAssets`, `ModelCache`, `loadModel`, `loadTexture`, `loadTextureData` |
 | [`include/levain/assets/asset_id.hpp`](include/levain/assets/asset_id.hpp) | `AssetId`, `contentHash`, `readMeta`, `writeMeta` |
-| [`include/levain/assets/registry.hpp`](include/levain/assets/registry.hpp) | `AssetRegistry` (fichier, racine et hash de chaque asset), `scanAssets` (les cinq cas de l'ADR-0019), `pathOf`, `cookedPathOf` |
+| [`include/levain/assets/registry.hpp`](include/levain/assets/registry.hpp) | `AssetRegistry` (fichier, racine et hash de chaque asset), `scanAssets` (les cinq cas de l'ADR-0019), `pathOf`, `cookedPathOf` ; `watchAssets` et `takeChangedAssets`, le hot-reload (ADR-0021) |
 | [`include/levain/assets/cooked.hpp`](include/levain/assets/cooked.hpp) | Le format `.lvmesh` : `writeCookedModel`, `readCookedModel`, `CookerVersion`, `MeshEncoding` |
 | [`include/levain/assets/cooked_texture.hpp`](include/levain/assets/cooked_texture.hpp) | `TextureData`, `writeCookedTexture` (UASTC), `writePlatformTexture` (BC7), `readCookedTexture` |
 | [`../../tools/cook/main.cpp`](../../tools/cook/main.cpp) | `levain_cook`, le cuiseur |

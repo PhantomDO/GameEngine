@@ -1,4 +1,6 @@
+#include <chrono>
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -163,4 +165,52 @@ TEST_CASE("deux fichiers de même GUID font échouer le scan, qui les nomme tous
     const std::string& message = report.error().message;
     CHECK(message.find("copie.png") != std::string::npos);
     CHECK(message.find("foo.png") != std::string::npos);
+}
+
+namespace
+{
+
+/// Avance la date de modification d'une seconde : deux écritures rapprochées peuvent porter la
+/// même date, que le noyau n'avance qu'à chaque tick de son horloge.
+void touchLater(const fs::path& path)
+{
+    fs::last_write_time(path, fs::last_write_time(path) + std::chrono::seconds{1});
+}
+
+} // namespace
+
+TEST_CASE("un asset modifié est rendu une fois, et son hash suit dans le registre et le .meta")
+{
+    TempRoot root;
+    writeFile(root.path / "foo.png", "avant");
+    writeFile(root.path / "bar.png", "intact");
+    AssetRegistry registry;
+    REQUIRE(scanAssets(root.path, registry).has_value());
+    levain::assets::AssetWatch watch = levain::assets::watchAssets(registry);
+    const levain::assets::AssetId id = idOf(root.path / "foo.png");
+    const std::uint64_t before = registry.entries.at(id).hash;
+
+    writeFile(root.path / "foo.png", "après");
+    touchLater(root.path / "foo.png");
+    const auto changed = levain::assets::takeChangedAssets(registry, watch);
+
+    REQUIRE(changed.size() == 1);
+    CHECK(changed.front() == id);
+    CHECK(registry.entries.at(id).hash != before);
+    CHECK(readMeta(metaPathOf(root.path / "foo.png"))->hash == registry.entries.at(id).hash);
+    CHECK(levain::assets::takeChangedAssets(registry, watch).empty());
+}
+
+TEST_CASE("un asset réenregistré à l'identique n'est pas rendu")
+{
+    TempRoot root;
+    writeFile(root.path / "foo.png", "même contenu");
+    AssetRegistry registry;
+    REQUIRE(scanAssets(root.path, registry).has_value());
+    levain::assets::AssetWatch watch = levain::assets::watchAssets(registry);
+
+    writeFile(root.path / "foo.png", "même contenu");
+    touchLater(root.path / "foo.png");
+
+    CHECK(levain::assets::takeChangedAssets(registry, watch).empty());
 }
