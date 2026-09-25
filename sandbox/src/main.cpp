@@ -27,6 +27,8 @@
 
 #include "shader_reload.hpp"
 
+#include "levain/animation/animation_set.hpp"
+#include "levain/animation/pose.hpp"
 #include "levain/assets/asset_ref.hpp"
 #include "levain/assets/gltf.hpp"
 #include "levain/assets/image.hpp"
@@ -45,6 +47,7 @@
 #include "levain/render/mesh.hpp"
 #include "levain/render/mesh_pass.hpp"
 #include "levain/render/readback.hpp"
+#include "levain/render/skinning.hpp"
 #include "levain/render/texture.hpp"
 #include "levain/scene/camera_control.hpp"
 #include "levain/scene/components.hpp"
@@ -150,6 +153,9 @@ struct ModelPrimitiveGpu
 {
     levain::render::Mesh mesh;
     std::optional<std::uint32_t> material; ///< Indice dans `ModelGpu::materials`.
+    /// Un mesh skinné (ADR-0022) : `mesh` est alors son mesh déformé, que le compute réécrit à
+    /// chaque image.
+    std::optional<levain::render::SkinnedMesh> skin;
 };
 
 /// Un modèle glTF sur le GPU. Les meshes sont dans l'ordre de `Model::meshes` : c'est ce qui donne
@@ -165,6 +171,22 @@ struct ModelGpu
     /// (ADR-0021) ne le met pas à jour.
     std::size_t textureBytes = 0;
     std::vector<nvrhi::BindingSetHandle> materials;
+    /// Pour un modèle skinné : son squelette et ses clips, le clip joué, et la pose et les
+    /// matrices du skinning de la dernière image, gardées pour ne pas réallouer.
+    std::optional<levain::animation::AnimationSet> animation;
+    std::size_t clip = 0;
+    levain::animation::Pose pose;
+    std::vector<glm::mat4> skinMatrices;
+};
+
+/// Le coût du skinning (critère de #117), en moyenne sur la boucle : l'échantillonnage et les
+/// matrices côté CPU, le compute côté GPU.
+struct SkinningCost
+{
+    double cpuMs = 0.0;
+    std::size_t frames = 0;
+    double gpuMs = 0.0;
+    std::size_t gpuSamples = 0;
 };
 
 /// Ce que dessine le sandbox en M2.2 : une grille de cubes texturés qui tournent, sur un sol qui
@@ -177,6 +199,7 @@ struct DemoScene
     std::vector<glm::vec3>
         cubePositions; ///< Relevées à chaque frame, gardées pour ne pas réallouer.
     levain::render::MeshPass meshPass;
+    levain::render::SkinningPass skinning;
     levain::render::Mesh cube;
     levain::render::Instances grid;
     levain::render::Mesh ground;
@@ -194,6 +217,8 @@ struct DemoScene
     flecs::entity cameraEntity; ///< Transform + FpsController : la caméra libre (M3.4).
     levain::render::Camera camera;
     levain::render::GpuTimer gpuTimer;
+    levain::render::GpuTimer skinningTimer; ///< Le seul skinning : le critère de coût de #117.
+    SkinningCost skinningCost;
     nvrhi::TextureHandle depth; ///< Créé à la première frame, à la taille de l'image.
 };
 
@@ -419,7 +444,9 @@ levain::core::Result<UploadedTexture> uploadTexture(nvrhi::IDevice& device,
 levain::core::Result<ModelGpu> uploadModel(nvrhi::IDevice& device, nvrhi::ICommandList& commandList,
                                            const levain::assets::Model& model,
                                            const levain::assets::AssetRegistry& registry,
-                                           const levain::assets::ModelCache& models)
+                                           const levain::assets::ModelCache& models,
+                                           const levain::render::SkinningPass& skinning,
+                                           std::uint32_t skinJointCount)
 {
     const levain::assets::TextureFormat target = textureTargetOf(device);
     ModelGpu gpu;
@@ -440,9 +467,29 @@ levain::core::Result<ModelGpu> uploadModel(nvrhi::IDevice& device, nvrhi::IComma
                                     .color = baseColor.value_or(vertex.normal * 0.5f + 0.5f),
                                     .uv = vertex.uv});
             }
-            primitives.push_back({.mesh = levain::render::createMesh(device, commandList, vertices,
-                                                                     primitive.indices),
-                                  .material = primitive.material});
+            if (primitive.joints.empty())
+            {
+                primitives.push_back({.mesh = levain::render::createMesh(
+                                          device, commandList, vertices, primitive.indices),
+                                      .material = primitive.material,
+                                      .skin = std::nullopt});
+                continue;
+            }
+            // Skinné : les mêmes sommets, avec leurs os et leurs poids, que le compute déformera.
+            std::vector<levain::render::SkinnedVertex> skinned;
+            skinned.reserve(vertices.size());
+            for (std::size_t v = 0; v < vertices.size(); ++v)
+            {
+                skinned.push_back({.position = vertices[v].position,
+                                   .color = vertices[v].color,
+                                   .uv = vertices[v].uv,
+                                   .joints = primitive.joints[v],
+                                   .weights = primitive.weights[v]});
+            }
+            levain::render::SkinnedMesh skin = levain::render::createSkinnedMesh(
+                device, commandList, skinning, skinned, primitive.indices, skinJointCount);
+            primitives.push_back(
+                {.mesh = skin.skinned, .material = primitive.material, .skin = std::move(skin)});
         }
     }
     for (const levain::assets::ModelMaterial& material : model.materials)
@@ -479,14 +526,55 @@ void bindModelMaterials(nvrhi::IDevice& device, const levain::render::MeshPass& 
     }
 }
 
-/// Où poser le modèle de `--model` : devant la caméra de départ, sur le sol, tourné de trois quarts
-/// pour montrer deux faces, et deux fois plus grand que nature pour qu'un objet de quelques mètres
-/// se voie de loin.
-levain::scene::Transform modelPlacement()
+/// Où poser le modèle de `--model` : devant la caméra de départ, sur le sol, et tourné de trois
+/// quarts pour montrer deux faces. `scale` vaut 2 par défaut, pour qu'un objet de quelques mètres
+/// se voie de loin ; `--model-scale` le change pour un modèle d'une autre unité (Fox mesure une
+/// centaine d'unités).
+levain::scene::Transform modelPlacement(float scale)
 {
     return {.position = {96.0f, -1.0f, 104.0f},
             .rotation = glm::angleAxis(glm::radians(-50.0f), glm::vec3{0.0f, 1.0f, 0.0f}),
-            .scale = glm::vec3{2.0f}};
+            .scale = glm::vec3{scale}};
+}
+
+/// Vrai si l'un des meshes du modèle est skinné : il faut alors son squelette (ADR-0022).
+bool isSkinned(const levain::assets::Model& model)
+{
+    return std::ranges::any_of(model.meshes,
+                               [](const levain::assets::ModelMesh& mesh)
+                               {
+                                   return std::ranges::any_of(
+                                       mesh.primitives, [](const levain::assets::MeshPrimitive& p)
+                                       { return !p.joints.empty(); });
+                               });
+}
+
+/// L'indice du clip `name`, ou du premier si aucun n'est demandé. Un nom inconnu est un échec, qui
+/// liste les clips du modèle.
+levain::core::Result<std::size_t> clipIndexOf(const levain::animation::AnimationSet& set,
+                                              const std::optional<std::string>& name)
+{
+    if (set.clips.empty())
+    {
+        return levain::core::makeError(levain::core::ErrorCode::InvalidData,
+                                       "modèle skinné sans clip");
+    }
+    if (!name)
+    {
+        return 0;
+    }
+    std::string available;
+    for (std::size_t clip = 0; clip < set.clips.size(); ++clip)
+    {
+        if (set.clips[clip].name == *name)
+        {
+            return clip;
+        }
+        available += (clip == 0 ? "" : ", ") + set.clips[clip].name;
+    }
+    return levain::core::makeError(
+        levain::core::ErrorCode::InvalidData,
+        std::format("clip « {} » inconnu ; clips : {}", *name, available));
 }
 
 /// Ce que le scan des assets a changé sur le disque (ADR-0019) : les .meta créés et rattachés sont
@@ -514,7 +602,8 @@ void logScanReport(const levain::assets::ScanReport& report)
 /// le modèle de `--model`.
 levain::core::Result<DemoScene>
 createDemoScene(levain::gpu::GpuDevice& gpu, const levain::render::SamplerSettings& sampler,
-                const std::optional<std::filesystem::path>& modelPath)
+                const std::optional<std::filesystem::path>& modelPath,
+                const std::optional<std::string>& clipName, float modelScale)
 {
     // Le modèle de `--model`, par son GUID : le dossier qui le contient est scanné (ADR-0019), ce
     // qui lui donne un .meta s'il n'en avait pas.
@@ -577,6 +666,37 @@ createDemoScene(levain::gpu::GpuDevice& gpu, const levain::render::SamplerSettin
     const std::vector<levain::assets::Image> mips =
         levain::assets::buildMipChain(std::move(*image));
 
+    // Un modèle skinné anime son squelette (ADR-0022) : la passerelle relit son glTF.
+    // ponytail: squelette et clips viennent toujours de la source ; leur cuisson dans .cooked/
+    // (ADR-0022) viendra quand leur lecture pèsera au chargement (0,55 ms pour Fox).
+    std::optional<levain::animation::AnimationSet> animation;
+    std::size_t clip = 0;
+    if (model != nullptr && isSkinned(*model))
+    {
+        auto set = levain::animation::importAnimationSet(
+            levain::assets::pathOf(registry, modelId).value_or(*modelPath));
+        if (!set)
+        {
+            return std::unexpected(set.error());
+        }
+        auto index = clipIndexOf(*set, clipName);
+        if (!index)
+        {
+            return std::unexpected(index.error());
+        }
+        clip = *index;
+        levain::core::log("sandbox", levain::core::LogLevel::Info,
+                          "modèle skinné : {} os, clip « {} » ({:.2f} s) joué en boucle",
+                          set->jointNames.size(), set->clips[clip].name,
+                          set->clips[clip].durationSeconds);
+        animation = std::move(*set);
+    }
+
+    auto skinning = levain::render::createSkinningPass(*gpu.nvrhi);
+    if (!skinning)
+    {
+        return std::unexpected(skinning.error());
+    }
     auto meshPass = levain::render::createMeshPass(*gpu.nvrhi, sceneTargetOf(gpu));
     if (!meshPass)
     {
@@ -592,7 +712,8 @@ createDemoScene(levain::gpu::GpuDevice& gpu, const levain::render::SamplerSettin
     spawnCubeGrid(world);
     if (model != nullptr)
     {
-        levain::assets::instantiateModel(world, *model, modelId, "model").set(modelPlacement());
+        levain::assets::instantiateModel(world, *model, modelId, "model")
+            .set(modelPlacement(modelScale));
     }
     // La caméra est une entité comme les autres : basse, sur le côté de la grille, et visant loin
     // devant. Elle porte son état précédent pour que le rendu l'interpole entre deux pas de
@@ -630,11 +751,16 @@ createDemoScene(levain::gpu::GpuDevice& gpu, const levain::render::SamplerSettin
     std::map<levain::assets::AssetId, ModelGpu> models;
     if (model != nullptr)
     {
-        auto uploaded = uploadModel(*gpu.nvrhi, *upload, *model, registry, modelCache);
+        const auto skinJoints =
+            static_cast<std::uint32_t>(animation ? animation->skinJoints.size() : 0);
+        auto uploaded =
+            uploadModel(*gpu.nvrhi, *upload, *model, registry, modelCache, *skinning, skinJoints);
         if (!uploaded)
         {
             return std::unexpected(uploaded.error());
         }
+        uploaded->animation = std::move(animation);
+        uploaded->clip = clip;
         models.emplace(modelId, std::move(*uploaded));
     }
     const std::array<glm::vec3, 1> origin{glm::vec3{0.0f}};
@@ -675,6 +801,7 @@ createDemoScene(levain::gpu::GpuDevice& gpu, const levain::render::SamplerSettin
                      .cubes = std::move(cubes),
                      .cubePositions = std::move(cubePositions),
                      .meshPass = std::move(*meshPass),
+                     .skinning = std::move(*skinning),
                      .cube = std::move(cube),
                      .grid = std::move(grid),
                      .ground = std::move(ground),
@@ -690,6 +817,8 @@ createDemoScene(levain::gpu::GpuDevice& gpu, const levain::render::SamplerSettin
                      .cameraEntity = cameraEntity,
                      .camera = camera,
                      .gpuTimer = levain::render::createGpuTimer(*gpu.nvrhi),
+                     .skinningTimer = levain::render::createGpuTimer(*gpu.nvrhi),
+                     .skinningCost = {},
                      .depth = {}};
 }
 
@@ -703,6 +832,53 @@ glm::mat4 cubeRotation(double seconds)
 /// Efface l'image de la swapchain et son depth buffer, y dessine la grille, et la présente. Rend le
 /// temps GPU d'une frame précédente, dès qu'il est lisible. Avec `capture`, l'image est aussi
 /// copiée pour être relue (`render::readBack`).
+/// Anime les modèles skinnés (ADR-0022) : la pose de leur clip à `seconds`, ses matrices, puis un
+/// dispatch par mesh skinné. À enregistrer avant les dessins qui lisent les sommets déformés. Le
+/// coût est relevé dans `scene.skinningCost`.
+void animateModels(nvrhi::IDevice& device, nvrhi::ICommandList& commandList, DemoScene& scene,
+                   double seconds)
+{
+    const Clock::time_point start = Clock::now();
+    std::optional<std::optional<double>> gpuMs; ///< Vide tant qu'aucun modèle n'est animé.
+    for (auto& [id, model] : scene.models)
+    {
+        if (!model.animation)
+        {
+            continue;
+        }
+        if (!gpuMs)
+        {
+            gpuMs = levain::render::beginGpuTimer(device, commandList, scene.skinningTimer);
+        }
+        levain::animation::samplePose(*model.animation, model.clip, static_cast<float>(seconds),
+                                      model.pose);
+        levain::animation::skinningMatrices(*model.animation, model.pose, model.skinMatrices);
+        for (const std::vector<ModelPrimitiveGpu>& mesh : model.meshes)
+        {
+            for (const ModelPrimitiveGpu& primitive : mesh)
+            {
+                if (primitive.skin)
+                {
+                    levain::render::skinMesh(commandList, scene.skinning, *primitive.skin,
+                                             model.skinMatrices);
+                }
+            }
+        }
+    }
+    if (!gpuMs)
+    {
+        return;
+    }
+    levain::render::endGpuTimer(commandList, scene.skinningTimer);
+    scene.skinningCost.cpuMs += secondsBetween(start, Clock::now()) * 1000.0;
+    ++scene.skinningCost.frames;
+    if (*gpuMs)
+    {
+        scene.skinningCost.gpuMs += **gpuMs;
+        ++scene.skinningCost.gpuSamples;
+    }
+}
+
 std::optional<double> renderFrame(levain::gpu::GpuDevice& gpu,
                                   const levain::platform::Window& window, DemoScene& scene,
                                   nvrhi::ICommandList& commandList, double seconds,
@@ -747,6 +923,7 @@ std::optional<double> renderFrame(levain::gpu::GpuDevice& gpu,
         commandList.clearTextureFloat(backBuffer, nvrhi::AllSubresources, clearColor);
         // 1 : la profondeur la plus lointaine, que tout ce qu'on dessine vient remplacer.
         commandList.clearDepthStencilTexture(depth, nvrhi::AllSubresources, true, 1.0f, false, 0);
+        animateModels(*gpu.nvrhi, commandList, scene, seconds);
         // Le renderer dessine ce que contient le monde : les positions du tour qui vient de finir.
         gatherCubePositions(scene.cubes, scene.cubePositions);
         levain::render::updateInstances(commandList, scene.grid, scene.cubePositions);
@@ -899,6 +1076,10 @@ struct SandboxOptions
     float maxAnisotropy = 16.0f;
     /// Un glTF à afficher devant la caméra (M4.1).
     std::optional<std::filesystem::path> modelPath;
+    /// Le clip que joue un modèle skinné, par son nom ; le premier par défaut.
+    std::optional<std::string> clipName;
+    /// L'échelle du modèle (voir `modelPlacement`).
+    float modelScale = 2.0f;
     /// Où écrire une capture de la dernière image, en PNG. Avec `--seconds`, c'est ce qui montre un
     /// rendu à distance, sans écran ni capture du bureau.
     std::optional<std::filesystem::path> capturePath;
@@ -928,6 +1109,11 @@ std::optional<SandboxOptions> parseOptions(std::span<char* const> arguments)
         {
             return std::nullopt;
         }
+        if (name == "--clip")
+        {
+            options.clipName = std::string{arguments[i + 1]};
+            continue;
+        }
         if (name == "--capture" || name == "--model")
         {
             (name == "--capture" ? options.capturePath : options.modelPath) =
@@ -946,6 +1132,10 @@ std::optional<SandboxOptions> parseOptions(std::span<char* const> arguments)
         else if (name == "--anisotropy")
         {
             options.maxAnisotropy = static_cast<float>(*value);
+        }
+        else if (name == "--model-scale")
+        {
+            options.modelScale = static_cast<float>(*value);
         }
         else
         {
@@ -1110,6 +1300,19 @@ bool runMainLoop(levain::platform::Window& window, levain::gpu::GpuDevice& gpu, 
         "sandbox", levain::core::LogLevel::Info,
         "boucle arrêtée après {:.1f} s et {} frames ; GPU : {:.3f} ms en moyenne sur {} mesures",
         secondsBetween(loopStart, Clock::now()), frameCount, averageOf(totalGpu), totalGpu.samples);
+    const SkinningCost& skinning = scene.skinningCost;
+    if (skinning.frames > 0)
+    {
+        levain::core::log("sandbox", levain::core::LogLevel::Info,
+                          "skinning : {:.1f} µs CPU sur {} images, {:.1f} µs GPU sur {} mesures, "
+                          "en moyenne",
+                          skinning.cpuMs * 1000.0 / static_cast<double>(skinning.frames),
+                          skinning.frames,
+                          skinning.gpuSamples > 0
+                              ? skinning.gpuMs * 1000.0 / static_cast<double>(skinning.gpuSamples)
+                              : 0.0,
+                          skinning.gpuSamples);
+    }
 
     return !capturePath || captureFrame(gpu, window, scene, *commandList,
                                         secondsBetween(loopStart, Clock::now()), *capturePath);
@@ -1127,8 +1330,9 @@ int main(int argc, char** argv)
             parseOptions(std::span{argv, static_cast<std::size_t>(argc)});
         if (!options)
         {
-            std::println(stderr, "usage : levain_sandbox [--seconds N] [--anisotropy N] [--capture "
-                                 "fichier.png] [--model fichier.gltf]");
+            std::println(stderr,
+                         "usage : levain_sandbox [--seconds N] [--anisotropy N] [--capture "
+                         "fichier.png] [--model fichier.gltf [--clip nom] [--model-scale N]]");
             return 2;
         }
 
@@ -1161,7 +1365,8 @@ int main(int argc, char** argv)
         const levain::render::SamplerSettings sampler{.maxAnisotropy = options->maxAnisotropy};
         levain::core::log("sandbox", levain::core::LogLevel::Info, "filtrage anisotrope : {}",
                           levain::render::clampAnisotropy(sampler.maxAnisotropy));
-        auto scene = createDemoScene(*gpu, sampler, options->modelPath);
+        auto scene = createDemoScene(*gpu, sampler, options->modelPath, options->clipName,
+                                     options->modelScale);
         if (!scene)
         {
             levain::core::log("sandbox", levain::core::LogLevel::Critical, "{}",

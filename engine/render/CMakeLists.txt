@@ -8,6 +8,7 @@ add_library(levain_render STATIC
     src/mesh_pass.cpp
     src/readback.cpp
     src/shader.cpp
+    src/skinning.cpp
     src/texture.cpp
     src/triangle.cpp)
 add_library(levain::render ALIAS levain_render)

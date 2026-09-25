@@ -12,6 +12,8 @@ avec tous leurs niveaux de mip (`createTexture`, `createMaterialBindings`), lus 
 (`createSampler`, filtrage anisotrope), et le temps GPU d'une frame (`GpuTimer`). Le pipeline des meshes se
 recrée à chaud quand son shader change (`reloadMeshPassShaders`, ADR-0014).
 
+**En M4.5** : la première passe compute, le skinning (`SkinningPass`, ADR-0022).
+
 ## Invariants
 
 1. **Aucune dépendance vers l'API graphique.** Le seul endroit qui distingue Vulkan de Direct3D 12 est
@@ -30,6 +32,7 @@ recrée à chaud quand son shader change (`reloadMeshPassShaders`, ADR-0014).
 | [`include/levain/render/mesh_pass.hpp`](include/levain/render/mesh_pass.hpp) | `createMeshPass`, `reloadMeshPassShaders`, `ensureDepthTexture`, `createMaterialBindings`, `drawMesh` — la première passe avec constantes, profondeur et texture |
 | [`include/levain/render/texture.hpp`](include/levain/render/texture.hpp) | `TextureLevel`, `createTexture` — une texture sRGB et tous ses niveaux de mip ; `SamplerSettings`, `createSampler`, `clampAnisotropy` |
 | [`include/levain/render/gpu_timer.hpp`](include/levain/render/gpu_timer.hpp) | `GpuTimer`, `beginGpuTimer`, `endGpuTimer` — temps GPU par timer queries |
+| [`include/levain/render/skinning.hpp`](include/levain/render/skinning.hpp) | `SkinnedVertex`, `createSkinningPass`, `createSkinnedMesh`, `skinMesh` — le skinning en compute |
 
 ## Ce qu'il faut pour dessiner un triangle avec NVRHI
 
@@ -104,6 +107,26 @@ Si la compilation échoue, le message de slangc va dans le log et le pipeline en
 Si elle réussit mais que NVRHI refuse le pipeline, la passe garde aussi l'ancien : le remplacement se fait sur une
 copie. Limite : un shader qui ne correspond plus à la passe (un attribut retiré) déclenche une erreur de
 validation, donc une assertion en Debug. Vérification : `tools/shader-hot-reload.sh`.
+
+## Le skinning en compute
+
+Un mesh skinné a deux buffers de sommets ([ADR-0022](../../docs/adr/0022-animation-squelettique.md)) : ses
+sommets d'origine, avec leurs quatre os et leurs poids (`SkinnedVertex`), et ses sommets déformés, au format de
+`MeshVertex`. À chaque image, `skinMesh` envoie les matrices des os et lance `shaders/skinning.slang`, un thread
+par sommet, qui écrit les sommets déformés. La passe des meshes les dessine ensuite comme ceux d'un mesh rigide :
+elle ne sait rien de l'animation, et les ombres (M5.3) les reliront de même.
+
+Ce qu'apporte le compute à ce qu'on savait déjà :
+
+- **un pipeline compute** (`nvrhi::IComputePipeline`) : un shader et ses binding layouts, sans état de rendu ;
+- **des vues brutes** (`RawBuffer_SRV`, `RawBuffer_UAV`) : le shader lit et écrit octet par octet, pour que la
+  disposition soit exactement celle du C++. Un `StructuredBuffer` de `float3` serait aligné sur 16 octets sous
+  Vulkan, et décalerait tout sans erreur ;
+- **les transitions entre compute et dessin** : le même buffer est écrit par le compute (état *UnorderedAccess*)
+  puis lu comme vertex buffer. NVRHI suit l'état de chaque ressource et place la barrière entre les deux
+  (suivi automatique des états, activé par défaut).
+
+Coût mesuré sur Fox (24 os, en Release) : 3 µs CPU (pose, matrices, enregistrement) et 5 µs GPU par image.
 
 ## Mesurer le temps GPU
 

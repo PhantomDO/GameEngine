@@ -216,6 +216,22 @@ jobs:
         run: ./tools/texture-hot-reload.sh
 
 
+      # Fox : un modèle skinné qui court (M4.5, ADR-0022). En Debug, validation active : c'est la
+      # première passe compute du moteur. La ligne « skinning : » prouve que le compute a tourné.
+      - name: Lancer le sandbox avec Fox
+        if: matrix.preset == 'linux-debug'
+        env:
+          SDL_VIDEO_DRIVER: offscreen
+        run: |
+          set -euo pipefail
+          timeout --foreground --preserve-status -k 10 60 \
+            ./build/${{ matrix.preset }}/sandbox/levain_sandbox --seconds 2 \
+            --model assets-cache/Models/Fox/glTF/Fox.gltf --model-scale 0.05 --clip Run \
+            | tee fox.log
+          grep -q "skinning : " fox.log \
+            || { echo "::error::le skinning du renard n'a pas tourné"; exit 1; }
+
+
       # Sponza : 105 dessins par image. En Debug seulement, où la validation de NVRHI est active :
       # c'est elle qui a montré que le buffer des constantes manquait de versions (M4.1).
       - name: Lancer le sandbox avec Sponza
