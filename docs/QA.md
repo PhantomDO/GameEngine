@@ -37,7 +37,7 @@ pas à « comment mélanger deux clips sur un squelette ». Il pourrait remplace
 des clips devenait un problème : c'est ce qu'a fait Unreal.
 
 Les systèmes d'animation plus complets (graphes d'animation, *motion matching*) vivent dans des moteurs
-(Unreal, Godot, O3DE), pas dans des bibliothèques séparées.
+(Unreal, Godot), pas dans des bibliothèques séparées (déduit de la recherche).
 
 Références : [ADR-0022](adr/0022-animation-squelettique.md). [1] N. Frechette, *The Animation Compression Library
 in Unreal Engine 5.3* — https://nfrechette.github.io/2023/09/17/acl_in_ue/
