@@ -44,8 +44,8 @@ ensuite chaque sommet du mesh selon les os qui l'influencent (quatre au plus en 
 
 ## Décision
 
-**Un nouveau module, `engine/animation`**, entre `scene` et `render` dans l'ordre des dépendances (SPECS §7). Il
-contient :
+**Un nouveau module, `engine/animation`**, au-dessus d'`assets` (SPECS §7). `render` n'en dépend pas : le
+skinning ne reçoit que des matrices. Le module contient :
 
 - **la passerelle** : fastgltf lit le squelette et les clips d'un glTF, et remplit les structures d'import
   d'ozz (`RawSkeleton`, `RawAnimation`), que ses *builders* convertissent au format d'exécution ;
