@@ -67,6 +67,27 @@ TEST_CASE("un .lvmesh relu rend le même modèle")
     fs::remove_all(directory);
 }
 
+TEST_CASE("un .lvmesh garde le skinning des sommets et les nœuds os")
+{
+    const fs::path directory = freshDirectory();
+    auto model = levain::assets::loadGltf(fs::path{LEVAIN_TEST_DATA_DIR} / "two-joints.gltf",
+                                          levain::assets::AssetId{.high = 1, .low = 2},
+                                          levain::assets::AssetRegistry{});
+    REQUIRE(model.has_value());
+    REQUIRE(writeCookedModel(directory / "m.lvmesh", *model, SourceHash).has_value());
+
+    const auto read = readCookedModel(directory / "m.lvmesh", SourceHash);
+    REQUIRE(read.has_value());
+    CHECK(read->meshes[0].primitives[0].joints == model->meshes[0].primitives[0].joints);
+    CHECK(read->meshes[0].primitives[0].weights == model->meshes[0].primitives[0].weights);
+    REQUIRE(read->nodes.size() == model->nodes.size());
+    for (std::size_t n = 0; n < read->nodes.size(); ++n)
+    {
+        CHECK(read->nodes[n].joint == model->nodes[n].joint);
+    }
+    fs::remove_all(directory);
+}
+
 TEST_CASE("un .lvmesh périmé, tronqué ou d'un encodage inconnu est refusé")
 {
     const fs::path directory = freshDirectory();

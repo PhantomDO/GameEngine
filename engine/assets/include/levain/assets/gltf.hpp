@@ -36,6 +36,10 @@ struct MeshPrimitive
     std::vector<ModelVertex> vertices;
     std::vector<std::uint32_t> indices;
     std::optional<std::uint32_t> material; ///< Indice dans `Model::materials`.
+    /// Le skinning (ADR-0022), vide pour un mesh rigide : les quatre os qui influencent chaque
+    /// sommet, par leur indice dans le skin (`JOINTS_0`), et leurs poids (`WEIGHTS_0`).
+    std::vector<glm::u16vec4> joints;
+    std::vector<glm::vec4> weights;
 };
 
 /// Ce qu'un matériau glTF dit de la couleur de base (M4.1). Le reste du modèle metallic-roughness
@@ -61,6 +65,9 @@ struct ModelNode
     scene::Transform local; ///< Relatif au parent, comme le `Transform` du moteur.
     std::optional<std::uint32_t> mesh;
     std::optional<std::uint32_t> parent;
+    /// Un os d'un skin : la pose l'anime (ADR-0022), et ni lui ni ses descendants ne deviennent
+    /// des entités.
+    bool joint = false;
 };
 
 /// Un fichier glTF lu en mémoire, sans GPU ni monde flecs : il se teste seul, et la cuisson des
@@ -85,10 +92,11 @@ struct Model
 [[nodiscard]] core::Result<Model> loadGltf(const std::filesystem::path& path, AssetId self,
                                            const AssetRegistry& registry);
 
-/// Crée une entité par nœud, avec son `Transform` et sa hiérarchie (`flecs::Parent`, ADR-0015),
-/// sous une entité racine nommée `rootName`, que l'on déplace pour déplacer tout le modèle. Un
-/// nœud qui porte un mesh reçoit un `MeshRef` vers le mesh de l'asset `asset` (ADR-0019) : le
-/// modèle compte alors une référence de plus, et reste chargé tant qu'il en a.
+/// Crée une entité par nœud qui n'est pas un os, avec son `Transform` et sa hiérarchie
+/// (`flecs::Parent`, ADR-0015), sous une entité racine nommée `rootName`, que l'on déplace pour
+/// déplacer tout le modèle. Un nœud qui porte un mesh reçoit un `MeshRef` vers le mesh de l'asset
+/// `asset` (ADR-0019) : le modèle compte alors une référence de plus, et reste chargé tant qu'il en
+/// a.
 ///
 /// Le monde doit avoir importé `AssetsModule` (`asset_ref.hpp`).
 flecs::entity instantiateModel(flecs::world& world, const Model& model, AssetId asset,

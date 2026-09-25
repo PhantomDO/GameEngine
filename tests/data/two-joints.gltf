@@ -7,7 +7,8 @@
  "scenes": [
   {
    "nodes": [
-    0
+    0,
+    3
    ]
   }
  ],
@@ -36,6 +37,11 @@
     1,
     0
    ]
+  },
+  {
+   "name": "peau",
+   "mesh": 0,
+   "skin": 0
   }
  ],
  "skins": [
@@ -89,8 +95,8 @@
  ],
  "buffers": [
   {
-   "byteLength": 216,
-   "uri": "data:application/octet-stream;base64,AAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAADzBDU/8wQ1PwAAAAAAAIA/AAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAIC/AACgwAAAgD8AAIA/AAAAAAAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAoMAAAIA/"
+   "byteLength": 312,
+   "uri": "data:application/octet-stream;base64,AAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAADzBDU/8wQ1PwAAAAAAAIA/AAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAIC/AACgwAAAgD8AAIA/AAAAAAAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAoMAAAIA/AAAAvwAAAAAAAKBAAAAAPwAAAAAAAKBAAAAAAAAAgD8AAKBAAQAAAAEAAAAAAQAAAACAPwAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAEA/AACAPgAAAAAAAAAA"
   }
  ],
  "bufferViews": [
@@ -118,6 +124,24 @@
    "buffer": 0,
    "byteOffset": 88,
    "byteLength": 128
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 216,
+   "byteLength": 36,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 252,
+   "byteLength": 12,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 264,
+   "byteLength": 48,
+   "target": 34962
   }
  ],
  "accessors": [
@@ -162,6 +186,48 @@
    "componentType": 5126,
    "count": 2,
    "type": "MAT4"
+  },
+  {
+   "bufferView": 5,
+   "componentType": 5126,
+   "count": 3,
+   "type": "VEC3",
+   "min": [
+    -0.5,
+    0,
+    5
+   ],
+   "max": [
+    0.5,
+    1,
+    5
+   ]
+  },
+  {
+   "bufferView": 6,
+   "componentType": 5121,
+   "count": 3,
+   "type": "VEC4"
+  },
+  {
+   "bufferView": 7,
+   "componentType": 5126,
+   "count": 3,
+   "type": "VEC4"
+  }
+ ],
+ "meshes": [
+  {
+   "name": "peau",
+   "primitives": [
+    {
+     "attributes": {
+      "POSITION": 5,
+      "JOINTS_0": 6,
+      "WEIGHTS_0": 7
+     }
+    }
+   ]
   }
  ]
 }

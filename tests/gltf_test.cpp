@@ -154,3 +154,26 @@ TEST_CASE("une image qui a son propre fichier se désigne par son GUID, et doit 
     CHECK(image->width == 2);
     std::filesystem::remove_all(root);
 }
+
+TEST_CASE("un mesh skinné garde ses os et ses poids, et les os ne deviennent pas des entités")
+{
+    // tests/data/two-joints.gltf : un triangle « peau », lié aux os « racine » et « bout » (voir
+    // animation_test.cpp).
+    const auto model =
+        loadTestModel(std::filesystem::path{LEVAIN_TEST_DATA_DIR} / "two-joints.gltf");
+    REQUIRE(model.has_value());
+    const levain::assets::MeshPrimitive& skin = model->meshes[0].primitives[0];
+    REQUIRE(skin.joints.size() == 3);
+    REQUIRE(skin.weights.size() == 3);
+    CHECK(skin.joints[2] == glm::u16vec4{0, 1, 0, 0}); // lu depuis des octets
+    CHECK(skin.weights[2].x == doctest::Approx(0.75f));
+
+    flecs::world world;
+    world.import<levain::scene::SceneModule>();
+    world.import<levain::assets::AssetsModule>();
+    levain::assets::instantiateModel(world, *model, TestModelId, "modele");
+    int transforms = 0;
+    world.each([&](const levain::scene::Transform&) { ++transforms; });
+    // La racine du modèle, le porteur et la peau ; ni « racine » ni « bout ».
+    CHECK(transforms == 3);
+}
