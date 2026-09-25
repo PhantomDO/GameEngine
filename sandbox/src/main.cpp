@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <array>
 #include <charconv>
 #include <chrono>
@@ -12,6 +13,7 @@
 #include <memory>
 #include <optional>
 #include <print>
+#include <set>
 #include <span>
 #include <string>
 #include <string_view>
@@ -158,8 +160,10 @@ struct ModelGpu
     /// Une par texture distincte, par sa référence (ADR-0020) : une texture partagée par deux
     /// matériaux n'est chargée qu'une fois.
     std::map<levain::assets::AssetRef, nvrhi::TextureHandle> textures;
-    nvrhi::TextureHandle white;   ///< Pour un matériau sans texture, que sa couleur de base colore.
-    std::size_t textureBytes = 0; ///< Les octets des textures en mémoire vidéo (critère de #92).
+    nvrhi::TextureHandle white; ///< Pour un matériau sans texture, que sa couleur de base colore.
+    /// Les octets des textures en mémoire vidéo au chargement (critère de #92). Un hot-reload
+    /// (ADR-0021) ne le met pas à jour.
+    std::size_t textureBytes = 0;
     std::vector<nvrhi::BindingSetHandle> materials;
 };
 
@@ -185,6 +189,7 @@ struct DemoScene
     levain::render::Instances modelInstance; ///< Une seule, à l'origine : la matrice monde place.
     flecs::query<const levain::assets::MeshRef, const levain::scene::WorldTransform> modelParts;
     nvrhi::TextureHandle checker;
+    nvrhi::SamplerHandle sampler; ///< Gardé pour refaire les binding sets au hot-reload.
     nvrhi::BindingSetHandle material;
     flecs::entity cameraEntity; ///< Transform + FpsController : la caméra libre (M3.4).
     levain::render::Camera camera;
@@ -364,6 +369,50 @@ nvrhi::FramebufferInfo sceneTargetOf(levain::gpu::GpuDevice& gpu)
         .setDepthFormat(levain::render::DepthFormat);
 }
 
+/// Le format où charger les textures cuites : le BC7 si le GPU l'échantillonne (tous les GPU de
+/// PC), le RGBA8 sinon.
+levain::assets::TextureFormat textureTargetOf(nvrhi::IDevice& device)
+{
+    return levain::render::supportsSampledFormat(device, nvrhi::Format::BC7_UNORM_SRGB)
+               ? levain::assets::TextureFormat::Bc7Srgb
+               : levain::assets::TextureFormat::Rgba8Srgb;
+}
+
+struct UploadedTexture
+{
+    nvrhi::TextureHandle handle;
+    std::size_t bytes = 0; ///< En mémoire vidéo, mips comprises.
+};
+
+/// Charge la texture `ref`, cuite si possible (ADR-0020) : le cache BC7 se copie tel quel, sinon
+/// la source. Son envoi est enregistré dans `commandList`.
+levain::core::Result<UploadedTexture> uploadTexture(nvrhi::IDevice& device,
+                                                    nvrhi::ICommandList& commandList,
+                                                    const levain::assets::AssetRegistry& registry,
+                                                    const levain::assets::ModelCache& models,
+                                                    levain::assets::AssetRef ref,
+                                                    levain::assets::TextureFormat target)
+{
+    auto data = levain::assets::loadTextureData(registry, models, ref, target);
+    if (!data)
+    {
+        return std::unexpected(data.error());
+    }
+    // Le nom du fichier source, pour retrouver la texture dans une capture RenderDoc
+    // (tools/renderdoc-mips.py). NVRHI le recopie.
+    const std::string name =
+        levain::assets::pathOf(registry, ref.asset).value_or("glTF").filename().string();
+    UploadedTexture texture{
+        .handle = levain::render::createTexture(device, commandList, textureLevelsOf(*data),
+                                                name.c_str(), nvrhiFormatOf(data->format)),
+        .bytes = 0};
+    for (const levain::assets::TextureMip& mip : data->mips)
+    {
+        texture.bytes += mip.bytes.size();
+    }
+    return texture;
+}
+
 /// Envoie meshes et textures, et enregistre l'envoi dans `commandList`. La couleur d'un sommet est
 /// la couleur de base de son matériau ; sans matériau, c'est sa normale ramenée dans [0, 1], qui
 /// rend les formes lisibles sans éclairage (M5.1).
@@ -372,11 +421,7 @@ levain::core::Result<ModelGpu> uploadModel(nvrhi::IDevice& device, nvrhi::IComma
                                            const levain::assets::AssetRegistry& registry,
                                            const levain::assets::ModelCache& models)
 {
-    // Le BC7 si le GPU l'échantillonne (tous les GPU de PC), le RGBA8 sinon.
-    const levain::assets::TextureFormat target =
-        levain::render::supportsSampledFormat(device, nvrhi::Format::BC7_UNORM_SRGB)
-            ? levain::assets::TextureFormat::Bc7Srgb
-            : levain::assets::TextureFormat::Rgba8Srgb;
+    const levain::assets::TextureFormat target = textureTargetOf(device);
     ModelGpu gpu;
     std::vector<levain::render::MeshVertex> vertices;
     for (const levain::assets::ModelMesh& mesh : model.meshes)
@@ -406,27 +451,14 @@ levain::core::Result<ModelGpu> uploadModel(nvrhi::IDevice& device, nvrhi::IComma
         {
             continue;
         }
-        // Cuite si possible (ADR-0020) : le cache BC7 se copie tel quel, sinon la source.
-        auto data =
-            levain::assets::loadTextureData(registry, models, *material.baseColorTexture, target);
-        if (!data)
+        auto texture = uploadTexture(device, commandList, registry, models,
+                                     *material.baseColorTexture, target);
+        if (!texture)
         {
-            return std::unexpected(data.error());
+            return std::unexpected(texture.error());
         }
-        // Le nom du fichier source, pour retrouver la texture dans une capture RenderDoc
-        // (tools/renderdoc-mips.py). NVRHI le recopie.
-        const std::string name = levain::assets::pathOf(registry, material.baseColorTexture->asset)
-                                     .value_or("glTF")
-                                     .filename()
-                                     .string();
-        gpu.textures.emplace(*material.baseColorTexture,
-                             levain::render::createTexture(device, commandList,
-                                                           textureLevelsOf(*data), name.c_str(),
-                                                           nvrhiFormatOf(data->format)));
-        for (const levain::assets::TextureMip& mip : data->mips)
-        {
-            gpu.textureBytes += mip.bytes.size();
-        }
+        gpu.textures.emplace(*material.baseColorTexture, texture->handle);
+        gpu.textureBytes += texture->bytes;
     }
     const levain::assets::Image white{.width = 1, .height = 1, .rgba = {255, 255, 255, 255}};
     gpu.white =
@@ -610,7 +642,7 @@ createDemoScene(levain::gpu::GpuDevice& gpu, const levain::render::SamplerSettin
         levain::render::createInstances(*gpu.nvrhi, *upload, origin);
     upload->close();
     gpu.nvrhi->executeCommandList(upload);
-    const nvrhi::SamplerHandle samplerHandle = levain::render::createSampler(*gpu.nvrhi, sampler);
+    nvrhi::SamplerHandle samplerHandle = levain::render::createSampler(*gpu.nvrhi, sampler);
     nvrhi::BindingSetHandle material =
         levain::render::createMaterialBindings(*gpu.nvrhi, *meshPass, *checker, *samplerHandle);
     if (model != nullptr)
@@ -653,6 +685,7 @@ createDemoScene(levain::gpu::GpuDevice& gpu, const levain::render::SamplerSettin
                      .modelInstance = std::move(modelInstance),
                      .modelParts = std::move(modelParts),
                      .checker = std::move(checker),
+                     .sampler = std::move(samplerHandle),
                      .material = std::move(material),
                      .cameraEntity = cameraEntity,
                      .camera = camera,
@@ -751,6 +784,109 @@ std::optional<double> renderFrame(levain::gpu::GpuDevice& gpu,
     LEVAIN_PROFILE_SCOPE_NAMED("présentation");
     levain::gpu::presentFrame(gpu);
     return gpuMs;
+}
+
+/// Le hot-reload des textures (ADR-0021) : les fichiers du registre, relus une fois par période.
+struct TextureReload
+{
+    levain::assets::AssetWatch watch;
+    Clock::time_point nextCheck;
+};
+
+/// Comme les shaders : au plus 100 ms entre l'enregistrement d'une texture et sa détection.
+constexpr std::chrono::milliseconds TextureCheckPeriod{100};
+
+TextureReload startTextureReload(const levain::assets::AssetRegistry& registry)
+{
+    return TextureReload{.watch = levain::assets::watchAssets(registry),
+                         .nextCheck = Clock::now() + TextureCheckPeriod};
+}
+
+/// Le temps écoulé depuis la dernière modification de `file`. `file_clock` : la même horloge que
+/// les dates de modification, sans conversion.
+double millisecondsSinceWrite(const std::filesystem::path& file)
+{
+    std::error_code error;
+    const auto age = std::filesystem::file_time_type::clock::now() -
+                     std::filesystem::last_write_time(file, error);
+    return std::chrono::duration<double, std::milli>(age).count();
+}
+
+/// Recharge les textures modifiées sur le disque, depuis leur source puisque leur fichier cuit est
+/// périmé, et refait les binding sets des modèles qui les utilisent. Une texture qui ne se charge
+/// pas (fichier invalide, ou à moitié écrit) reste en place, et l'erreur va dans le log.
+void reloadChangedTextures(TextureReload& reload, nvrhi::IDevice& device,
+                           levain::assets::AssetRegistry& registry,
+                           const levain::assets::ModelCache& modelCache,
+                           std::map<levain::assets::AssetId, ModelGpu>& models,
+                           const levain::render::MeshPass& meshPass, nvrhi::ISampler& sampler)
+{
+    const Clock::time_point now = Clock::now();
+    if (now < reload.nextCheck)
+    {
+        return;
+    }
+    reload.nextCheck = now + TextureCheckPeriod;
+    const std::vector<levain::assets::AssetId> changed =
+        levain::assets::takeChangedAssets(registry, reload.watch);
+    if (changed.empty())
+    {
+        return;
+    }
+
+    const nvrhi::CommandListHandle commandList = device.createCommandList();
+    commandList->open();
+    std::set<levain::assets::AssetId> touchedModels;
+    for (const levain::assets::AssetId& id : changed)
+    {
+        const std::filesystem::path file = registry.entries.at(id).file;
+        // Une texture dans son propre fichier est le sous-asset 0 de son GUID (ADR-0020).
+        const levain::assets::AssetRef ref{.asset = id, .sub = 0};
+        const bool inUse = std::ranges::any_of(models, [&](const auto& model)
+                                               { return model.second.textures.contains(ref); });
+        if (!inUse)
+        {
+            levain::core::log("assets", levain::core::LogLevel::Info,
+                              "{} modifié : aucune texture en usage, rien à recharger (seules les "
+                              "textures se rechargent à chaud, ADR-0021)",
+                              file.filename().string());
+            continue;
+        }
+        const Clock::time_point loadStart = Clock::now();
+        auto texture =
+            uploadTexture(device, *commandList, registry, modelCache, ref, textureTargetOf(device));
+        if (!texture)
+        {
+            levain::core::log("assets", levain::core::LogLevel::Error,
+                              "{} ; l'ancienne texture reste", texture.error().message);
+            continue;
+        }
+        for (auto& [modelId, gpu] : models)
+        {
+            if (auto slot = gpu.textures.find(ref); slot != gpu.textures.end())
+            {
+                slot->second = texture->handle;
+                touchedModels.insert(modelId);
+            }
+        }
+        // Le critère de M4.4 : l'âge du fichier quand la texture est prête, visible à l'image
+        // suivante.
+        levain::core::log(
+            "assets", levain::core::LogLevel::Info,
+            "{} rechargée en {:.0f} ms, {:.0f} ms après son écriture", file.filename().string(),
+            secondsBetween(loadStart, Clock::now()) * 1000.0, millisecondsSinceWrite(file));
+    }
+    commandList->close();
+    device.executeCommandList(commandList);
+
+    // Un binding set désigne ses textures : ceux des modèles touchés sont refaits. NVRHI garde les
+    // anciens, et l'ancienne texture, tant qu'une image en vol s'en sert.
+    for (const levain::assets::AssetId& modelId : touchedModels)
+    {
+        ModelGpu& gpu = models.at(modelId);
+        gpu.materials.clear();
+        bindModelMaterials(device, meshPass, sampler, modelCache.models.at(modelId), gpu);
+    }
 }
 
 struct SandboxOptions
@@ -865,6 +1001,7 @@ bool runMainLoop(levain::platform::Window& window, levain::gpu::GpuDevice& gpu, 
     Clock::time_point previousFrameEnd = loopStart;
     int frameCount = 0;
     ShaderReload shaderReload = startShaderReload();
+    TextureReload textureReload = startTextureReload(scene.registry);
     const nvrhi::FramebufferInfo sceneTarget = sceneTargetOf(gpu);
 
     levain::input::InputState input = levain::input::makeInputState(bindings);
@@ -915,6 +1052,8 @@ bool runMainLoop(levain::platform::Window& window, levain::gpu::GpuDevice& gpu, 
         }
 
         reloadChangedShaders(shaderReload, *gpu.nvrhi, sceneTarget, scene.meshPass);
+        reloadChangedTextures(textureReload, *gpu.nvrhi, scene.registry, scene.modelCache,
+                              scene.models, scene.meshPass, *scene.sampler);
 
         {
             // Un tour du monde : les pas de simulation que la dernière image a mérités, puis une

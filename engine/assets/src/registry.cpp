@@ -8,6 +8,7 @@
 #include <system_error>
 
 #include "levain/core/file.hpp"
+#include "levain/core/log.hpp"
 
 namespace levain::assets
 {
@@ -25,6 +26,18 @@ core::Result<std::uint64_t> hashOfFile(const fs::path& path)
         return std::unexpected(bytes.error());
     }
     return contentHash(*bytes);
+}
+
+/// Réécrit le hash d'un `.meta`, sans toucher à son GUID.
+core::Result<void> updateMetaHash(const fs::path& metaPath, std::uint64_t hash)
+{
+    auto meta = readMeta(metaPath);
+    if (!meta)
+    {
+        return std::unexpected(meta.error());
+    }
+    meta->hash = hash;
+    return writeMeta(metaPath, *meta);
 }
 
 /// Enregistre `id` pour `path`, ou échoue si un autre fichier le porte déjà (cas 5).
@@ -167,6 +180,60 @@ core::Result<ScanReport> scanAssets(const fs::path& root, AssetRegistry& registr
 
     report.orphans = std::move(orphans); // Cas 4.
     return report;
+}
+
+AssetWatch watchAssets(const AssetRegistry& registry)
+{
+    AssetWatch watch;
+    for (const auto& [id, entry] : registry.entries)
+    {
+        // Illisible, la date vaut file_time_type::min() : le fichier comptera comme modifié
+        // quand il reviendra.
+        std::error_code error;
+        watch.lastWrites.emplace(id, fs::last_write_time(entry.file, error));
+    }
+    return watch;
+}
+
+std::vector<AssetId> takeChangedAssets(AssetRegistry& registry, AssetWatch& watch)
+{
+    std::vector<AssetId> changed;
+    for (auto& [id, entry] : registry.entries)
+    {
+        // Les versions sans exception : un éditeur peut supprimer le fichier juste avant d'écrire
+        // sa nouvelle version.
+        std::error_code error;
+        const fs::file_time_type lastWrite = fs::last_write_time(entry.file, error);
+        if (error)
+        {
+            continue;
+        }
+        auto [known, isNew] = watch.lastWrites.try_emplace(id, lastWrite);
+        if (isNew || known->second == lastWrite)
+        {
+            continue;
+        }
+        auto hash = hashOfFile(entry.file);
+        if (!hash)
+        {
+            continue; // la date n'est pas relevée : retenté au prochain appel
+        }
+        known->second = lastWrite;
+        if (*hash == entry.hash)
+        {
+            continue;
+        }
+        entry.hash = *hash;
+        changed.push_back(id);
+
+        // Le .meta suit, comme au scan (cas 1). S'il ne s'écrit pas, le registre a déjà le bon
+        // hash, et le prochain scan réparera le fichier.
+        if (auto written = updateMetaHash(metaPathOf(entry.file), *hash); !written)
+        {
+            core::log("assets", core::LogLevel::Warning, "{}", written.error().message);
+        }
+    }
+    return changed;
 }
 
 std::optional<AssetId> idOf(const AssetRegistry& registry, const fs::path& path)

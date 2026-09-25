@@ -62,6 +62,22 @@ struct ScanReport
 [[nodiscard]] std::optional<std::filesystem::path>
 cookedPathOf(const AssetRegistry& registry, AssetId id, std::string_view extension);
 
+/// Les dates de modification des fichiers du registre, pour le hot-reload (ADR-0021).
+struct AssetWatch
+{
+    std::map<AssetId, std::filesystem::file_time_type> lastWrites;
+};
+
+/// Commence à surveiller les fichiers de tous les assets de `registry`.
+[[nodiscard]] AssetWatch watchAssets(const AssetRegistry& registry);
+
+/// Les assets dont le contenu a changé depuis l'appel précédent, ou depuis `watchAssets`. Leur hash
+/// est mis à jour dans le registre et dans leur `.meta` : leur fichier cuit est alors périmé, et
+/// le prochain chargement prend la source (ADR-0021). Un fichier illisible pour l'instant (qu'un
+/// éditeur est en train de remplacer) est retenté à l'appel suivant ; un fichier réenregistré à
+/// l'identique n'est pas rendu.
+[[nodiscard]] std::vector<AssetId> takeChangedAssets(AssetRegistry& registry, AssetWatch& watch);
+
 /// Le chemin d'un asset, s'il est connu.
 [[nodiscard]] std::optional<std::filesystem::path> pathOf(const AssetRegistry& registry,
                                                           AssetId id);
