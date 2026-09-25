@@ -41,9 +41,10 @@
  "skins": [
   {
    "joints": [
-    1,
-    2
-   ]
+    2,
+    1
+   ],
+   "inverseBindMatrices": 4
   }
  ],
  "animations": [
@@ -88,8 +89,8 @@
  ],
  "buffers": [
   {
-   "byteLength": 88,
-   "uri": "data:application/octet-stream;base64,AAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAADzBDU/8wQ1PwAAAAAAAIA/AAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAEAAAAAAAAAAAA=="
+   "byteLength": 216,
+   "uri": "data:application/octet-stream;base64,AAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAADzBDU/8wQ1PwAAAAAAAIA/AAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAIC/AACgwAAAgD8AAIA/AAAAAAAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAoMAAAIA/"
   }
  ],
  "bufferViews": [
@@ -112,6 +113,11 @@
    "buffer": 0,
    "byteOffset": 52,
    "byteLength": 36
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 88,
+   "byteLength": 128
   }
  ],
  "accessors": [
@@ -150,6 +156,12 @@
    "componentType": 5126,
    "count": 3,
    "type": "VEC3"
+  },
+  {
+   "bufferView": 4,
+   "componentType": 5126,
+   "count": 2,
+   "type": "MAT4"
   }
  ]
 }

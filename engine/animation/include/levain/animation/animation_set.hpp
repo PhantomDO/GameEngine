@@ -1,9 +1,12 @@
 #pragma once
 
+#include <cstdint>
 #include <filesystem>
 #include <memory>
 #include <string>
 #include <vector>
+
+#include <glm/glm.hpp>
 
 #include "levain/core/error.hpp"
 
@@ -29,6 +32,14 @@ struct AnimationSet
     /// vide ou en double reçoit l'indice de son nœud (« os#12 »), pour rester unique.
     std::vector<std::string> jointNames;
     std::vector<ClipInfo> clips; ///< Dans l'ordre du glTF.
+    /// Le skin, dans l'ordre de ses os en glTF, qui est celui des indices d'os des sommets
+    /// (`JOINTS_0`) : l'indice de chaque os dans la pose, et sa matrice de liaison inverse, qui
+    /// ramène un sommet de sa place au repos dans le repère de l'os.
+    std::vector<std::uint16_t> skinJoints;
+    std::vector<glm::mat4> inverseBindMatrices;
+    /// Les nœuds au-dessus des racines du squelette (le « porteur »), que la pose ne contient pas :
+    /// ils placent le squelette dans le repère du modèle.
+    glm::mat4 skeletonToModel{1.0f};
     std::shared_ptr<const OzzData> ozz;
 };
 

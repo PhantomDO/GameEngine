@@ -18,6 +18,8 @@
 #include <fastgltf/tools.hpp>
 #include <fastgltf/types.hpp>
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/quaternion.hpp>
 #include <ozz/animation/offline/animation_builder.h>
 #include <ozz/animation/offline/raw_animation.h>
 #include <ozz/animation/offline/raw_skeleton.h>
@@ -115,11 +117,11 @@ void appendJoint(const fastgltf::Asset& asset, std::size_t node,
 
 /// Le squelette d'ozz : les os dont le parent n'est pas un os en sont les racines. Un nœud qui
 /// n'est pas un os, placé entre deux os, perdrait sa transformation : c'est un échec.
-core::Result<offline::RawSkeleton> rawSkeletonOf(const fastgltf::Asset& asset,
-                                                 const std::map<std::size_t, std::string>& names,
-                                                 const std::filesystem::path& path)
+core::Result<offline::RawSkeleton>
+rawSkeletonOf(const fastgltf::Asset& asset, const std::map<std::size_t, std::string>& names,
+              const std::vector<std::optional<std::size_t>>& parents,
+              const std::filesystem::path& path)
 {
-    const std::vector<std::optional<std::size_t>> parents = parentsOf(asset);
     offline::RawSkeleton skeleton;
     for (const auto& [node, name] : names)
     {
@@ -140,6 +142,75 @@ core::Result<offline::RawSkeleton> rawSkeletonOf(const fastgltf::Asset& asset,
         appendJoint(asset, node, names, skeleton.roots);
     }
     return skeleton;
+}
+
+/// La matrice locale d'un nœud, depuis sa forme TRS.
+glm::mat4 localMatrixOf(const fastgltf::Node& node)
+{
+    const auto& trs = std::get<fastgltf::TRS>(node.transform);
+    const glm::quat rotation{trs.rotation.w(), trs.rotation.x(), trs.rotation.y(),
+                             trs.rotation.z()};
+    return glm::translate(glm::mat4{1.0f},
+                          {trs.translation.x(), trs.translation.y(), trs.translation.z()}) *
+           glm::mat4_cast(rotation) *
+           glm::scale(glm::mat4{1.0f}, {trs.scale.x(), trs.scale.y(), trs.scale.z()});
+}
+
+/// Le repère du squelette dans celui du modèle : le produit des nœuds au-dessus de ses racines. Des
+/// racines sous des parents différents demanderaient une matrice par racine : c'est un échec.
+core::Result<glm::mat4> skeletonToModelOf(const fastgltf::Asset& asset,
+                                          const std::map<std::size_t, std::string>& names,
+                                          const std::vector<std::optional<std::size_t>>& parents,
+                                          const std::filesystem::path& path)
+{
+    std::optional<std::optional<std::size_t>> rootParent;
+    for (const auto& [node, name] : names)
+    {
+        const std::optional<std::size_t> parent = parents[node];
+        if (parent && names.contains(*parent))
+        {
+            continue;
+        }
+        if (rootParent && *rootParent != parent)
+        {
+            return bridgeError(path, "les racines du squelette n'ont pas le même parent");
+        }
+        rootParent = parent;
+    }
+    glm::mat4 toModel{1.0f};
+    for (std::optional<std::size_t> ancestor = rootParent.value_or(std::nullopt); ancestor;
+         ancestor = parents[*ancestor])
+    {
+        toModel = localMatrixOf(asset.nodes[*ancestor]) * toModel;
+    }
+    return toModel;
+}
+
+/// Le skin, dans l'ordre de ses os en glTF : l'indice de chaque os dans la pose d'ozz, et sa
+/// matrice de liaison inverse. Sans matrices dans le glTF, ce sont des identités (spécification).
+core::Result<void> readSkin(const fastgltf::Asset& asset, const fastgltf::Skin& skin,
+                            const std::map<std::size_t, std::string>& names, AnimationSet& set,
+                            const std::filesystem::path& path)
+{
+    for (const std::size_t node : skin.joints)
+    {
+        const auto joint = std::ranges::find(set.jointNames, names.at(node));
+        set.skinJoints.push_back(static_cast<std::uint16_t>(joint - set.jointNames.begin()));
+    }
+    set.inverseBindMatrices.assign(skin.joints.size(), glm::mat4{1.0f});
+    if (!skin.inverseBindMatrices)
+    {
+        return {};
+    }
+    const fastgltf::Accessor& matrices = asset.accessors[*skin.inverseBindMatrices];
+    if (matrices.count != skin.joints.size())
+    {
+        return bridgeError(path, "le skin n'a pas une matrice de liaison inverse par os");
+    }
+    fastgltf::iterateAccessorWithIndex<glm::mat4>(asset, matrices,
+                                                  [&](const glm::mat4& matrix, std::size_t i)
+                                                  { set.inverseBindMatrices[i] = matrix; });
+    return {};
 }
 
 /// Les clés d'un canal, converties par `convert`. Une clé STEP devient deux clés, la seconde juste
@@ -275,7 +346,8 @@ core::Result<AnimationSet> importAnimationSet(const std::filesystem::path& gltf)
     }
 
     const std::map<std::size_t, std::string> names = uniqueJointNames(asset.get(), asset->skins[0]);
-    auto rawSkeleton = rawSkeletonOf(asset.get(), names, gltf);
+    const std::vector<std::optional<std::size_t>> parents = parentsOf(asset.get());
+    auto rawSkeleton = rawSkeletonOf(asset.get(), names, parents, gltf);
     if (!rawSkeleton)
     {
         return std::unexpected(rawSkeleton.error());
@@ -297,6 +369,16 @@ core::Result<AnimationSet> importAnimationSet(const std::filesystem::path& gltf)
     {
         set.jointNames.emplace_back(name);
     }
+    if (auto skin = readSkin(asset.get(), asset->skins[0], names, set, gltf); !skin)
+    {
+        return std::unexpected(skin.error());
+    }
+    auto toModel = skeletonToModelOf(asset.get(), names, parents, gltf);
+    if (!toModel)
+    {
+        return std::unexpected(toModel.error());
+    }
+    set.skeletonToModel = *toModel;
     for (const fastgltf::Animation& animation : asset->animations)
     {
         auto raw = rawAnimationOf(asset.get(), animation, *ozzData->skeleton, nodeOf, gltf);
