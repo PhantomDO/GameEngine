@@ -230,8 +230,8 @@ avant et après.
 *Critère* : une texture modifiée dans un logiciel externe est visible en moins de 2 s.
 
 **M4.5 — Animation squelettique.** Skinning des meshes glTF, lecture de clips, fondus entre clips, machine à
-états simple (repos, marche, course, saut, chute, nage, vol plané). Bibliothèque ou code maison : **ADR à
-écrire**.
+états simple (repos, marche, course, saut, chute, nage, vol plané). ozz-animation derrière une passerelle glTF,
+skinning en compute ([ADR-0022](adr/0022-animation-squelettique.md)).
 *Critère* : le personnage Quaternius passe du repos à la course selon sa vitesse, sans saut visible.
 
 **Étude E4 — Pipelines d'assets** : `.uasset` et Derived Data Cache d'Unreal, `.meta` et `Library/` d'Unity,
