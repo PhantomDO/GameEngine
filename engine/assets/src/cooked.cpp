@@ -25,7 +25,7 @@ static_assert(std::is_trivially_copyable_v<ModelVertex>);
 static_assert(std::is_trivially_copyable_v<scene::Transform>);
 
 constexpr std::array<char, 4> Signature{'L', 'V', 'M', 'S'};
-constexpr std::uint32_t FormatVersion = 1;
+constexpr std::uint32_t FormatVersion = 2; ///< 2 : le skinning des sommets, les nœuds os (M4.5).
 
 /// Ce qu'on écrit, dans l'ordre : des valeurs simples, des chaînes et des tableaux, préfixés de
 /// leur taille.
@@ -163,7 +163,8 @@ bool readBody(Reader& reader, Model& model)
         {
             MeshPrimitive& primitive = mesh.primitives.emplace_back();
             if (!reader.array(primitive.vertices) || !reader.array(primitive.indices) ||
-                !readOptional(reader, primitive.material))
+                !readOptional(reader, primitive.material) || !reader.array(primitive.joints) ||
+                !reader.array(primitive.weights))
             {
                 return false;
             }
@@ -178,11 +179,14 @@ bool readBody(Reader& reader, Model& model)
     for (std::uint64_t n = 0; n < nodeCount; ++n)
     {
         ModelNode& node = model.nodes.emplace_back();
+        std::uint8_t joint = 0;
         if (!reader.text(node.name) || !reader.value(node.local) ||
-            !readOptional(reader, node.mesh) || !readOptional(reader, node.parent))
+            !readOptional(reader, node.mesh) || !readOptional(reader, node.parent) ||
+            !reader.value(joint) || joint > 1)
         {
             return false;
         }
+        node.joint = joint == 1;
     }
 
     std::uint64_t materialCount = 0;
@@ -241,6 +245,8 @@ core::Result<void> writeCookedModel(const std::filesystem::path& path, const Mod
             writer.array(std::span{primitive.vertices});
             writer.array(std::span{primitive.indices});
             writeOptional(writer, primitive.material);
+            writer.array(std::span{primitive.joints});
+            writer.array(std::span{primitive.weights});
         }
     }
     writer.value(static_cast<std::uint64_t>(model.nodes.size()));
@@ -250,6 +256,9 @@ core::Result<void> writeCookedModel(const std::filesystem::path& path, const Mod
         writer.value(node.local);
         writeOptional(writer, node.mesh);
         writeOptional(writer, node.parent);
+        // Un octet plutôt qu'un bool copié tel quel : relire un octet qui ne vaudrait ni 0 ni 1
+        // dans un bool serait un comportement indéfini.
+        writer.value(static_cast<std::uint8_t>(node.joint));
     }
     writer.value(static_cast<std::uint64_t>(model.materials.size()));
     for (const ModelMaterial& material : model.materials)

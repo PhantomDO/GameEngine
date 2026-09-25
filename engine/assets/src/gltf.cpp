@@ -2,6 +2,7 @@
 
 #include <format>
 #include <numeric>
+#include <set>
 #include <span>
 #include <string>
 #include <variant>
@@ -76,6 +77,28 @@ core::Result<MeshPrimitive> readPrimitive(const fastgltf::Asset& asset,
                                   &ModelVertex::uv))
     {
         return gltfError(path, "un attribut n'a pas autant d'éléments que POSITION");
+    }
+
+    // Le skinning : les deux attributs vont ensemble, un par sommet. fastgltf convertit les indices
+    // d'os (octets ou mots de 16 bits) et les poids normalisés vers nos types.
+    const auto* joints = primitive.findAttribute("JOINTS_0");
+    const auto* weights = primitive.findAttribute("WEIGHTS_0");
+    if ((joints == primitive.attributes.end()) != (weights == primitive.attributes.end()))
+    {
+        return gltfError(path, "JOINTS_0 sans WEIGHTS_0, ou l'inverse");
+    }
+    if (joints != primitive.attributes.end())
+    {
+        const fastgltf::Accessor& jointAccessor = asset.accessors[joints->accessorIndex];
+        const fastgltf::Accessor& weightAccessor = asset.accessors[weights->accessorIndex];
+        if (jointAccessor.count != positions.count || weightAccessor.count != positions.count)
+        {
+            return gltfError(path, "JOINTS_0 ou WEIGHTS_0 n'a pas autant d'éléments que POSITION");
+        }
+        result.joints.resize(positions.count);
+        result.weights.resize(positions.count);
+        fastgltf::copyFromAccessor<glm::u16vec4>(asset, jointAccessor, result.joints.data());
+        fastgltf::copyFromAccessor<glm::vec4>(asset, weightAccessor, result.weights.data());
     }
 
     // Sans indices, les sommets se lisent trois par trois : 0, 1, 2, puis 3, 4, 5…
@@ -204,7 +227,8 @@ scene::Transform localTransformOf(const fastgltf::Node& node)
 
 /// Ajoute `nodeIndex` puis ses descendants, parent d'abord : l'ordre que promet `Model::nodes`.
 void appendNode(const fastgltf::Asset& asset, std::size_t nodeIndex,
-                std::optional<std::uint32_t> parent, Model& model)
+                std::optional<std::uint32_t> parent, const std::set<std::size_t>& joints,
+                Model& model)
 {
     const fastgltf::Node& node = asset.nodes[nodeIndex];
     const auto self = static_cast<std::uint32_t>(model.nodes.size());
@@ -213,10 +237,11 @@ void appendNode(const fastgltf::Asset& asset, std::size_t nodeIndex,
         .local = localTransformOf(node),
         .mesh = node.meshIndex ? std::optional{static_cast<std::uint32_t>(*node.meshIndex)}
                                : std::nullopt,
-        .parent = parent});
+        .parent = parent,
+        .joint = joints.contains(nodeIndex)});
     for (const std::size_t child : node.children)
     {
-        appendNode(asset, child, self, model);
+        appendNode(asset, child, self, joints, model);
     }
 }
 
@@ -268,9 +293,14 @@ core::Result<Model> loadGltf(const std::filesystem::path& path, AssetId self,
     {
         return gltfError(path, "aucune scène");
     }
+    std::set<std::size_t> joints;
+    for (const fastgltf::Skin& skin : asset->skins)
+    {
+        joints.insert(skin.joints.begin(), skin.joints.end());
+    }
     for (const std::size_t root : asset->scenes[sceneIndex].nodeIndices)
     {
-        appendNode(asset.get(), root, std::nullopt, model);
+        appendNode(asset.get(), root, std::nullopt, joints, model);
     }
     return model;
 }
@@ -283,6 +313,13 @@ flecs::entity instantiateModel(flecs::world& world, const Model& model, AssetId 
     entities.reserve(model.nodes.size());
     for (const ModelNode& node : model.nodes)
     {
+        // Un os, ou ce qui y est accroché, reste une donnée de la pose (ADR-0022) : une entité
+        // vide marque sa place, et ses enfants la sautent aussi.
+        if (node.joint || (node.parent && !entities[*node.parent]))
+        {
+            entities.emplace_back();
+            continue;
+        }
         // Les nœuds sont rangés parent d'abord : l'entité du parent existe déjà. Les noms glTF
         // ne sont pas uniques ; une entité anonyme évite qu'un doublon en écrase un autre.
         const flecs::entity parent = node.parent ? entities[*node.parent] : root;
