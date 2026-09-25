@@ -7,6 +7,7 @@
 #include <glm/glm.hpp>
 
 #include "levain/animation/animation_set.hpp"
+#include "levain/animation/animator.hpp"
 #include "levain/animation/locomotion.hpp"
 #include "levain/animation/pose.hpp"
 
@@ -175,4 +176,47 @@ TEST_CASE("la foulée dure la moyenne pondérée de la marche et de la course, e
     CHECK(clock.stridePhase == doctest::Approx(0.2f));
     CHECK(layers[0].weight == doctest::Approx(1.0f));
     CHECK(clock.idleSeconds == doctest::Approx(0.8f));
+}
+
+TEST_CASE("l'état suit le personnage : l'eau, le vol plané, le sol, puis le saut ou la chute")
+{
+    using levain::animation::chooseState;
+    using levain::animation::MotionState;
+
+    CHECK(chooseState({.speed = 2.0f}) == MotionState::Ground);
+    CHECK(chooseState({.grounded = false, .verticalSpeed = 1.0f}) == MotionState::Jump);
+    CHECK(chooseState({.grounded = false, .verticalSpeed = -1.0f}) == MotionState::Fall);
+    CHECK(chooseState({.grounded = false, .gliding = true}) == MotionState::Glide);
+    CHECK(chooseState({.grounded = false, .swimming = true, .gliding = true}) == MotionState::Swim);
+}
+
+TEST_CASE("un changement d'état passe par un fondu, sans saut de poids")
+{
+    const levain::animation::AnimationSet set = twoJoints();
+    const levain::animation::AnimatorClips clips{
+        .ground = {.idle = 1, .walk = 0, .run = 1, .walkSpeed = 1.0f, .runSpeed = 3.0f},
+        .jump = 0,
+        .fall = std::nullopt, // pas de clip : la chute garde la locomotion
+        .swim = std::nullopt,
+        .glide = std::nullopt};
+    levain::animation::Animator animator; // fondus de 0,2 s
+    const auto sumOf = [](const levain::animation::AnimatorLayers& layers, std::size_t first)
+    { return layers[first].weight + layers[first + 1].weight + layers[first + 2].weight; };
+
+    auto layers = levain::animation::advanceAnimator(set, clips, animator, {.speed = 0.0f}, 0.1f);
+    CHECK(sumOf(layers, 0) == doctest::Approx(1.0f)); // au sol depuis le début
+
+    // Le saut commence : à mi-fondu, moitié saut, moitié sol.
+    layers = levain::animation::advanceAnimator(set, clips, animator,
+                                                {.grounded = false, .verticalSpeed = 1.0f}, 0.1f);
+    CHECK(animator.state == levain::animation::MotionState::Jump);
+    CHECK(layers[0].clip == 0);
+    CHECK(sumOf(layers, 0) == doctest::Approx(0.5f));
+    CHECK(sumOf(layers, 3) == doctest::Approx(0.5f));
+
+    // Le fondu fini, le saut seul.
+    layers = levain::animation::advanceAnimator(set, clips, animator,
+                                                {.grounded = false, .verticalSpeed = 1.0f}, 0.2f);
+    CHECK(sumOf(layers, 0) == doctest::Approx(1.0f));
+    CHECK(sumOf(layers, 3) == doctest::Approx(0.0f));
 }

@@ -28,6 +28,16 @@ boucle. Le skinning en compute, la cuisson, puis les fondus et la machine à ét
 7. **La marche et la course partagent une phase** (`LocomotionClock`) : mélangées, leurs pas tombent ensemble.
    Cela suppose que leurs clips commencent sur le même pied : c'est à vérifier modèle par modèle. Le repos
    garde son propre rythme : le caler sur la foulée l'accélérerait sans raison.
+8. **La machine à états est du code, pas des données** (ADR-0022) : `chooseState` lit ce que le gameplay dit
+   du personnage, dans un ordre fixe (l'eau, le vol plané, le sol, puis le saut ou la chute). Un changement
+   d'état ouvre un **fondu** de 0,2 s entre les couches de l'ancien état et celles du nouveau. Un état sans clip
+   garde la locomotion.
+
+## Mesures
+
+Sur Fox, dans le sandbox (`--locomotion Survey,Walk,Run`, Release), l'os le plus rapide d'une image à l'autre
+va à 504 unités/s, comme dans la course seule (`--clip Run`) : le passage du repos à la course n'ajoute aucun
+saut. Une bascule sans fondu le porte à 178 110. La CI vérifie ce chiffre en Debug.
 
 ## Points d'entrée
 
@@ -35,6 +45,7 @@ boucle. Le skinning en compute, la cuisson, puis les fondus et la machine à ét
 |---|---|
 | [`include/levain/animation/animation_set.hpp`](include/levain/animation/animation_set.hpp) | `AnimationSet` (noms des os, clips), `ClipInfo`, `importAnimationSet` |
 | [`include/levain/animation/pose.hpp`](include/levain/animation/pose.hpp) | `Pose` (une matrice par os), `ClipLayer`, `sampleBlend` (plusieurs clips pondérés), `samplePose` (un seul), `skinningMatrices` |
+| [`include/levain/animation/animator.hpp`](include/levain/animation/animator.hpp) | `MotionState`, `CharacterMotion`, `chooseState`, `AnimatorClips`, `Animator`, `advanceAnimator` : la machine à états et ses fondus |
 | [`include/levain/animation/locomotion.hpp`](include/levain/animation/locomotion.hpp) | `Locomotion`, `strideWeightsOf`, `LocomotionClock`, `advanceLocomotion` : repos, marche et course selon la vitesse |
 | [`src/gltf_bridge.cpp`](src/gltf_bridge.cpp) | La passerelle glTF vers ozz |
 | [`src/pose.cpp`](src/pose.cpp) | Les trois *jobs* d'ozz : l'échantillonnage, le mélange, puis le passage au repère du squelette |

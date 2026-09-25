@@ -216,8 +216,11 @@ jobs:
         run: ./tools/texture-hot-reload.sh
 
 
-      # Fox : un modèle skinné qui court (M4.5, ADR-0022). En Debug, validation active : c'est la
-      # première passe compute du moteur. La ligne « skinning : » prouve que le compute a tourné.
+      # Fox : un modèle skinné qui passe du repos à la course et revient (M4.5, ADR-0022). En Debug,
+      # validation active : c'est la première passe compute du moteur. La ligne « skinning : »
+      # prouve que le compute a tourné ; « os le plus rapide » mesure le critère de M4.5, sans saut
+      # visible. En local (Release), la course seule atteint 504 unités/s, la locomotion aussi, et
+      # une bascule sans fondu 178 110 : au-delà de 1 000, une transition a sauté.
       - name: Lancer le sandbox avec Fox
         if: matrix.preset == 'linux-debug'
         env:
@@ -225,11 +228,13 @@ jobs:
         run: |
           set -euo pipefail
           timeout --foreground --preserve-status -k 10 60 \
-            ./build/${{ matrix.preset }}/sandbox/levain_sandbox --seconds 2 \
-            --model assets-cache/Models/Fox/glTF/Fox.gltf --model-scale 0.05 --clip Run \
-            | tee fox.log
-          grep -q "skinning : " fox.log \
-            || { echo "::error::le skinning du renard n'a pas tourné"; exit 1; }
+            ./build/${{ matrix.preset }}/sandbox/levain_sandbox --seconds 8 \
+            --model assets-cache/Models/Fox/glTF/Fox.gltf --model-scale 0.05 \
+            --locomotion Survey,Walk,Run | tee fox.log
+          fastest=$(sed -nE 's/.*os le plus rapide : ([0-9]+) unités.*/\1/p' fox.log)
+          [ -n "$fastest" ] || { echo "::error::le skinning du renard n'a pas tourné"; exit 1; }
+          [ "$fastest" -le 1000 ] \
+            || { echo "::error::un os a bougé à $fastest unités/s : saut de pose"; exit 1; }
 
 
       # Sponza : 105 dessins par image. En Debug seulement, où la validation de NVRHI est active :
