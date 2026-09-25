@@ -3,6 +3,20 @@
 Un piège par entrée : symptôme, cause, parade. Le plus récent en haut. Les pièges propres à SDL sont détaillés
 dans `engine/platform/README.md`, ceux de flecs dans `engine/scene/README.md`, section « Pièges connus ».
 
+## Une erreur de chargement qui finit en assertion Vulkan (2026-09-25)
+
+- **Symptôme** : un modèle dont une texture est illisible (`unknown image type`), ou un mauvais nom de
+  `--locomotion`, arrête le sandbox Debug sur « vkDestroyDevice(): … has N leaked objects » puis sur
+  l'assertion `!isValidationError(severity, types)` (code 133), au lieu d'un échec propre (ADR-0008).
+- **Cause** : `createDemoScene` retournait l'erreur avec sa command list d'envoi encore ouverte. NVRHI ne libère
+  jamais une command list ouverte puis détruite : `open()` l'inscrit dans les ressources de son propre command
+  buffer (`vulkan-commandlist.cpp`), un cycle que seule la file rompt, quand elle retire le command buffer
+  soumis. Tout ce qui a été enregistré (meshes, `UploadChunk`) fuit avec elle.
+- **Parade** : un retour anticipé après `open()` ferme et soumet la command list (`submitAbandonedUpload`,
+  `sandbox/src/main.cpp`), ou le travail qui peut échouer passe avant `open()`, comme les noms de
+  `--locomotion`. Reproduire : copier un glTF dans `data/`, remplacer sa texture par du texte, lancer
+  `SDL_VIDEO_DRIVER=offscreen levain_sandbox --seconds 1 --model <gltf>` en Debug : code 1 attendu, sans fuite.
+
 ## RenderDoc ne capture rien quand la session est verrouillée (2026-09-24)
 
 - **Symptôme** : `tools/renderdoc-mips.py` échoue sur « aucune capture reçue en 30 s », et des sandbox restent en
