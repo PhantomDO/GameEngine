@@ -24,7 +24,7 @@ ensuite chaque sommet du mesh selon les os qui l'influencent (quatre au plus en 
 
 | Option | Pour | Contre |
 |---|---|---|
-| **ozz-animation, avec notre passerelle depuis glTF** (proposé par Donnovan) | Bibliothèque éprouvée (MIT) : échantillonnage en SoA, fondus, IK (les pieds sur une pente), compression des clips. La passerelle lit le glTF avec fastgltf, déjà là, et remplit les structures d'import d'ozz : pas besoin de `gltf2ozz` et de sa copie de tinygltf | Une dépendance sans port vcpkg : `FetchContent` à commit figé. Des types propres à ozz, à garder derrière les nôtres |
+| **ozz-animation, avec notre passerelle depuis glTF** (proposé par Donnovan) | Bibliothèque éprouvée (MIT) : échantillonnage en SoA, fondus, IK (les pieds sur une pente), compression des clips. La passerelle lit le glTF avec fastgltf, déjà là, et remplit les structures d'import d'ozz : pas besoin de `gltf2ozz` et de sa copie de tinygltf | Une dépendance sans port vcpkg : `FetchContent` à commit figé. Des types propres à ozz, à garder derrière les nôtres. Un seul mainteneur (1 600 commits sur 1 650), actif : 0.17.0 le 01/08/2026 |
 | Code maison sur fastgltf | Aucune dépendance, environ 300 lignes, le fonctionnement visible de bout en bout | Ni IK, ni compression : à écrire le jour où il en faudra |
 | Maison, ozz plus tard | Commence petit | Deux intégrations au lieu d'une, si l'IK arrive |
 
@@ -69,6 +69,9 @@ choisis par la vitesse et l'état physique du personnage. Un éditeur de graphes
 
 ## Conséquences
 
+- **Aucune autre bibliothèque ne couvre le même terrain** (recherche du 25/09/2026, [QA](../QA.md)) : ACL, le
+  codec d'Unreal depuis la 5.3, ne fait que compresser les clips. Si ozz s'arrêtait, notre copie figée (MIT)
+  resterait utilisable.
 - **Une dépendance de plus**, `ozz-animation`, hors vcpkg : *Rando* la reçoit avec le moteur, par le même
   `FetchContent`, sans rien recopier dans son manifeste (ADR-0018).
 - **ozz demande CMake 3.30** : la machine de référence a la 4.4 ; la CI est à vérifier par la PR d'intégration.

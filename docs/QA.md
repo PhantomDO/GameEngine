@@ -12,6 +12,36 @@ Réponse courte, puis détails. Références : fichier:ligne, ADR, source extern
 
 ---
 
+### ozz-animation date-t-il ? Y a-t-il une autre bibliothèque d'animation ? (2026-09-25, M4.5)
+
+**ozz est maintenu, mais par une seule personne, et il n'a pas de concurrent de même portée.** Relevé sur GitHub
+le 25/09/2026 (`gh api repos/guillaumeblanc/ozz-animation/...`) :
+
+- **Activité** : la version 0.17.0 est sortie le 01/08/2026, et 37 commits ont été faits de mars à mai 2026. Le
+  rythme est d'environ une version par an (0.14 en 2022, 0.15 en 2024, 0.16 en janvier 2025). 2 900 étoiles.
+- **Le risque réel** : Guillaume Blanc a écrit 1 600 de ses quelque 1 650 commits. Si le projet s'arrête, la
+  licence MIT permet de garder notre copie figée : l'ADR-0022 le fige déjà sur un commit.
+- **Qui s'en sert** : The Forge (ConfettiFX, moteur de rendu utilisé dans des jeux commerciaux) l'embarque dans
+  son système d'animation (`Common_3/Resources/AnimationSystem/ThirdParty/OpenSource/ozz-animation`).
+
+**Les autres projets trouvés** (recherche GitHub par étoiles, C++) :
+
+| Projet | Ce qu'il fait | État |
+|---|---|---|
+| **ACL** (nfrechette, MIT, 1 600 étoiles) | **Compression** et décompression des clips seulement : ni hiérarchie, ni fondu, ni IK | Codec d'animation **par défaut d'Unreal depuis la 5.3** [1] ; dernière version en décembre 2023, commits jusqu'en septembre 2025 |
+| eely (MIT, 51 étoiles) | Bibliothèque d'animation squelettique | Dernier commit en août 2024 |
+| Les autres | Projets d'étudiants ou abandonnés (moins de 25 étoiles, derniers commits de 2015 à 2022) | — |
+
+**ACL complète ozz, il ne le remplace pas** : il répond à « comment stocker un clip en petit et le relire vite »,
+pas à « comment mélanger deux clips sur un squelette ». Il pourrait remplacer la compression d'ozz si la taille
+des clips devenait un problème : c'est ce qu'a fait Unreal.
+
+Les systèmes d'animation plus complets (graphes d'animation, *motion matching*) vivent dans des moteurs
+(Unreal, Godot, O3DE), pas dans des bibliothèques séparées.
+
+Références : [ADR-0022](adr/0022-animation-squelettique.md). [1] N. Frechette, *The Animation Compression Library
+in Unreal Engine 5.3* — https://nfrechette.github.io/2023/09/17/acl_in_ue/
+
 ### Pourquoi `PreviousTransform` enveloppe un `Transform`, et pourquoi `Transform` et `WorldTransform` coexistent (2026-09-22, M3.3)
 
 Deux questions de conception posées à la relecture de #103.
