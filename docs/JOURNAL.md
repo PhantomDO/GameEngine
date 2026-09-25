@@ -24,6 +24,80 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 | 1 | 4,5 | **3,0** | **0,67** |
 | 2 | 3,75 | **4,25** | **1,13** |
 | 3 | 4,5 | **5,25** | **1,17** |
+| 4 | 8,25 | **6,0** | **0,73** |
+
+---
+
+## 2026-09-25 — M4.5 et phase 4 — Clôture : le renard passe du repos à la course sans saut
+
+- **Temps Donnovan pour M4.5 : 1,0 h**, soit le total de la journée (« 2h ») moins la 1,0 h de M4.4.
+  Relectures déclarées : #166 25 min, #171 20 min ; les autres PR (#165, #167 à #170, #172) ont été lues sans
+  temps annoncé. Ce total comprend deux questions (ozz est-il maintenu ? pourquoi fastgltf plutôt que tinygltf ?)
+  et quatre sondages (ADR-0022, port vcpkg, modèle de test, clôture). Réparti au prorata des estimations :
+  #116 à 0,13 h, #117 à 0,37 h, #118 à 0,5 h. **Ratio 0,50.**
+- Définition de « terminé » (SPECS §9) : démo lançable sous Linux (`--model Fox.gltf --locomotion
+  Survey,Walk,Run`) ; critères mesurés et consignés ; CI verte, sans erreur de validation (la CI fait courir le
+  renard en Debug et vérifie le critère) ; README d'`animation` et de `render` à jour ; board renseigné ; tag
+  `m4.5` et release.
+- **Décisions** : l'[ADR-0022](adr/0022-animation-squelettique.md), trois choix sur sondage : ozz-animation
+  derrière une passerelle glTF écrite chez nous (la proposition de Donnovan), le skinning en compute, la pose dans
+  un composant. Puis **son amendement** : un port vcpkg maison plutôt que `FetchContent` (43,5 Mo d'archive). Fox
+  (Khronos) sert de modèle de test ; Quaternius viendra dans *Rando*.
+
+### Critères du milestone
+
+| Critère (ROADMAP et issues) | Mesuré | Commande |
+|---|---|---|
+| Le personnage passe du repos à la course selon sa vitesse, sans saut visible | L'os le plus rapide d'une image à l'autre va à **504 unités/s**, comme dans la course seule (504) ; une bascule sans fondu le porte à **178 110** (essai en local, retiré). 389 en CI (lavapipe) | `levain_sandbox --seconds 9 --model assets-cache/Models/Fox/glTF/Fox.gltf --model-scale 0.05 --locomotion Survey,Walk,Run` (Release, 3 lancements), ligne « os le plus rapide » ; `--clip Run` pour la référence |
+| #117 : un clip joue en boucle, sans artefact de skinning | 8 captures du clip Run : cycle propre | idem, `--clip Run --capture` |
+| #117 : coût CPU et GPU mesuré | **3 µs CPU, 5 µs GPU** par image, 24 os | idem, ligne « skinning : » |
+| #116 : l'ADR est validé | ADR-0022 et son amendement | — |
+| Tests | 118, trois presets, ASan et UBSan compris | `ctest -j8` |
+
+### Temps
+
+| Issue | Estimé | Réconcilié |
+|---|---:|---:|
+| #116 ADR : animation squelettique (#165) | 0,25 h | 0,13 h |
+| #117 Skinning et lecture de clips (#166 à #170) | 0,75 h | 0,37 h |
+| #118 Fondus et machine à états (#171, #172) | 1,0 h | 0,5 h |
+| **M4.5** (ROADMAP) | **2,0 h** | **1,0 h** (ratio 0,50) |
+
+### Phase 4
+
+| Milestone | Estimé | Passé |
+|---|---:|---:|
+| M4.1 Import glTF | 1,5 h | 1,25 h |
+| M4.2 Base d'assets | 1,75 h | 0,75 h |
+| M4.3 Cuisson des assets | 2,0 h | 2,0 h |
+| M4.4 Hot-reload des assets | 1,0 h | 1,0 h |
+| M4.5 Animation squelettique | 2,0 h | 1,0 h |
+| **Phase 4** | **8,25 h** | **6,0 h** — ratio **0,73** |
+
+- **Hors de la fourchette 0,8–1,25, mais aucun recalibrage** : Donnovan l'a décidé sur sondage. Le ratio cumulé
+  des phases 0 à 4 vaut 0,87 (23,5 h pour 27,0) ; après le recalibrage ×0,67 de la phase 1, les phases 2 et 3
+  étaient remontées au-dessus de 1. Le point se refait à la clôture de la phase 5.
+- **Les études passent à 0,4 h** (sondage) : E2 à E4 ont coûté 0,33 à 0,5 h pour 0,15 estimées. E6, oubliée des
+  estimations, entre dans M6.3. La ROADMAP passe en v0.7, 56,9 h au total ; échéances inchangées.
+- **La phase 6 est détaillée** : #173 à #178 dans Levain ; M6.4 et M6.5, plugins gameplay, dans *Rando*
+  ([Rando#2](https://github.com/PhantomDO/Rando/issues/2), [Rando#3](https://github.com/PhantomDO/Rando/issues/3)),
+  avec leurs milestones et leurs labels (sondage).
+- L'étude de la phase, [E4](etudes/E4-pipelines-assets.md), a été écrite en M4.4.
+
+### Ce que M4.5 a appris
+
+- **Une mesure qui peut échouer vaut mieux qu'un GIF.** « Sans saut visible » se jugeait à l'œil ; la vitesse
+  maximale d'un os le chiffre, et l'essai d'une bascule sans fondu (178 110 contre 504) prouve que la mesure voit
+  un saut. La CI la vérifie maintenant.
+- **Vérifier avant tout travail GPU.** Un nom de clip inconnu, détecté après l'ouverture de la command list
+  d'envoi, a laissé des objets GPU derrière lui, et la validation Vulkan a fait échouer l'assertion en Debug. Le
+  même piège existe quand un modèle échoue à s'envoyer : une tâche séparée est proposée.
+- **ozz quantifie ses rotations** sur 15 bits par composante : un test qui attend l'identité à 1e-5 échoue, à
+  1e-3 il passe. La tolérance des tests d'animation le dit.
+- **La question de Donnovan a changé l'intégration.** « Importer ozz et faire une passerelle depuis glTF » a
+  évité `gltf2ozz`, un exécutable qui embarque sa propre copie de tinygltf.
+
+**Prochaine étape** : phase 5, M5.1 — le PBR direct (ADR forward ou forward+).
 
 ---
 
