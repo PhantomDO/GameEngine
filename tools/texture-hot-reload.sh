@@ -2,8 +2,8 @@
 # Vérifie le hot-reload des textures (M4.4, ADR-0021) sur le sandbox en marche, avec le camion de
 # tools/fetch-assets.sh :
 #   1. une texture remplacée par des octets invalides doit aller dans le log, l'ancienne restant ;
-#   2. la même texture en négatif doit être rechargée en moins de 2 s après son écriture (le
-#      critère de M4.4), et se voir sur la capture de fin.
+#   2. le damier du sandbox, écrit à sa place, doit être rechargé en moins de 2 s après son
+#      écriture (le critère de M4.4), et se voir sur la capture de fin.
 # Le délai est lu dans le log : l'âge du fichier quand la nouvelle texture est prête.
 #
 # Usage, depuis la racine du dépôt, après un build linux-debug et ./tools/fetch-assets.sh :
@@ -16,7 +16,6 @@ model=assets-cache/Models/CesiumMilkTruck/glTF/CesiumMilkTruck.gltf
 texture=assets-cache/Models/CesiumMilkTruck/glTF/CesiumMilkTruck.jpg
 sandbox=${SANDBOX:-./build/linux-debug/sandbox/levain_sandbox}
 capture=${CAPTURE:-$(mktemp --suffix=.png)}
-command -v magick >/dev/null || { echo "ÉCHEC : ImageMagick (magick) est requis"; exit 1; }
 [ -f "$texture" ] || { echo "ÉCHEC : $texture absent, lancer ./tools/fetch-assets.sh"; exit 1; }
 log=$(mktemp)
 backup=$(mktemp -d)
@@ -24,7 +23,7 @@ backup=$(mktemp -d)
 # La texture et son .meta (dont le hash suit le contenu) reviennent quoi qu'il arrive : assets-cache
 # est vérifié par SHA-256, et gardé en cache par la CI.
 cp "$texture" "$texture.meta" "$backup/"
-trap 'cp "$backup"/* "$(dirname "$texture")/"; rm -rf "$backup"' EXIT
+trap 'cp "$backup"/* "$(dirname "$texture")/"; rm -rf "$backup" "$texture.tmp"' EXIT
 
 "$sandbox" --seconds 8 --model "$model" --capture "$capture" >"$log" 2>&1 &
 pid=$!
@@ -34,11 +33,11 @@ echo "→ octets invalides"
 printf 'ceci n est pas un JPEG' >"$texture"
 
 sleep 1.5
-echo "→ texture en négatif"
-# Écrite à côté puis renommée : le sandbox ne voit jamais un fichier à moitié écrit, et le test ne
-# dépend pas de la vitesse d'écriture d'ImageMagick.
-magick "$backup/$(basename "$texture")" -negate "$texture.tmp.jpg"
-mv "$texture.tmp.jpg" "$texture"
+echo "→ damier"
+# Un PNG sous le nom d'un .jpg : le décodeur reconnaît le format au contenu. Copié à côté puis
+# renommé, pour que le sandbox ne voie jamais un fichier à moitié écrit.
+cp data/textures/checker.png "$texture.tmp"
+mv "$texture.tmp" "$texture"
 
 status=0
 wait "$pid" || status=$?

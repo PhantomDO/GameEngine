@@ -204,6 +204,17 @@ jobs:
           # La capture relit l'image de la swapchain : elle doit exister et ne pas être vide.
           test -s capture.png || { echo "::error::capture.png absente ou vide"; exit 1; }
 
+      # Le hot-reload des textures (M4.4, ADR-0021) : une texture invalide signalée, puis une
+      # texture valide rechargée en moins de 2 s. En Release seulement, là où se mesure le
+      # critère : sous ASan et lavapipe, le décodage d'une texture 2048² s'en approche. Le script
+      # remet la texture du camion en place, avant que la CI ne garde assets-cache en cache.
+      - name: Hot-reload des textures
+        if: matrix.preset == 'linux-release'
+        env:
+          SDL_VIDEO_DRIVER: offscreen
+          SANDBOX: ./build/${{ matrix.preset }}/sandbox/levain_sandbox
+        run: ./tools/texture-hot-reload.sh
+
 
       # Sponza : 105 dessins par image. En Debug seulement, où la validation de NVRHI est active :
       # c'est elle qui a montré que le buffer des constantes manquait de versions (M4.1).
