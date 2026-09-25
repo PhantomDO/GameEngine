@@ -32,11 +32,13 @@ seule astuce qui n'est pas évidente (les clés `STEP`), avec sa licence.
 textures), bien avant ozz : « rapide, C++ moderne ». Il analyse le JSON avec simdjson et utilise le SIMD
 (documenté, README de fastgltf). Il ne décode pas les images, ce qui nous va : stb le fait déjà. tinygltf est un
 seul en-tête, plus simple à intégrer, mais recopie tout dans ses propres structures. **Rien ne dit qu'il aurait
-été trop lent pour nous** : l'écart n'a pas été mesuré sur nos fichiers (Sponza se lit en 7 ms depuis la source).
+été trop lent pour nous** : l'écart n'a pas été mesuré sur nos fichiers (le glTF de Sponza se lit en 7,2 ms depuis la source, journal de M4.3).
 Le choix se défend par la qualité de l'API plus que par un chiffre.
 
 Références : [ADR-0022](adr/0022-animation-squelettique.md), `engine/animation/src/gltf_bridge.cpp`,
 https://github.com/spnda/fastgltf.
+
+---
 
 ### ozz-animation date-t-il ? Y a-t-il une autre bibliothèque d'animation ? (2026-09-25, M4.5)
 
