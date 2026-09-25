@@ -1,6 +1,6 @@
 # ADR-0021 — Hot-reload des textures : relire la source, sans recuire
 
-- **Statut** : proposé
+- **Statut** : accepté le 2026-09-25 (validé par Donnovan)
 - **Date** : 2026-09-25
 - **Milestone** : M4.4
 
