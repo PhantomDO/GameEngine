@@ -120,6 +120,7 @@ engine/
 ├── render/     renderer sur NVRHI : caméras, matériaux, passes, éclairage, ombres
 ├── scene/      monde flecs, composants de base, transforms, hiérarchie, modules flecs
 ├── assets/     import, base d'assets (GUID), cuisson, cache, hot-reload
+├── animation/  squelettes, clips, poses et fondus, sur ozz-animation (ADR-0022)
 ├── physics/    intégration Jolt
 ├── audio/      intégration miniaudio
 ├── input/      actions et axes au-dessus de platform
@@ -138,6 +139,7 @@ docs/           SPECS, ROADMAP, JOURNAL, LECTURES, QA, SETUP, adr/, etudes/
 ```
 core ← platform ← gpu ← render
 core ← scene (flecs) ← assets, physics, audio, input
+assets ← animation
 tout ce qui précède ← app ← editor, sandbox
 moteur ← plugins moteur ← jeu (autre dépôt) et ses plugins gameplay
 ```
@@ -153,7 +155,9 @@ Visibilité des bibliothèques :
 - flecs : c'est l'API du modèle objet, visible dans `scene/` et tout ce qui est au-dessus ; jamais dans `core/`,
   `platform/` ni `gpu/`.
 - Jolt : uniquement dans `physics/`.
-- fastgltf et libktx : uniquement dans `assets/src/` (contrôlé par `deps.asset-libraries-visibility`).
+- fastgltf et libktx : uniquement dans `assets/src/`, et fastgltf aussi dans `animation/src/` pour la passerelle
+  glTF (contrôlé par `deps.asset-libraries-visibility`).
+- ozz-animation : uniquement dans `animation/src/` (ADR-0022).
 
 **Boucle principale (cible)** : simulation à pas fixe (60 Hz par défaut) avec accumulateur, exécutée par un
 pipeline flecs dédié ; rendu à fréquence libre avec interpolation. Détails dans un ADR en M3.3.
