@@ -28,6 +28,7 @@
 #include "shader_reload.hpp"
 
 #include "levain/animation/animation_set.hpp"
+#include "levain/animation/animator.hpp"
 #include "levain/animation/pose.hpp"
 #include "levain/assets/asset_ref.hpp"
 #include "levain/assets/gltf.hpp"
@@ -175,6 +176,10 @@ struct ModelGpu
     /// matrices du skinning de la dernière image, gardées pour ne pas réallouer.
     std::optional<levain::animation::AnimationSet> animation;
     std::size_t clip = 0;
+    /// Avec `--locomotion` : l'animateur, qui remplace le clip unique (#118).
+    std::optional<levain::animation::Animator> animator;
+    levain::animation::AnimatorClips animatorClips;
+    float lastSeconds = 0.0f; ///< Le temps de l'image précédente : l'animateur et sa mesure.
     levain::animation::Pose pose;
     std::vector<glm::mat4> skinMatrices;
 };
@@ -187,7 +192,25 @@ struct SkinningCost
     std::size_t frames = 0;
     double gpuMs = 0.0;
     std::size_t gpuSamples = 0;
+    /// La plus grande vitesse d'un os d'une image à l'autre, en unités du modèle par seconde. Un
+    /// saut de pose (critère de M4.5) la ferait bondir au-dessus de celle du clip le plus rapide.
+    float maxJointSpeed = 0.0f;
 };
+
+/// La plus grande vitesse d'un os entre deux poses séparées de `seconds`.
+float maxJointSpeedOf(const levain::animation::Pose& before, const levain::animation::Pose& after,
+                      float seconds)
+{
+    float fastest = 0.0f;
+    for (std::size_t joint = 0; joint < std::min(before.joints.size(), after.joints.size());
+         ++joint)
+    {
+        fastest = std::max(fastest, glm::distance(glm::vec3(before.joints[joint][3]),
+                                                  glm::vec3(after.joints[joint][3])) /
+                                        seconds);
+    }
+    return fastest;
+}
 
 /// Ce que dessine le sandbox en M2.2 : une grille de cubes texturés qui tournent, sur un sol qui
 /// file jusqu'à l'horizon, où se voit le filtrage anisotrope.
@@ -577,6 +600,54 @@ levain::core::Result<std::size_t> clipIndexOf(const levain::animation::Animation
         std::format("clip « {} » inconnu ; clips : {}", *name, available));
 }
 
+/// La vitesse du renard de démonstration (#118) : du repos à la course, puis retour, en 8 s. Les
+/// vitesses de la locomotion valent 1 (marche) et 3 (course), dans une unité arbitraire : celles
+/// de Fox ne sont pas connues.
+constexpr float DemoWalkSpeed = 1.0f;
+constexpr float DemoRunSpeed = 3.0f;
+
+float demoSpeedAt(double seconds)
+{
+    constexpr double Period = 8.0;
+    return DemoRunSpeed *
+           static_cast<float>(0.5 - 0.5 * std::cos(2.0 * glm::pi<double>() * seconds / Period));
+}
+
+/// Les clips de `--locomotion` (« repos,marche,course », par leurs noms), pour l'animateur. Les
+/// autres états n'ont pas de clip : ils gardent la locomotion.
+levain::core::Result<levain::animation::AnimatorClips>
+locomotionClipsOf(const levain::animation::AnimationSet& set, std::string_view names)
+{
+    std::array<std::size_t, 3> indices{};
+    std::size_t start = 0;
+    for (std::size_t& index : indices)
+    {
+        const std::size_t comma = names.find(',', start);
+        const std::string name{names.substr(start, comma - start)};
+        if (name.empty())
+        {
+            return levain::core::makeError(levain::core::ErrorCode::InvalidData,
+                                           "--locomotion attend trois clips : repos,marche,course");
+        }
+        auto clip = clipIndexOf(set, name);
+        if (!clip)
+        {
+            return std::unexpected(clip.error());
+        }
+        index = *clip;
+        start = comma == std::string_view::npos ? names.size() : comma + 1;
+    }
+    return levain::animation::AnimatorClips{.ground = {.idle = indices[0],
+                                                       .walk = indices[1],
+                                                       .run = indices[2],
+                                                       .walkSpeed = DemoWalkSpeed,
+                                                       .runSpeed = DemoRunSpeed},
+                                            .jump = std::nullopt,
+                                            .fall = std::nullopt,
+                                            .swim = std::nullopt,
+                                            .glide = std::nullopt};
+}
+
 /// Ce que le scan des assets a changé sur le disque (ADR-0019) : les .meta créés et rattachés sont
 /// à versionner, les orphelins à regarder.
 void logScanReport(const levain::assets::ScanReport& report)
@@ -603,7 +674,8 @@ void logScanReport(const levain::assets::ScanReport& report)
 levain::core::Result<DemoScene>
 createDemoScene(levain::gpu::GpuDevice& gpu, const levain::render::SamplerSettings& sampler,
                 const std::optional<std::filesystem::path>& modelPath,
-                const std::optional<std::string>& clipName, float modelScale)
+                const std::optional<std::string>& clipName,
+                const std::optional<std::string>& locomotion, float modelScale)
 {
     // Le modèle de `--model`, par son GUID : le dossier qui le contient est scanné (ADR-0019), ce
     // qui lui donne un .meta s'il n'en avait pas.
@@ -671,6 +743,7 @@ createDemoScene(levain::gpu::GpuDevice& gpu, const levain::render::SamplerSettin
     // (ADR-0022) viendra quand leur lecture pèsera au chargement (0,55 ms pour Fox).
     std::optional<levain::animation::AnimationSet> animation;
     std::size_t clip = 0;
+    std::optional<levain::animation::AnimatorClips> animatorClips;
     if (model != nullptr && isSkinned(*model))
     {
         auto set = levain::animation::importAnimationSet(
@@ -685,10 +758,28 @@ createDemoScene(levain::gpu::GpuDevice& gpu, const levain::render::SamplerSettin
             return std::unexpected(index.error());
         }
         clip = *index;
-        levain::core::log("sandbox", levain::core::LogLevel::Info,
-                          "modèle skinné : {} os, clip « {} » ({:.2f} s) joué en boucle",
-                          set->jointNames.size(), set->clips[clip].name,
-                          set->clips[clip].durationSeconds);
+        // Les noms de --locomotion se vérifient ici, avant tout travail GPU : un échec plus tard
+        // laisserait une command list d'envoi ouverte.
+        if (locomotion)
+        {
+            auto clips = locomotionClipsOf(*set, *locomotion);
+            if (!clips)
+            {
+                return std::unexpected(clips.error());
+            }
+            animatorClips = *clips;
+            levain::core::log("sandbox", levain::core::LogLevel::Info,
+                              "modèle skinné : {} os, locomotion « {} », vitesse de 0 à {} et "
+                              "retour en 8 s",
+                              set->jointNames.size(), *locomotion, DemoRunSpeed);
+        }
+        else
+        {
+            levain::core::log("sandbox", levain::core::LogLevel::Info,
+                              "modèle skinné : {} os, clip « {} » ({:.2f} s) joué en boucle",
+                              set->jointNames.size(), set->clips[clip].name,
+                              set->clips[clip].durationSeconds);
+        }
         animation = std::move(*set);
     }
 
@@ -758,6 +849,11 @@ createDemoScene(levain::gpu::GpuDevice& gpu, const levain::render::SamplerSettin
         if (!uploaded)
         {
             return std::unexpected(uploaded.error());
+        }
+        if (animatorClips)
+        {
+            uploaded->animatorClips = *animatorClips;
+            uploaded->animator = levain::animation::Animator{};
         }
         uploaded->animation = std::move(animation);
         uploaded->clip = clip;
@@ -829,9 +925,20 @@ glm::mat4 cubeRotation(double seconds)
     return glm::rotate(glm::mat4{1.0f}, angle, glm::vec3{1.0f, 1.0f, 0.0f});
 }
 
-/// Efface l'image de la swapchain et son depth buffer, y dessine la grille, et la présente. Rend le
-/// temps GPU d'une frame précédente, dès qu'il est lisible. Avec `capture`, l'image est aussi
-/// copiée pour être relue (`render::readBack`).
+/// La pose d'un modèle skinné à `seconds` : son animateur s'il en a un, sinon son clip en boucle.
+void poseModel(ModelGpu& model, const levain::animation::AnimationSet& set, double seconds)
+{
+    if (model.animator)
+    {
+        const levain::animation::AnimatorLayers layers = levain::animation::advanceAnimator(
+            set, model.animatorClips, *model.animator, {.speed = demoSpeedAt(seconds)},
+            static_cast<float>(seconds) - model.lastSeconds);
+        levain::animation::sampleBlend(set, layers, model.pose);
+        return;
+    }
+    levain::animation::samplePose(set, model.clip, static_cast<float>(seconds), model.pose);
+}
+
 /// Anime les modèles skinnés (ADR-0022) : la pose de leur clip à `seconds`, ses matrices, puis un
 /// dispatch par mesh skinné. À enregistrer avant les dessins qui lisent les sommets déformés. Le
 /// coût est relevé dans `scene.skinningCost`.
@@ -850,8 +957,16 @@ void animateModels(nvrhi::IDevice& device, nvrhi::ICommandList& commandList, Dem
         {
             gpuMs = levain::render::beginGpuTimer(device, commandList, scene.skinningTimer);
         }
-        levain::animation::samplePose(*model.animation, model.clip, static_cast<float>(seconds),
-                                      model.pose);
+        const levain::animation::Pose before = model.pose;
+        poseModel(model, *model.animation, seconds);
+        if (!before.joints.empty() && seconds > model.lastSeconds)
+        {
+            scene.skinningCost.maxJointSpeed =
+                std::max(scene.skinningCost.maxJointSpeed,
+                         maxJointSpeedOf(before, model.pose,
+                                         static_cast<float>(seconds) - model.lastSeconds));
+        }
+        model.lastSeconds = static_cast<float>(seconds);
         levain::animation::skinningMatrices(*model.animation, model.pose, model.skinMatrices);
         for (const std::vector<ModelPrimitiveGpu>& mesh : model.meshes)
         {
@@ -879,6 +994,9 @@ void animateModels(nvrhi::IDevice& device, nvrhi::ICommandList& commandList, Dem
     }
 }
 
+/// Efface l'image de la swapchain et son depth buffer, y dessine la grille, et la présente. Rend le
+/// temps GPU d'une frame précédente, dès qu'il est lisible. Avec `capture`, l'image est aussi
+/// copiée pour être relue (`render::readBack`).
 std::optional<double> renderFrame(levain::gpu::GpuDevice& gpu,
                                   const levain::platform::Window& window, DemoScene& scene,
                                   nvrhi::ICommandList& commandList, double seconds,
@@ -1078,6 +1196,9 @@ struct SandboxOptions
     std::optional<std::filesystem::path> modelPath;
     /// Le clip que joue un modèle skinné, par son nom ; le premier par défaut.
     std::optional<std::string> clipName;
+    /// Les clips du repos, de la marche et de la course, séparés par des virgules : le modèle
+    /// passe de l'un à l'autre selon une vitesse de démonstration (#118).
+    std::optional<std::string> locomotion;
     /// L'échelle du modèle (voir `modelPlacement`).
     float modelScale = 2.0f;
     /// Où écrire une capture de la dernière image, en PNG. Avec `--seconds`, c'est ce qui montre un
@@ -1109,9 +1230,10 @@ std::optional<SandboxOptions> parseOptions(std::span<char* const> arguments)
         {
             return std::nullopt;
         }
-        if (name == "--clip")
+        if (name == "--clip" || name == "--locomotion")
         {
-            options.clipName = std::string{arguments[i + 1]};
+            (name == "--clip" ? options.clipName : options.locomotion) =
+                std::string{arguments[i + 1]};
             continue;
         }
         if (name == "--capture" || name == "--model")
@@ -1305,13 +1427,13 @@ bool runMainLoop(levain::platform::Window& window, levain::gpu::GpuDevice& gpu, 
     {
         levain::core::log("sandbox", levain::core::LogLevel::Info,
                           "skinning : {:.1f} µs CPU sur {} images, {:.1f} µs GPU sur {} mesures, "
-                          "en moyenne",
+                          "en moyenne ; os le plus rapide : {:.0f} unités/s",
                           skinning.cpuMs * 1000.0 / static_cast<double>(skinning.frames),
                           skinning.frames,
                           skinning.gpuSamples > 0
                               ? skinning.gpuMs * 1000.0 / static_cast<double>(skinning.gpuSamples)
                               : 0.0,
-                          skinning.gpuSamples);
+                          skinning.gpuSamples, skinning.maxJointSpeed);
     }
 
     return !capturePath || captureFrame(gpu, window, scene, *commandList,
@@ -1330,9 +1452,10 @@ int main(int argc, char** argv)
             parseOptions(std::span{argv, static_cast<std::size_t>(argc)});
         if (!options)
         {
-            std::println(stderr,
-                         "usage : levain_sandbox [--seconds N] [--anisotropy N] [--capture "
-                         "fichier.png] [--model fichier.gltf [--clip nom] [--model-scale N]]");
+            std::println(stderr, "usage : levain_sandbox [--seconds N] [--anisotropy N] [--capture "
+                                 "fichier.png] [--model fichier.gltf [--clip nom | --locomotion "
+                                 "repos,marche,course] "
+                                 "[--model-scale N]]");
             return 2;
         }
 
@@ -1366,7 +1489,7 @@ int main(int argc, char** argv)
         levain::core::log("sandbox", levain::core::LogLevel::Info, "filtrage anisotrope : {}",
                           levain::render::clampAnisotropy(sampler.maxAnisotropy));
         auto scene = createDemoScene(*gpu, sampler, options->modelPath, options->clipName,
-                                     options->modelScale);
+                                     options->locomotion, options->modelScale);
         if (!scene)
         {
             levain::core::log("sandbox", levain::core::LogLevel::Critical, "{}",
