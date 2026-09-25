@@ -2,7 +2,7 @@ find_package(fastgltf CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
 find_package(ozz-animation CONFIG REQUIRED)
 
-add_library(levain_animation STATIC src/gltf_bridge.cpp src/pose.cpp)
+add_library(levain_animation STATIC src/gltf_bridge.cpp src/locomotion.cpp src/pose.cpp)
 add_library(levain::animation ALIAS levain_animation)
 
 target_include_directories(levain_animation PUBLIC include)

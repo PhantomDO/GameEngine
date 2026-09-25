@@ -1,3 +1,4 @@
+#include <array>
 #include <cmath>
 #include <string>
 #include <vector>
@@ -6,6 +7,7 @@
 #include <glm/glm.hpp>
 
 #include "levain/animation/animation_set.hpp"
+#include "levain/animation/locomotion.hpp"
 #include "levain/animation/pose.hpp"
 
 // tests/data/two-joints.gltf : deux os, « racine » puis « bout » un mètre au-dessus, sous un nœud
@@ -125,4 +127,52 @@ TEST_CASE("un sommet lié au bout suit sa rotation, dans le repère du modèle")
     CHECK(moved.x == doctest::Approx(-half).epsilon(1e-3));
     CHECK(moved.y == doctest::Approx(half).epsilon(1e-3));
     CHECK(moved.z == doctest::Approx(5.0f).epsilon(1e-3));
+}
+
+TEST_CASE("deux poses mélangées à parts égales donnent la pose du milieu")
+{
+    const levain::animation::AnimationSet set = twoJoints();
+    levain::animation::Pose pose;
+
+    // « tourne » au début (0°) et à la fin (90°) : le mélange est à 45°.
+    const std::array<levain::animation::ClipLayer, 2> layers{
+        levain::animation::ClipLayer{.clip = 0, .ratio = 0.0f, .weight = 0.5f},
+        levain::animation::ClipLayer{.clip = 0, .ratio = 1.0f, .weight = 0.5f}};
+    levain::animation::sampleBlend(set, layers, pose);
+    const float half = std::sqrt(0.5f);
+    CHECK(positionOf(pose, 1).x == doctest::Approx(-half).epsilon(1e-3));
+    CHECK(positionOf(pose, 1).y == doctest::Approx(half).epsilon(1e-3));
+}
+
+TEST_CASE("la vitesse répartit les poids entre repos, marche et course")
+{
+    const levain::animation::Locomotion locomotion{
+        .idle = 0, .walk = 1, .run = 2, .walkSpeed = 1.0f, .runSpeed = 3.0f};
+    using Weights = std::array<float, 3>;
+
+    CHECK(levain::animation::strideWeightsOf(locomotion, 0.0f) == Weights{1.0f, 0.0f, 0.0f});
+    CHECK(levain::animation::strideWeightsOf(locomotion, 0.5f) == Weights{0.5f, 0.5f, 0.0f});
+    CHECK(levain::animation::strideWeightsOf(locomotion, 2.0f) == Weights{0.0f, 0.5f, 0.5f});
+    CHECK(levain::animation::strideWeightsOf(locomotion, 9.0f) == Weights{0.0f, 0.0f, 1.0f});
+}
+
+TEST_CASE("la foulée dure la moyenne pondérée de la marche et de la course, et s'arrête avec elles")
+{
+    const levain::animation::AnimationSet set = twoJoints();
+    // La marche est « tourne » (1 s), la course « saute » (2 s).
+    const levain::animation::Locomotion locomotion{
+        .idle = 1, .walk = 0, .run = 1, .walkSpeed = 1.0f, .runSpeed = 3.0f};
+    levain::animation::LocomotionClock clock;
+
+    // À mi-chemin entre marche et course, une foulée dure 1,5 s : 0,3 s en font le cinquième.
+    auto layers = levain::animation::advanceLocomotion(set, locomotion, clock, 2.0f, 0.3f);
+    CHECK(clock.stridePhase == doctest::Approx(0.2f));
+    CHECK(layers[1].ratio == layers[2].ratio); // marche et course au même pas
+    CHECK(layers[0].weight == doctest::Approx(0.0f));
+
+    // À l'arrêt, la phase attend ; seul le repos avance.
+    layers = levain::animation::advanceLocomotion(set, locomotion, clock, 0.0f, 0.5f);
+    CHECK(clock.stridePhase == doctest::Approx(0.2f));
+    CHECK(layers[0].weight == doctest::Approx(1.0f));
+    CHECK(clock.idleSeconds == doctest::Approx(0.8f));
 }

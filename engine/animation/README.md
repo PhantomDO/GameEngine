@@ -25,15 +25,19 @@ boucle. Le skinning en compute, la cuisson, puis les fondus et la machine à ét
 5. **ozz n'interpole que linéairement.** Une clé glTF `STEP` devient deux clés, la seconde juste avant la
    suivante (comme `gltf2ozz`). Une clé `CUBICSPLINE` est refusée : ni Fox ni les modèles Quaternius n'en ont.
 6. **Un os qu'un clip n'anime pas garde sa pose de repos**, celle de son nœud glTF.
+7. **La marche et la course partagent une phase** (`LocomotionClock`) : mélangées, leurs pas tombent ensemble.
+   Cela suppose que leurs clips commencent sur le même pied : c'est à vérifier modèle par modèle. Le repos
+   garde son propre rythme : le caler sur la foulée l'accélérerait sans raison.
 
 ## Points d'entrée
 
 | Fichier | Contenu |
 |---|---|
 | [`include/levain/animation/animation_set.hpp`](include/levain/animation/animation_set.hpp) | `AnimationSet` (noms des os, clips), `ClipInfo`, `importAnimationSet` |
-| [`include/levain/animation/pose.hpp`](include/levain/animation/pose.hpp) | `Pose` (une matrice par os), `samplePose` |
+| [`include/levain/animation/pose.hpp`](include/levain/animation/pose.hpp) | `Pose` (une matrice par os), `ClipLayer`, `sampleBlend` (plusieurs clips pondérés), `samplePose` (un seul), `skinningMatrices` |
+| [`include/levain/animation/locomotion.hpp`](include/levain/animation/locomotion.hpp) | `Locomotion`, `strideWeightsOf`, `LocomotionClock`, `advanceLocomotion` : repos, marche et course selon la vitesse |
 | [`src/gltf_bridge.cpp`](src/gltf_bridge.cpp) | La passerelle glTF vers ozz |
-| [`src/pose.cpp`](src/pose.cpp) | Les deux *jobs* d'ozz : l'échantillonnage, puis le passage au repère du squelette |
+| [`src/pose.cpp`](src/pose.cpp) | Les trois *jobs* d'ozz : l'échantillonnage, le mélange, puis le passage au repère du squelette |
 
 ## Équivalents ailleurs
 
