@@ -30,7 +30,7 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ## 2026-09-25 — hors milestone — Un échec de chargement sans fuite GPU
 
-- Temps Donnovan : à venir (relecture seule)
+- Temps Donnovan : 0,33 h (20 min, relecture comprise ; estimé 0,1 h)
 - Sessions Claude Code : 1
 - Fait : `createDemoScene` ferme et soumet sa command list d'envoi quand `uploadModel` échoue
   (`submitAbandonedUpload`). Avant, une texture illisible laissait fuir 42 objets Vulkan et finissait sur
