@@ -2,6 +2,7 @@ find_package(doctest CONFIG REQUIRED)
 
 add_executable(levain_tests
     allocator_test.cpp
+    animation_test.cpp
     asset_ref_test.cpp
     assert_test.cpp
     camera_control_test.cpp
@@ -23,7 +24,7 @@ add_executable(levain_tests
     version_test.cpp
     window_test.cpp)
 target_link_libraries(levain_tests PRIVATE
-    levain::assets levain::core levain::input levain::platform levain::render levain::scene
+    levain::animation levain::assets levain::core levain::input levain::platform levain::render levain::scene
     doctest::doctest)
 
 # La macro qui génère le main de doctest ne doit s'appliquer qu'à une seule unité de

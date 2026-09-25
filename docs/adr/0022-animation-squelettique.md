@@ -57,7 +57,7 @@ skinning ne reçoit que des matrices. Le module contient :
 - **l'attache à un os**, par un composant qui désigne l'entité du personnage et l'indice de l'os.
 
 **ozz-animation 0.17.0** (MIT) arrive par `FetchContent`, figé sur son commit (`83b35f1`), sans ses outils, ses
-exemples ni ses tests. **ozz n'est visible que dans `engine/animation/src`**. fastgltf le devient aussi, pour
+exemples ni ses tests (remplacé par un port vcpkg : voir l'amendement). **ozz n'est visible que dans `engine/animation/src`**. fastgltf le devient aussi, pour
 la passerelle. Le contrôle `deps.asset-libraries-visibility` s'étend aux deux.
 
 **Le skinning se fait en compute**, dans `engine/render`. Pour chaque personnage, une passe lit les sommets
@@ -85,6 +85,19 @@ choisis par la vitesse et l'état physique du personnage. Un éditeur de graphes
   l'accord de Donnovan comme pour Sponza.
 - **L'implémentation dépasse 400 lignes** : elle se découpe en PR (le module et la passerelle, puis le compute et
   le rendu d'un clip, puis les fondus et la machine à états).
+
+## Amendement du 25/09/2026 : un port vcpkg plutôt que FetchContent
+
+L'archive d'ozz pèse 43,5 Mo, dont 118 Mo décompressés de données d'exemples. Par `FetchContent`, elle aurait
+été retéléchargée et ozz recompilé dans chaque dossier de build et à chaque job de la CI. Donnovan a choisi sur
+sondage un **port vcpkg maison**, `ports/ozz-animation`, comme celui de Tracy : l'archive est vérifiée par son
+SHA-512, ozz se compile une fois (5,9 s) et le cache binaire de vcpkg le garde. ozz n'exportant pas de
+configuration CMake, le port fournit la sienne (`ozz::base`, `ozz::animation`, `ozz::animation_offline`).
+
+Conséquence pour *Rando* : il recopie le dossier `ports/ozz-animation` et ajoute `ozz-animation` à son manifeste,
+comme pour Tracy ; le contrôle de `CheckVcpkgManifest.cmake` le lui rappelle. La conséquence sur `FetchContent`
+et sur CMake 3.30 tombe : vcpkg compile ozz avec le CMake qu'il choisit, et en télécharge un récent si celui
+du système est trop ancien.
 
 ## Ce que font les autres moteurs
 

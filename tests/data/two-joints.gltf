@@ -1,0 +1,155 @@
+{
+ "asset": {
+  "version": "2.0",
+  "generator": "Levain, tests/animation_test.cpp"
+ },
+ "scene": 0,
+ "scenes": [
+  {
+   "nodes": [
+    0
+   ]
+  }
+ ],
+ "nodes": [
+  {
+   "name": "porteur",
+   "children": [
+    1
+   ],
+   "translation": [
+    0,
+    0,
+    5
+   ]
+  },
+  {
+   "name": "racine",
+   "children": [
+    2
+   ]
+  },
+  {
+   "name": "bout",
+   "translation": [
+    0,
+    1,
+    0
+   ]
+  }
+ ],
+ "skins": [
+  {
+   "joints": [
+    1,
+    2
+   ]
+  }
+ ],
+ "animations": [
+  {
+   "name": "tourne",
+   "samplers": [
+    {
+     "input": 0,
+     "output": 1,
+     "interpolation": "LINEAR"
+    }
+   ],
+   "channels": [
+    {
+     "sampler": 0,
+     "target": {
+      "node": 1,
+      "path": "rotation"
+     }
+    }
+   ]
+  },
+  {
+   "name": "saute",
+   "samplers": [
+    {
+     "input": 2,
+     "output": 3,
+     "interpolation": "STEP"
+    }
+   ],
+   "channels": [
+    {
+     "sampler": 0,
+     "target": {
+      "node": 1,
+      "path": "translation"
+     }
+    }
+   ]
+  }
+ ],
+ "buffers": [
+  {
+   "byteLength": 88,
+   "uri": "data:application/octet-stream;base64,AAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAADzBDU/8wQ1PwAAAAAAAIA/AAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAEAAAAAAAAAAAA=="
+  }
+ ],
+ "bufferViews": [
+  {
+   "buffer": 0,
+   "byteOffset": 0,
+   "byteLength": 8
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 8,
+   "byteLength": 32
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 40,
+   "byteLength": 12
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 52,
+   "byteLength": 36
+  }
+ ],
+ "accessors": [
+  {
+   "bufferView": 0,
+   "componentType": 5126,
+   "count": 2,
+   "type": "SCALAR",
+   "min": [
+    0.0
+   ],
+   "max": [
+    1.0
+   ]
+  },
+  {
+   "bufferView": 1,
+   "componentType": 5126,
+   "count": 2,
+   "type": "VEC4"
+  },
+  {
+   "bufferView": 2,
+   "componentType": 5126,
+   "count": 3,
+   "type": "SCALAR",
+   "min": [
+    0.0
+   ],
+   "max": [
+    2.0
+   ]
+  },
+  {
+   "bufferView": 3,
+   "componentType": 5126,
+   "count": 3,
+   "type": "VEC3"
+  }
+ ]
+}
