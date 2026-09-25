@@ -69,4 +69,14 @@ void samplePose(const AnimationSet& set, std::size_t clip, float seconds, Pose& 
     }
 }
 
+void skinningMatrices(const AnimationSet& set, const Pose& pose, std::vector<glm::mat4>& matrices)
+{
+    matrices.resize(set.skinJoints.size());
+    for (std::size_t joint = 0; joint < matrices.size(); ++joint)
+    {
+        matrices[joint] = set.skeletonToModel * pose.joints[set.skinJoints[joint]] *
+                          set.inverseBindMatrices[joint];
+    }
+}
+
 } // namespace levain::animation

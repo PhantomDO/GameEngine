@@ -1,5 +1,6 @@
 #include <cmath>
 #include <string>
+#include <vector>
 
 #include <doctest/doctest.h>
 #include <glm/glm.hpp>
@@ -78,4 +79,50 @@ TEST_CASE("un glTF sans skin est un échec récupérable")
     const auto set = levain::animation::importAnimationSet(LEVAIN_TEST_DATA_DIR "/two-nodes.gltf");
     REQUIRE_FALSE(set.has_value());
     CHECK(set.error().message.find("aucun skin") != std::string::npos);
+}
+
+TEST_CASE("le skin suit l'ordre du glTF, et ses matrices valent l'identité au repos")
+{
+    const levain::animation::AnimationSet set = twoJoints();
+    levain::animation::Pose pose;
+    std::vector<glm::mat4> matrices;
+
+    // Le skin nomme « bout » puis « racine », l'inverse de l'ordre de la pose.
+    REQUIRE(set.skinJoints.size() == 2);
+    CHECK(set.skinJoints[0] == 1);
+    CHECK(set.skinJoints[1] == 0);
+
+    // Au début de « tourne », le squelette est dans sa pose de liaison. À 1e-3 près : ozz stocke
+    // ses clés de rotation sur 15 bits par composante (animation_keyframe.h), d'où un écart de
+    // l'ordre de 1e-4.
+    levain::animation::samplePose(set, 0, 0.0f, pose);
+    levain::animation::skinningMatrices(set, pose, matrices);
+    for (const glm::mat4& matrix : matrices)
+    {
+        for (int column = 0; column < 4; ++column)
+        {
+            for (int row = 0; row < 4; ++row)
+            {
+                CHECK(matrix[column][row] ==
+                      doctest::Approx(column == row ? 1.0f : 0.0f).epsilon(1e-3));
+            }
+        }
+    }
+}
+
+TEST_CASE("un sommet lié au bout suit sa rotation, dans le repère du modèle")
+{
+    const levain::animation::AnimationSet set = twoJoints();
+    levain::animation::Pose pose;
+    std::vector<glm::mat4> matrices;
+
+    // Au repos, le bout est en (0, 1, 5) : un mètre au-dessus de la racine, que le porteur place en
+    // z = 5. À mi-clip, la racine a tourné de 45° autour de Z.
+    levain::animation::samplePose(set, 0, 0.5f, pose);
+    levain::animation::skinningMatrices(set, pose, matrices);
+    const glm::vec3 moved = matrices[0] * glm::vec4{0.0f, 1.0f, 5.0f, 1.0f};
+    const float half = std::sqrt(0.5f);
+    CHECK(moved.x == doctest::Approx(-half).epsilon(1e-3));
+    CHECK(moved.y == doctest::Approx(half).epsilon(1e-3));
+    CHECK(moved.z == doctest::Approx(5.0f).epsilon(1e-3));
 }
