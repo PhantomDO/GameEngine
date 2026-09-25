@@ -27,6 +27,60 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-25 — M4.4 — Clôture : une texture retouchée se voit en 0,1 s
+
+- **Temps Donnovan pour M4.4 : 1,0 h** (« environ 1h max en tout »). Relectures déclarées : ADR-0021 5 min, #161
+  10 min, #162 5 min, E4 20 min, soit 40 min ; le reste va aux deux sondages et au pilotage. Réparti au
+  prorata des relectures (20 min chacune) : #93 à 0,5 h, #94 à 0,5 h.
+  **Ratio 1,00.**
+- Définition de « terminé » (SPECS §9) : démo lançable sous Linux (`--model`, texture modifiée pendant que le
+  sandbox tourne) ; critères mesurés et consignés ; CI verte, sans erreur de validation (Debug et ASan vérifiés
+  en local, Release en CI) ; README d'`assets` à jour (invariant n°9) ; étude E4 écrite ; board renseigné ; tag
+  `m4.4` et release.
+- **Décisions** : l'[ADR-0021](adr/0021-hot-reload-des-textures.md), deux choix sur sondage : une texture
+  modifiée est **relue depuis sa source**, sans recuisson ; **seules les textures** se rechargent. Mesure à
+  l'appui : recuire une texture 1024² fige l'image 0,73 s.
+
+### Critères du milestone
+
+| Critère (ROADMAP et issues) | Mesuré | Commande |
+|---|---|---|
+| Une texture modifiée dans un logiciel externe est visible en moins de 2 s | **88, 97 et 140 ms** après l'écriture, texture 2048² du camion (Release) ; 498 ms en Debug ; 1 013 ms sous ASan ; **86 ms en CI** (damier) | `SDL_VIDEO_DRIVER=offscreen SANDBOX=./build/linux-release/sandbox/levain_sandbox ./tools/texture-hot-reload.sh` |
+| Une source invalide ne fait pas planter : message dans le log, l'ancien asset reste | « unknown image type ; l'ancienne texture reste », rendu continu jusqu'au bout | idem |
+| Étude E4 | [E4](etudes/E4-pipelines-assets.md), 124 lignes | — |
+| Tests | 105, trois presets, ASan et UBSan compris ; le hot-reload tourne en CI (Release) | `ctest -j8` |
+
+### Temps
+
+| Issue | Estimé | Réconcilié |
+|---|---:|---:|
+| #93 Hot-reload des assets (ADR-0021, #160, #161, #162) | 0,85 h | 0,5 h |
+| #94 Étude E4 (#163) | 0,15 h | 0,5 h |
+| **M4.4** (ROADMAP) | **1,0 h** | **1,0 h** (ratio 1,00) |
+
+Phase 4 à ce stade : 5,0 h passées pour 6,25 h estimées (M4.1 à M4.4), ratio 0,80. **Chiffre
+provisoire** : il reste M4.5 (animation squelettique), 2,0 h estimées.
+
+### Ce que M4.4 a appris
+
+- **Le bon mécanisme de rechargement était déjà là.** Le fichier cuit est jugé sur le hash de sa source : il
+  suffisait de rehacher le fichier modifié pour que le chargement habituel reparte de la source. Aucun code
+  n'est propre au hot-reload, en dehors de la détection et du remplacement GPU.
+- **Mesurer l'option écartée tranche vite** : 0,73 s de gel pour recuire une texture a rendu le choix du sondage
+  évident, et l'ADR a pu le dire en chiffres.
+- **Un test qui dépend d'un outil installé ne passe pas en CI.** Le négatif produit par ImageMagick a été
+  remplacé par une copie du damier du dépôt (un PNG sous un nom en `.jpg`, que stb reconnaît au contenu) : plus
+  aucune dépendance, et le critère se revérifie à chaque PR.
+- **Deux écritures rapprochées peuvent porter la même date** : le noyau ne l'avance qu'à chaque tick de son
+  horloge. Les tests avancent la date à la main (`touchLater`), et le sandbox rehache avant de décider : une date
+  changée sans contenu changé ne recharge rien.
+- **Une étude coûte 20 à 30 minutes, pas 10** : E2 a pris 0,33 h, E3 0,50 h, E4 0,50 h, pour 0,15 h estimées
+  chacune. À corriger pour E5 à E8 lors du recalibrage de fin de phase.
+
+**Prochaine étape** : M4.5 — l'animation squelettique (ADR #116, puis #117 et #118).
+
+---
+
 ## 2026-09-24 — Hors milestone — `--seconds` tenu fenêtre masquée
 
 - Temps Donnovan : 0,17 h de relecture déclarées, 10 min (estimé 0,1 h)
