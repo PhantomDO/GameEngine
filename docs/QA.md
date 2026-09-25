@@ -12,6 +12,34 @@ Réponse courte, puis détails. Références : fichier:ligne, ADR, source extern
 
 ---
 
+### Pourquoi fastgltf plutôt que tinygltf, maintenant que gltf2ozz existe ? (2026-09-25, M4.5)
+
+**gltf2ozz ne nous aurait presque rien épargné, parce que ce n'est pas une bibliothèque.** C'est un
+exécutable en ligne de commande (`main()` dans `src/animation/offline/gltf/gltf2ozz.cc`), qui embarque sa
+**propre copie** de tinygltf (`extern/tiny_gltf.h`) et jsoncpp pour sa configuration, et qui écrit des fichiers
+`.ozz`. Avoir choisi tinygltf pour le moteur n'aurait donc rien partagé avec lui. Pour s'en servir, il aurait
+fallu :
+
+- le lancer en sous-processus depuis le cuiseur (comme les shaders, ADR-0014), et perdre le repli sur la
+  source en cours d'exécution que l'ADR-0020 garantit pour tous les assets ;
+- continuer à lire nous-mêmes le mesh, les poids des sommets et les matrices de liaison : gltf2ozz ne produit que
+  le squelette et les clips.
+
+La passerelle, elle, coûte environ 300 lignes et fait les deux dans le processus. Elle reprend de gltf2ozz la
+seule astuce qui n'est pas évidente (les clés `STEP`), avec sa licence.
+
+**Pourquoi fastgltf au départ** : c'est un choix de SPECS §6 (phase 0), fait pour M4.1 (meshes, matériaux,
+textures), bien avant ozz : « rapide, C++ moderne ». Il analyse le JSON avec simdjson et utilise le SIMD
+(documenté, README de fastgltf). Il ne décode pas les images, ce qui nous va : stb le fait déjà. tinygltf est un
+seul en-tête, plus simple à intégrer, mais recopie tout dans ses propres structures. **Rien ne dit qu'il aurait
+été trop lent pour nous** : l'écart n'a pas été mesuré sur nos fichiers (le glTF de Sponza se lit en 7,2 ms depuis la source, journal de M4.3).
+Le choix se défend par la qualité de l'API plus que par un chiffre.
+
+Références : [ADR-0022](adr/0022-animation-squelettique.md), `engine/animation/src/gltf_bridge.cpp`,
+https://github.com/spnda/fastgltf.
+
+---
+
 ### ozz-animation date-t-il ? Y a-t-il une autre bibliothèque d'animation ? (2026-09-25, M4.5)
 
 **ozz est maintenu, mais par une seule personne, et il n'a pas de concurrent de même portée.** Relevé sur GitHub

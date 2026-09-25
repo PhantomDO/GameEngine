@@ -7,8 +7,8 @@ pose qu'utilisera le skinning ([ADR-0022](../../docs/adr/0022-animation-squelett
 est fait par **ozz-animation** ; ce module est la frontière entre ozz et le reste du moteur.
 
 **État en M4.5 (#117, première PR)** : ozz arrive par un port vcpkg maison (`ports/ozz-animation`), et la
-passerelle glTF (`importAnimationSet`) en lit le squelette. Les clips et leur échantillonnage, le skinning en
-compute, la cuisson, puis les fondus et la machine à états suivront.
+passerelle glTF (`importAnimationSet`) en lit le squelette et les clips. `samplePose` échantillonne un clip en
+boucle. Le skinning en compute, la cuisson, puis les fondus et la machine à états suivront.
 
 ## Invariants
 
@@ -22,13 +22,18 @@ compute, la cuisson, puis les fondus et la machine à états suivront.
    est refusé, car sa transformation serait perdue.
 4. **L'ordre des os est celui d'ozz**, un parent avant ses enfants, et non celui du glTF. `jointNames` le donne.
    Les noms sont uniques : un nom vide ou en double devient `os#<nœud>`.
+5. **ozz n'interpole que linéairement.** Une clé glTF `STEP` devient deux clés, la seconde juste avant la
+   suivante (comme `gltf2ozz`). Une clé `CUBICSPLINE` est refusée : ni Fox ni les modèles Quaternius n'en ont.
+6. **Un os qu'un clip n'anime pas garde sa pose de repos**, celle de son nœud glTF.
 
 ## Points d'entrée
 
 | Fichier | Contenu |
 |---|---|
-| [`include/levain/animation/animation_set.hpp`](include/levain/animation/animation_set.hpp) | `AnimationSet` (les noms des os), `importAnimationSet` |
+| [`include/levain/animation/animation_set.hpp`](include/levain/animation/animation_set.hpp) | `AnimationSet` (noms des os, clips), `ClipInfo`, `importAnimationSet` |
+| [`include/levain/animation/pose.hpp`](include/levain/animation/pose.hpp) | `Pose` (une matrice par os), `samplePose` |
 | [`src/gltf_bridge.cpp`](src/gltf_bridge.cpp) | La passerelle glTF vers ozz |
+| [`src/pose.cpp`](src/pose.cpp) | Les deux *jobs* d'ozz : l'échantillonnage, puis le passage au repère du squelette |
 
 ## Équivalents ailleurs
 
