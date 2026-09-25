@@ -1,6 +1,6 @@
 # ADR-0022 — Animation squelettique : ozz-animation, une passerelle glTF, le skinning en compute
 
-- **Statut** : proposé
+- **Statut** : accepté le 2026-09-25 (validé par Donnovan)
 - **Date** : 2026-09-25
 - **Milestone** : M4.5
 
