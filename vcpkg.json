@@ -16,6 +16,7 @@
     "glm",
     "ktx",
     "nvrhi",
+    "ozz-animation",
     {
       "name": "shader-slang",
       "host": true
