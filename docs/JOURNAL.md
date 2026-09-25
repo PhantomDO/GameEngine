@@ -28,6 +28,21 @@ les chiffres de performance viennent de commandes versionnées, sur la machine d
 
 ---
 
+## 2026-09-25 — hors milestone — Un échec de chargement sans fuite GPU
+
+- Temps Donnovan : 0,33 h (20 min, relecture comprise ; estimé 0,1 h)
+- Sessions Claude Code : 1
+- Fait : `createDemoScene` ferme et soumet sa command list d'envoi quand `uploadModel` échoue
+  (`submitAbandonedUpload`). Avant, une texture illisible laissait fuir 42 objets Vulkan et finissait sur
+  l'assertion de validation (code 133) ; maintenant, le sandbox sort en code 1 avec le message d'erreur.
+  Piège consigné dans `.agents/skills/build/GOTCHA.md`.
+- Mesures : texture remplacée par du texte (essai en local, retiré) → code 133 et « 42 leaked objects » avant,
+  code 1 sans message de validation après (`SDL_VIDEO_DRIVER=offscreen levain_sandbox --seconds 1 --model
+  <gltf>`, Debug) ; 114 tests (`ctest`, linux-debug).
+- Écarts et problèmes : pas de test automatique du chemin d'erreur, il demanderait un asset corrompu versionné
+  dans `data/`, que chaque lancement du sandbox scannerait.
+- Prochaine étape : phase 5, l'ADR de Jolt (#173).
+
 ## 2026-09-25 — M4.5 et phase 4 — Clôture : le renard passe du repos à la course sans saut
 
 - **Temps Donnovan pour M4.5 : 1,0 h**, soit le total de la journée (« 2h ») moins la 1,0 h de M4.4.

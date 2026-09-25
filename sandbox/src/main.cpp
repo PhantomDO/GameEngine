@@ -536,6 +536,16 @@ levain::core::Result<ModelGpu> uploadModel(nvrhi::IDevice& device, nvrhi::IComma
     return gpu;
 }
 
+/// Abandonne un envoi en cours : `commandList`, ouverte, est fermée et soumise quand même. Juste
+/// détruite, elle fuirait jusqu'à `vkDestroyDevice` avec tout ce qu'elle a enregistré : `open()`
+/// l'inscrit dans les ressources de son propre command buffer (NVRHI, vulkan-commandlist.cpp), un
+/// cycle que seule la file rompt, quand elle retire le command buffer soumis.
+void submitAbandonedUpload(nvrhi::IDevice& device, nvrhi::ICommandList& commandList)
+{
+    commandList.close();
+    device.executeCommandList(&commandList);
+}
+
 /// Un binding set par matériau du modèle : sa texture de couleur de base, ou le blanc.
 void bindModelMaterials(nvrhi::IDevice& device, const levain::render::MeshPass& pass,
                         nvrhi::ISampler& sampler, const levain::assets::Model& model, ModelGpu& gpu)
@@ -759,7 +769,7 @@ createDemoScene(levain::gpu::GpuDevice& gpu, const levain::render::SamplerSettin
         }
         clip = *index;
         // Les noms de --locomotion se vérifient ici, avant tout travail GPU : un échec plus tard
-        // laisserait une command list d'envoi ouverte.
+        // aurait envoyé meshes et textures pour rien.
         if (locomotion)
         {
             auto clips = locomotionClipsOf(*set, *locomotion);
@@ -848,6 +858,7 @@ createDemoScene(levain::gpu::GpuDevice& gpu, const levain::render::SamplerSettin
             uploadModel(*gpu.nvrhi, *upload, *model, registry, modelCache, *skinning, skinJoints);
         if (!uploaded)
         {
+            submitAbandonedUpload(*gpu.nvrhi, *upload);
             return std::unexpected(uploaded.error());
         }
         if (animatorClips)
