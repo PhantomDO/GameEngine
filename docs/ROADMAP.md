@@ -225,7 +225,8 @@ et leur cache BC7 par plateforme ([ADR-0020](adr/0020-cuisson-des-assets.md)).
 *Critères* : Sponza cuite charge au moins 5 fois plus vite que le glTF brut ; mémoire vidéo des textures mesurée
 avant et après.
 
-**M4.4 — Hot-reload des assets.**
+**M4.4 — Hot-reload des assets.** Une texture modifiée est relue depuis sa source, sans recuisson
+([ADR-0021](adr/0021-hot-reload-des-textures.md)) ; les modèles glTF attendront l'éditeur.
 *Critère* : une texture modifiée dans un logiciel externe est visible en moins de 2 s.
 
 **M4.5 — Animation squelettique.** Skinning des meshes glTF, lecture de clips, fondus entre clips, machine à
